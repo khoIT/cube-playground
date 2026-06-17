@@ -500,15 +500,15 @@
     "chat": {
       "title": "Trợ lý chat",
       "subtitle": "Cách trợ lý xử lý câu hỏi phân tích mơ hồ trước khi mở truy vấn Cube.",
-      "modeGroup": "Chế độ xử lý câu hỏi mơ hồ",
+      "modeGroup": "Khi câu hỏi chưa rõ",
       "mode": {
         "targeted": {
-          "title": "Hỏi lại có trọng tâm",
-          "desc": "Luôn hỏi một câu xác nhận khi câu hỏi mơ hồ."
+          "title": "Xác nhận trước khi trả lời",
+          "desc": "Luôn hỏi một câu trọng tâm khi có chi tiết chưa rõ, trước khi mở truy vấn."
         },
         "aggressive": {
-          "title": "Tự suy luận quyết liệt",
-          "desc": "Tự suy luận khi đủ tự tin; chỉ hỏi lại với câu thực sự mơ hồ."
+          "title": "Tự trả lời kèm giả định",
+          "desc": "Trả lời với mặc định hợp lý, nêu rõ giả định và cho phép đổi bằng một cú nhấp. Chỉ hỏi khi lựa chọn làm thay đổi đáng kể câu trả lời."
         }
       },
       "rememberedDefaults": {
@@ -554,8 +554,8 @@
   "chat": {
     "mode": {
       "chip": {
-        "targeted": "Hỏi lại",
-        "aggressive": "Tự suy luận"
+        "targeted": "Xác nhận trước",
+        "aggressive": "Tự trả lời"
       },
       "resetToDefault": "Đặt lại mặc định"
     }

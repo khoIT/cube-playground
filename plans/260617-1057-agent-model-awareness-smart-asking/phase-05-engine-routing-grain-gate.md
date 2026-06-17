@@ -46,11 +46,19 @@ free-form `offer_choices`, so behavior is testable, not guidance-dependent.
 5. Confirm guidance backstop still present (the grain paragraph from earlier work).
 
 ## Todo
-- [ ] Grain-gated `metricOptions` + tests (individual vs group)
-- [ ] Prune ratio ids from leaderboard priority for individual grain
-- [ ] Tool-routing descriptions + guidance
-- [ ] Regression: country-ARPU kept, player-ARPU dropped
-- [ ] Full nl-to-query suite green
+- [x] Grain-gated `metricOptions` + tests (individual vs group) — `clarification-builder.ts`
+- [x] Ratios excluded for individual grain (filter handles the priority list — no separate prune needed)
+- [x] Tool-routing guidance (engine = resolver of record) behind `agentEngineRouting`
+- [x] Regression: country-ARPU kept, player-ARPU dropped (`clarification-builder-grain-gate.test.ts`)
+- [x] Full nl-to-query suite green (existing metric-options tests unaffected — they carry no `refKind`)
+
+## Done (2026-06-17)
+Grain gate in `clarification-builder.ts`: `gateIndividualRatios` (threaded from
+`nl-to-query/index.ts` = `config.agentEngineRouting`) + `isIndividualEntity` (user-grain pk
+or mf_users/user_roles cube) → drops `refKind==='ratio'` candidates ONLY when the entity is
+known-individual; groups + unknown grain keep ratios (no false exclusion). Guidance backstop:
+the existing offer_choices grain paragraph stays. Open question RESOLVED: the entity pk +
+cube name is a clean "individual" predicate (`USER_GRAIN_PK` regex); no per-game allowlist needed.
 
 ## Success criteria
 - ARPU/ARPDAU never offered for individual rankings (proven by unit test, not just guidance);

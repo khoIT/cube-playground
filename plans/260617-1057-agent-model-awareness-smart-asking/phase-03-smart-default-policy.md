@@ -46,11 +46,17 @@ of blocking with a question.
 5. Test: low-impact slot → defaulted + stated + chip present; high-impact → asked.
 
 ## Todo
-- [ ] Default table + high-impact classifier + tests
-- [ ] Per-game primary measure resolver
-- [ ] Guidance (state + correct) + snapshot
-- [ ] turn.ts wiring
-- [ ] Behavior tests (default vs ask)
+- [x] Default table + high-impact classifier (in the rendered guidance) + tests
+- [x] Per-game revenue resolver (`resolveRevenueDefault` via glossary)
+- [x] Guidance (state + correct) injected in the cacheable prefix behind `agentSmartDefaultsEnabled`
+- [x] turn.ts wiring (glossary fetch is in-memory cached; tolerates fetch failure → ask-first)
+- [x] Behavior tests (`test/core/smart-defaults.test.ts`, `mode-prompts-posture-defaults.test.ts`)
+
+## Done (2026-06-17)
+`smart-defaults.ts`: `resolveRevenueDefault` (revenue concept → measure ref, never
+a ratio; null → metric becomes ask-first) + `renderSmartDefaults` (default metric=Revenue,
+time=last 30d as low-impact; entity grain = the one high-impact ask-first slot). Per Q-C,
+no "primary monetization" heuristic beyond revenue. Code review pending in the batch.
 
 ## Success criteria
 - "Top VIP players" answers with Revenue + last-30d stated as assumptions + a change chip,

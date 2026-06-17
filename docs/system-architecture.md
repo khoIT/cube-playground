@@ -227,6 +227,34 @@ If user clarifies in follow-up turn:
   → Both L1 and L3 update atomically
 ```
 
+### Agent injected-context pipeline (model-awareness + ask-frugality)
+
+The free-form agent (the SDK turn, not the deterministic engine) historically
+saw none of the above: it triaged the schema by glossary term-matching, never
+saw the join graph, never read back resolved slots, and the disambiguation
+toggle never reached its prompt. `compose()` (`chat-service/src/core/mode-prompts.ts`)
+now assembles pushed context, each piece behind a default-off flag:
+
+| Block | Source | Prompt position | Flag |
+|-------|--------|-----------------|------|
+| Model-graph digest (hub + pk, N:1 joins, clusters, isolated marts) | `model-graph-digest.ts` over cached `/meta`, via the vendored join-graph builder; memoised on the meta-version hash | cacheable prefix (stable per game) | `AGENT_MODEL_DIGEST_ENABLED` |
+| Resolved-context "Resolved so far" | `resolved-context.ts` reads the SAME L1 disambiguation memory the engine writes | volatile tail (changes per turn) | `AGENT_RESOLVED_CONTEXT_ENABLED` |
+| Smart-default guidance (default metric=Revenue via glossary, time=last 30d; entity grain = ask-first) | `smart-defaults.ts` | cacheable prefix (stable per game) | `AGENT_SMART_DEFAULTS_ENABLED` |
+| Asking posture (auto-answer vs confirm-first) bound to the toggle | `body.mode` → `compose()` posture block | cacheable prefix | `AGENT_MODE_GOVERNS_POSTURE` |
+| Engine-routing guidance | `mode-prompts.ts` | cacheable prefix | `AGENT_ENGINE_ROUTING` |
+
+Correctness that must not depend on model compliance is enforced in code, not
+guidance: the **grain gate** in `clarification-builder.ts` drops `refKind==='ratio'`
+metrics (ARPU/ARPDAU/ARPPU — per-head averages) from leaderboard options when the
+ranking entity is user-grain, while keeping them for group rankings (top countries
+by ARPU). The toggle default is now **Aggressive** ("Auto-answer with assumptions");
+the storage key is unchanged so existing users keep their prior choice.
+
+The join-graph builder is shared with the FE Catalog as a **byte-identical vendored
+copy** (`chat-service/src/shared/cube-model-graph/` ↔ `src/pages/Catalog/cube-graph/`)
+because chat-service builds and ships standalone (its Docker image carries no FE
+source); a drift-guard test fails if the copies diverge.
+
 ---
 
 ---

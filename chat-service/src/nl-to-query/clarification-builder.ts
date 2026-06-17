@@ -19,6 +19,27 @@ export interface ClarifyInput {
   slots: DisambiguationSlots;
   glossary: OfficialTerm[];
   threshold: number;
+  /**
+   * When true AND the ranking entity is an individual (user grain), exclude
+   * ratio metrics (ARPU/ARPDAU/ARPPU — population averages) from the metric
+   * options: a per-head average is meaningless for a single person. Group
+   * rankings (country/channel) keep ratios. Off by default → no behavior change.
+   */
+  gateIndividualRatios?: boolean;
+}
+
+// User-grain primary-key columns that mark an "individual" ranking entity.
+// NOTE: `uid$` would also match a hypothetical group PK like `region_uid` — no
+// such group concept exists today (the only entity concept is players.user_id),
+// but revisit this if a group concept ships a `*_uid` primary key.
+const USER_GRAIN_PK = /(?:^|[._])(user_id|vopenid|openid|uid|role_id|roleid)$/i;
+
+/** True when the resolved entity ranks individuals (one person per row). */
+function isIndividualEntity(entity?: { cube: string; pk: string }): boolean {
+  if (!entity) return false;
+  if (USER_GRAIN_PK.test(entity.pk)) return true;
+  const cube = entity.cube.toLowerCase();
+  return cube.endsWith('mf_users') || cube.endsWith('user_roles');
 }
 
 interface SlotInfo {
@@ -68,11 +89,15 @@ const METRIC_OPTION_COUNT = 5;
 function metricOptions(
   glossary: OfficialTerm[],
   intent: 'leaderboard' | 'aggregate' | 'trend' | 'comparison',
+  excludeRatios = false,
 ): ClarificationOption[] {
   const categories = ['revenue', 'monetisation', 'engagement', 'retention'];
   const inCategory = (t: OfficialTerm) =>
     categories.includes((t.category ?? '').toLowerCase());
-  const candidates = glossary.filter(inCategory);
+  // Grain gate: a per-head average (ratio) cannot rank a single individual.
+  const candidates = glossary.filter(
+    (t) => inCategory(t) && !(excludeRatios && t.refKind === 'ratio'),
+  );
 
   const priority = intent === 'leaderboard' ? TERM_PRIORITY_LEADERBOARD : TERM_PRIORITY_AGGREGATE;
   const rank = (id: string): number => {
@@ -140,7 +165,12 @@ export function buildClarifications(input: ClarifyInput): Clarification[] {
   const target = weak[0];
   const q = target.slot === 'dimension' ? dimensionQuestion(input.slots) : QUESTIONS[target.slot];
   const intent = input.slots.intent?.value ?? 'aggregate';
-  const options = target.slot === 'metric' ? metricOptions(input.glossary, intent) : undefined;
+  // Only gate when the entity is KNOWN to be an individual — never exclude
+  // valid ratio rankings for groups (or when grain is unknown).
+  const excludeRatios =
+    !!input.gateIndividualRatios && isIndividualEntity(input.slots.entity?.value);
+  const options =
+    target.slot === 'metric' ? metricOptions(input.glossary, intent, excludeRatios) : undefined;
 
   return [
     {

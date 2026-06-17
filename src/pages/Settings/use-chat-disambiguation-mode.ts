@@ -1,10 +1,16 @@
 /**
  * Hook + types for the user's default chat disambiguation mode.
  *
- * `targeted` — always ask one focused clarifying question on ambiguity.
- * `aggressive` — auto-resolve when the engine confidence >= threshold,
- * otherwise fall back to a clarifying question. The threshold is enforced
- * inside chat-service (see chat-service/src/nl-to-query/), not here.
+ * `targeted` ("Confirm before answering") — always ask one focused clarifying
+ * question on ambiguity before opening a query.
+ * `aggressive` ("Auto-answer with assumptions") — answer with sensible defaults,
+ * state the assumptions, and offer a one-click change; ask only when the choice
+ * would materially change the answer. The engine threshold + the agent posture
+ * are enforced inside chat-service, not here.
+ *
+ * Default is `aggressive` (answers over questions). The storage key is stable,
+ * so existing users keep whatever they previously chose — only first-time users
+ * get the new default.
  *
  * Persists in localStorage via the shared user-prefs adapter so the chat
  * panel chip and the settings section stay in sync across mounts.
@@ -15,7 +21,7 @@ import { createUserPrefsStore } from '../../shared/user-prefs/user-prefs-store';
 
 export type ChatDisambiguationMode = 'targeted' | 'aggressive';
 
-const DEFAULT_MODE: ChatDisambiguationMode = 'targeted';
+const DEFAULT_MODE: ChatDisambiguationMode = 'aggressive';
 
 const store = createUserPrefsStore<ChatDisambiguationMode>(
   'chat:disambiguation-mode',

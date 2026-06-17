@@ -142,6 +142,26 @@ Existing simulator ("Explore" posture): `src/pages/Advisor/use-advisor-investiga
 
 ---
 
+## Agent injected-context & ask-frugality (chat-service)
+
+Pushed context that makes the chat agent model-aware and ask-frugal. All blocks
+assembled in `compose()` (`chat-service/src/core/mode-prompts.ts`), each behind a
+default-off flag in `config.ts` (`AGENT_MODEL_DIGEST_ENABLED`,
+`AGENT_RESOLVED_CONTEXT_ENABLED`, `AGENT_SMART_DEFAULTS_ENABLED`,
+`AGENT_MODE_GOVERNS_POSTURE`, `AGENT_ENGINE_ROUTING`). See
+[`system-architecture.md` → Agent injected-context pipeline](./system-architecture.md#chat-disambiguation-memory).
+
+- **Contracts** — `chat-service/src/core/agent-context-types.ts` (`ModelGraphDigest`, `ResolvedContext`).
+- **Model-graph digest** — `chat-service/src/core/model-graph-digest.ts` (`buildDigest`/`renderDigest`/`getModelDigestText`); memoised on the meta-version hash; resolved in `api/turn.ts` and injected into the cacheable prefix.
+- **Resolved-context** — `chat-service/src/core/resolved-context.ts` (`readResolvedContext`/`renderResolvedContext`) over the L1 disambiguation memory; injected into the volatile tail. Continuity write-back in `tools/emit-query-artifact.ts` (single-measure metric + explicit window).
+- **Smart defaults** — `chat-service/src/core/smart-defaults.ts` (`resolveRevenueDefault`/`renderSmartDefaults`); revenue default via the glossary.
+- **Grain gate** — `chat-service/src/nl-to-query/clarification-builder.ts` drops `refKind==='ratio'` from leaderboard options for user-grain entities (threaded from `nl-to-query/index.ts`).
+- **Shared join-graph** — `chat-service/src/shared/cube-model-graph/build-join-graph.ts` is a byte-identical vendored copy of `src/pages/Catalog/cube-graph/build-join-graph.ts`; drift-guard at `chat-service/test/cube-model-graph-drift.test.ts`.
+- **Eval** — corpus `chat-service/test/agent-intelligence-eval/corpus.json`; live runner `chat-service/src/scripts/run-agent-intelligence-eval.ts`; deterministic sub-checks in `test/core/*` + `test/nl-to-query/clarification-builder-grain-gate.test.ts`.
+- **Toggle (FE)** — `src/pages/Settings/use-chat-disambiguation-mode.ts` default is now `aggressive`; strings relabelled in `src/i18n/locales/{en,vi}.json`.
+
+---
+
 ## Unified Concept Fabric (trust registry + reverse index + authoring)
 
 ### Services (server-side)

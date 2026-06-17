@@ -98,6 +98,7 @@ export async function disambiguate(
     slots: extracted.slots,
     glossary,
     threshold,
+    gateIndividualRatios: config.agentEngineRouting,
   });
 
   const action = modeGate({

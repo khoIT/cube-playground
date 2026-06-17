@@ -43,11 +43,18 @@ Make it govern the agent's asking posture — or retire it if it can't carry wei
 5. Test: same ambiguous prompt → aggressive answers w/ assumption, targeted asks.
 
 ## Todo
-- [ ] Posture injection (both modes) + snapshots
-- [ ] turn.ts passes mode to compose
-- [ ] FE relabel (after Q-B) + i18n
-- [ ] Per-turn mode telemetry
-- [ ] Differential behavior test
+- [x] Posture injection (both modes) behind `agentModeGovernsPosture` + tests
+- [x] turn.ts passes `body.mode` (default aggressive when flag on) to compose
+- [x] FE relabel + i18n (en/vi): "Auto-answer with assumptions" / "Confirm before answering"; storage key stable
+- [x] Per-turn mode telemetry (profiling-gated log: mode + askedClarification + which flags on)
+- [x] Differential behavior test (`mode-prompts-posture-defaults.test.ts`: aggressive vs targeted block)
+
+## Done (2026-06-17)
+Posture is now in the agent prompt (was engine-only). FE default flipped to **Aggressive**
+(`use-chat-disambiguation-mode.ts`) per Q-B — storage key unchanged so existing users keep
+their pick; only first-time users get the new default. This default flip is the one change
+NOT behind a server flag (it's a FE pref); called out in P07 rollout. No test asserted the old
+default, so the flip is safe.
 
 ## Success criteria
 - Toggling Aggressive↔Targeted produces measurably different asking behavior on the same prompt (logged in P06).

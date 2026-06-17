@@ -39,11 +39,11 @@ just prompt guidance.
 | 0 | [Foundations + contracts](phase-00-foundations-and-contracts.md) | shared types | ✅ done (2026-06-17) |
 | 1 | [Server-side model-graph digest + injection](phase-01-model-graph-digest.md) | BE | ✅ done (2026-06-17) |
 | 2 | [Resolved-context injection + continuity enforcement](phase-02-resolved-context-injection.md) | BE | ✅ done (2026-06-17) |
-| 3 | [Smart-default / ask-frugal policy](phase-03-smart-default-policy.md) | BE | ☐ |
-| 4 | [Make the disambiguation toggle govern the agent](phase-04-disambiguation-toggle-rework.md) | FE+BE | ☐ |
-| 5 | [Route resolution through the deterministic engine](phase-05-engine-routing-grain-gate.md) | BE | ☐ |
-| 6 | [Eval + live verification harness](phase-06-eval-and-verification.md) | BE/test | ☐ |
-| 7 | [Docs + staged rollout](phase-07-docs-and-rollout.md) | docs | ☐ |
+| 3 | [Smart-default / ask-frugal policy](phase-03-smart-default-policy.md) | BE | ✅ done (2026-06-17) |
+| 4 | [Make the disambiguation toggle govern the agent](phase-04-disambiguation-toggle-rework.md) | FE+BE | ✅ done (2026-06-17) |
+| 5 | [Route resolution through the deterministic engine](phase-05-engine-routing-grain-gate.md) | BE | ✅ done (2026-06-17) |
+| 6 | [Eval + live verification harness](phase-06-eval-and-verification.md) | BE/test | ✅ deterministic done; live N-run smoke deferred (manual, OAuth+Cube lane) |
+| 7 | [Docs + staged rollout](phase-07-docs-and-rollout.md) | docs | ✅ done (2026-06-17) |
 
 ## Sequencing
 - P0 → P1, P2 (independent, can parallelize) → P3 (depends on P1+P2 data) →

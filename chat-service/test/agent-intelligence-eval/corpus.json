@@ -1,0 +1,76 @@
+{
+  "description": "Fixed prompt corpus for the agent-intelligence eval. Each entry maps to a plan success criterion: fewer clarifying turns, no wrong-grain ranking suggestions, no re-asking locked slots. The live runner (run-agent-intelligence-eval.ts) drives these against /agent/turn and tallies metrics flags-off vs flags-on; deterministic sub-checks are covered by unit tests (grain gate, smart-defaults, resolved-context).",
+  "game": "cfm_vn",
+  "prompts": [
+    {
+      "id": "rank-individual-revenue",
+      "category": "ranking-individual",
+      "prompt": "Top 20 VIP players",
+      "expect": {
+        "grain": "individual",
+        "aggressivePosture": "answers with Revenue + last-30d stated as assumptions, attaches a change chip, no blocking question",
+        "noRatioMetricOffered": true
+      }
+    },
+    {
+      "id": "rank-individual-explicit-ratio",
+      "category": "ranking-individual",
+      "prompt": "Rank the top 20 players by ARPU",
+      "expect": {
+        "grain": "individual",
+        "behavior": "must NOT rank individuals by ARPU; recover with per-player metrics (revenue/LTV) via offer_choices"
+      }
+    },
+    {
+      "id": "rank-group-arpu",
+      "category": "ranking-group",
+      "prompt": "Top 10 countries by ARPU last 30 days",
+      "expect": {
+        "grain": "group",
+        "behavior": "ARPU is valid for a group ranking — proceed (do not strip it)"
+      }
+    },
+    {
+      "id": "trend-revenue",
+      "category": "trend",
+      "prompt": "Revenue trend",
+      "expect": {
+        "aggressivePosture": "answers with last-30d daily by default, states the window, offers a change chip"
+      }
+    },
+    {
+      "id": "compare-platform",
+      "category": "compare",
+      "prompt": "iOS vs Android revenue",
+      "expect": {
+        "aggressivePosture": "answers with last-30d by default, states the window"
+      }
+    },
+    {
+      "id": "recovery-unresolvable-metric",
+      "category": "recovery",
+      "prompt": "Rank the top 20 VIP players by First Purchase Rate over the last 7 days",
+      "expect": {
+        "behavior": "First Purchase Rate is a rate; for individuals recover with per-player metrics, carrying count + window forward in each pinText"
+      }
+    },
+    {
+      "id": "followup-continuity",
+      "category": "follow-up",
+      "prompt": "now by country",
+      "priorContext": "previous turn resolved metric=revenue, window=last 30 days",
+      "expect": {
+        "behavior": "reuse the resolved metric + window; do NOT re-ask them"
+      }
+    },
+    {
+      "id": "rephrase-flips-topic",
+      "category": "rephrase",
+      "prompt": "actually show me currency outflow reasons by region instead",
+      "priorContext": "previous turn resolved metric=revenue",
+      "expect": {
+        "behavior": "substantial new question → rephrase gate clears the prior metric; do NOT silently reuse revenue"
+      }
+    }
+  ]
+}

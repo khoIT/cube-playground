@@ -64,6 +64,27 @@ export interface ComposeParams {
    * `agentResolvedContextEnabled`; pass undefined/empty to skip.
    */
   resolvedContext?: string;
+  /**
+   * Optional pre-rendered smart-default guidance (default + state + offer
+   * correction). Stable per game (depends on the game's Revenue measure), so it
+   * sits in the cacheable prefix. Caller gates on `agentSmartDefaultsEnabled`.
+   */
+  smartDefaults?: string;
+  /**
+   * Optional asking posture bound to the disambiguation toggle. `aggressive`
+   * → prefer answering with defaults + correction chip; `targeted` → ask one
+   * focused question before answering. Caller gates on `agentModeGovernsPosture`
+   * and passes the resolved mode; undefined skips the posture block.
+   */
+  agentPosture?: 'targeted' | 'aggressive';
+  /**
+   * When true, add tool-routing guidance steering schema-slot resolution
+   * (metric/dimension/timeRange) through the deterministic `disambiguate_query`
+   * engine (which owns memory + the rephrase gate + the grain rule) and
+   * reserving `offer_choices` for non-schema / recovery choices. Caller gates
+   * on `agentEngineRouting`. Only meaningful for skills exposing both tools.
+   */
+  engineRouting?: boolean;
 }
 
 export interface ComposeResult {
@@ -108,12 +129,33 @@ export function compose(params: ComposeParams): ComposeResult {
     parts.push(params.modelDigest.trim());
   }
 
+  // Smart-default guidance — stable per game (depends on its Revenue measure).
+  if (params.smartDefaults && params.smartDefaults.trim()) {
+    parts.push(params.smartDefaults.trim());
+  }
+
+  // Asking posture from the disambiguation toggle — stable per mode within a
+  // session (busts the cache once on a toggle change, which is rare).
+  if (params.agentPosture) {
+    parts.push(params.agentPosture === 'aggressive' ? POSTURE_AGGRESSIVE_GUIDANCE : POSTURE_TARGETED_GUIDANCE);
+  }
+
   parts.push(FIELD_CHIP_TOKEN_GUIDANCE);
 
   // Reinforce the turn-ending choice-chip contract for skills that expose the
   // tool, so a clarifying reply ends with clickable options instead of prose.
   if (skillMeta?.allowedTools?.includes('offer_choices')) {
     parts.push(OFFER_CHOICES_GUIDANCE);
+  }
+
+  // Engine-routing guidance — only when the skill can reach both the engine and
+  // offer_choices, so the steer is actionable.
+  if (
+    params.engineRouting &&
+    skillMeta?.allowedTools?.includes('disambiguate_query') &&
+    skillMeta?.allowedTools?.includes('offer_choices')
+  ) {
+    parts.push(ENGINE_ROUTING_GUIDANCE);
   }
 
   parts.push(LANGUAGE_MIRROR_GUIDANCE);
@@ -240,6 +282,41 @@ metrics on the entity being a group, not an individual.
 
 Do NOT call it for open-ended questions with no enumerable answer set
 (e.g. "what would you like to explore next?").`;
+
+/**
+ * Engine-routing guidance (P5). The deterministic engine owns the grain rule
+ * (it won't offer per-head averages to rank individuals), session memory, and
+ * the rephrase gate — so resolving schema slots through it is enforced in code,
+ * not left to model compliance.
+ */
+const ENGINE_ROUTING_GUIDANCE = `## Resolving schema slots
+
+\`disambiguate_query\` is the resolver of record for which metric / dimension /
+time range the user means. Prefer it for those — it enforces the rules
+deterministically (e.g. it never offers a per-head average like ARPU/ARPDAU to
+rank individual players) and it remembers resolved slots across turns. Reserve
+\`offer_choices\` for choices that are NOT schema slots — recovery alternatives
+when a requested value is unresolvable, or genuinely open product questions.`;
+
+/**
+ * Asking posture (P4) — bound to the disambiguation toggle. Aggressive favours
+ * answering with stated assumptions + a correction chip; targeted asks one
+ * focused question first. These reinforce / override the smart-default block.
+ */
+const POSTURE_AGGRESSIVE_GUIDANCE = `## Asking posture: auto-answer
+
+The user prefers answers over questions. When a slot is unresolved but a
+sensible default exists, ANSWER with the default, state the assumption in one
+line, and attach an offer_choices chip to change it — do NOT block with a
+question. Ask first ONLY for high-impact ambiguity (e.g. the ranking entity
+grain) where defaulting could produce a materially wrong answer.`;
+
+const POSTURE_TARGETED_GUIDANCE = `## Asking posture: confirm first
+
+The user prefers to confirm before you answer. When any slot is ambiguous, ask
+exactly ONE focused clarifying question (via offer_choices) before answering,
+even if a sensible default exists. Keep it to a single question — resolve the
+most decision-relevant slot, carry everything else forward.`;
 
 /**
  * Reply-language guardrail. Static half of the guardrail (always present);

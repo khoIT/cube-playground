@@ -25,6 +25,8 @@ import { routeIntent } from '../core/intent-router.js';
 import { compose } from '../core/mode-prompts.js';
 import { getModelDigestText } from '../core/model-graph-digest.js';
 import { readResolvedContext, renderResolvedContext } from '../core/resolved-context.js';
+import { resolveRevenueDefault, renderSmartDefaults } from '../core/smart-defaults.js';
+import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
 import { resolveTurnLanguage } from '../core/turn-language.js';
 import * as claudeRunner from '../core/claude-runner.js';
 import { buildSdkTools } from '../tools/registry.js';
@@ -317,6 +319,22 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       ? renderResolvedContext(readResolvedContext(opts.db, sessionId))
       : undefined;
 
+    // Smart-default guidance — resolves the game's Revenue measure from the
+    // (in-memory cached) glossary. Tolerates a glossary fetch failure: the
+    // resolver just sees [] and renders metric as ask-first.
+    let smartDefaults: string | undefined;
+    if (config.agentSmartDefaultsEnabled) {
+      const glossary = await fetchOfficialGlossary().catch(() => []);
+      smartDefaults = renderSmartDefaults(resolveRevenueDefault(glossary));
+    }
+
+    // Asking posture bound to the disambiguation toggle. Default to aggressive
+    // (auto-answer) when the flag is on and the client sent no explicit mode —
+    // the engine's own default (targeted) is unchanged for default-off users.
+    const agentPosture = config.agentModeGovernsPosture
+      ? (body.mode ?? 'aggressive')
+      : undefined;
+
     const { systemPrompt, allowedToolNames, skillMeta } = compose({
       skill: intent.skill,
       game: body.game,
@@ -325,6 +343,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       language: turnLanguage,
       modelDigest,
       resolvedContext,
+      smartDefaults,
+      agentPosture,
+      engineRouting: config.agentEngineRouting,
     });
     timer.mark('compose');
 
@@ -702,6 +723,24 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         collectedArtifacts,
         logger: fastify.log,
       });
+
+      // Asking-behaviour telemetry — proves the disambiguation toggle changes
+      // what the agent does (mode → did it clarify?). Gated by the profiling
+      // flag so it adds nothing when off; consumed by the agent-intelligence eval.
+      if (config.chatTurnProfilingEnabled) {
+        fastify.log.info(
+          {
+            turnId,
+            mode: body.mode ?? 'targeted',
+            agentPosture: agentPosture ?? null,
+            askedClarification: clarifyEmitted,
+            modelDigest: config.agentModelDigestEnabled,
+            resolvedContext: config.agentResolvedContextEnabled,
+            smartDefaults: config.agentSmartDefaultsEnabled,
+          },
+          '[turn] asking-behaviour',
+        );
+      }
 
       // --- Phase-06: write response-cache entry on eligible turns ---
       // stop_reason is persisted by the buffered recorder's onTurnFinalized flush above.

@@ -524,15 +524,15 @@
     "chat": {
       "title": "Chat assistant",
       "subtitle": "How the chat assistant handles ambiguous analytical questions before opening a Cube query.",
-      "modeGroup": "Disambiguation mode",
+      "modeGroup": "When a question is ambiguous",
       "mode": {
         "targeted": {
-          "title": "Targeted ask",
-          "desc": "Always ask one focused clarification when the query is ambiguous."
+          "title": "Confirm before answering",
+          "desc": "Ask one focused question whenever a detail is ambiguous, before opening a query."
         },
         "aggressive": {
-          "title": "Aggressive auto-resolve",
-          "desc": "Auto-resolve confident interpretations; ask only on truly ambiguous queries."
+          "title": "Auto-answer with assumptions",
+          "desc": "Answer with sensible defaults, state the assumptions, and offer a one-click change. Ask only when the choice would materially change the answer."
         }
       },
       "rememberedDefaults": {
@@ -578,8 +578,8 @@
   "chat": {
     "mode": {
       "chip": {
-        "targeted": "Targeted",
-        "aggressive": "Aggressive"
+        "targeted": "Confirm first",
+        "aggressive": "Auto-answer"
       },
       "resetToDefault": "Reset to default"
     }

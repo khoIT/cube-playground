@@ -39,11 +39,17 @@ fewer obvious questions, no wrong-grain suggestions, no re-asking.
 5. Live N-run smoke; screenshot monitoring/answers for the report.
 
 ## Todo
-- [ ] Corpus.json (ranking/trend/compare/recovery/follow-up/rephrase)
-- [ ] Eval runner + metrics JSON
-- [ ] Baseline (flags off) vs treatment (flags on) diff
-- [ ] Deterministic vitest sub-checks
-- [ ] Live multi-run smoke + screenshots
+- [x] Corpus.json (ranking-individual/group, trend, compare, recovery, follow-up, rephrase)
+- [x] Eval runner + metrics JSON (`src/scripts/run-agent-intelligence-eval.ts`, SSE → clarify/artifact tallies)
+- [x] Baseline-vs-treatment is a runner mode (flags off vs on, via env) — diff the JSON outputs
+- [x] Deterministic vitest sub-checks (corpus-shape + grain-gate + smart-defaults + resolved-context)
+- [ ] Live multi-run smoke + screenshots — DEFERRED (manual; needs the OAuth+Cube lane running)
+
+## Done (2026-06-17)
+Deterministic harness gates CI: `corpus.json` + `corpus-shape.test.ts` (category coverage) +
+the per-capability unit tests. The live runner is manual (start the service with flags on,
+run N≥3, read the median). Live multi-run + screenshots deferred to operational verification,
+same as P01's manual meta-fetch smoke.
 
 ## Success criteria
 - Treatment shows ↓ clarifying turns, 0 grain errors, 0 re-asks of locked slots, ↓ meta fetches vs baseline;
