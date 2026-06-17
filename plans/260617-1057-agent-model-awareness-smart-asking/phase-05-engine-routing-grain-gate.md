@@ -52,6 +52,19 @@ free-form `offer_choices`, so behavior is testable, not guidance-dependent.
 - [x] Regression: country-ARPU kept, player-ARPU dropped (`clarification-builder-grain-gate.test.ts`)
 - [x] Full nl-to-query suite green (existing metric-options tests unaffected — they carry no `refKind`)
 
+## Free-form path extension (2026-06-17, post-live-smoke)
+Live smoke found the gate had limited reach: the agent often answers/offers
+metrics via the free-form `offer_choices` path without calling the engine, so the
+deterministic gate never ran. Extended the SAME rule to that path:
+`offer-choices-grain-filter.ts` strips ratio-metric chips when the session's
+resolved entity is individual (reuses `isIndividualEntity` + glossary `refKind`),
+wired into the `offer_choices` handler behind the SAME `agentEngineRouting` flag.
+Conservative: only acts on a known-individual entity, never strips below 2
+options, no-ops on any failure. Unit + handler-integration tests (memory + glossary
++ flag) green. Live end-to-end trigger of the free-form gate deferred (needs a
+resolved individual entity + the model offering a ratio — hard to force
+deterministically; the integration test proves the wiring).
+
 ## Done (2026-06-17)
 Grain gate in `clarification-builder.ts`: `gateIndividualRatios` (threaded from
 `nl-to-query/index.ts` = `config.agentEngineRouting`) + `isIndividualEntity` (user-grain pk

@@ -244,10 +244,16 @@ now assembles pushed context, each piece behind a default-off flag:
 | Engine-routing guidance | `mode-prompts.ts` | cacheable prefix | `AGENT_ENGINE_ROUTING` |
 
 Correctness that must not depend on model compliance is enforced in code, not
-guidance: the **grain gate** in `clarification-builder.ts` drops `refKind==='ratio'`
-metrics (ARPU/ARPDAU/ARPPU — per-head averages) from leaderboard options when the
-ranking entity is user-grain, while keeping them for group rankings (top countries
-by ARPU). The toggle default is now **Aggressive** ("Auto-answer with assumptions");
+guidance: the **grain gate** drops `refKind==='ratio'` metrics (per-head averages
+like ARPDAU/ARPPU/LTV) from leaderboard options when the ranking entity is
+user-grain, while keeping them for group rankings (top countries by ARPU). It runs
+on **both paths**: the deterministic engine (`clarification-builder.ts`
+`metricOptions`) and the free-form agent path (`offer-choices-grain-filter.ts` at
+the `offer_choices` tool boundary, reading the resolved entity from the same
+memory). The free-form gate is needed because the agent frequently answers/offers
+metrics without calling the engine — so guidance alone wouldn't bind. (On a game
+where ARPU is a precomputed per-user measure, e.g. `mf_users.arpu_vnd`, ARPU is
+correctly kept — the gate keys on `refKind`, not the name.) The toggle default is now **Aggressive** ("Auto-answer with assumptions");
 the storage key is unchanged so existing users keep their prior choice.
 
 The join-graph builder is shared with the FE Catalog as a **byte-identical vendored

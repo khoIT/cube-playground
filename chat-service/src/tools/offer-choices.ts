@@ -20,6 +20,11 @@
 
 import { z } from 'zod';
 import type { ToolContext } from '../types.js';
+import { config } from '../config.js';
+import { getResolutions } from '../cache/disambig-memory-adapter.js';
+import { isIndividualEntity } from '../nl-to-query/clarification-builder.js';
+import { fetchOfficialGlossary } from '../nl-to-query/glossary-client.js';
+import { ratioLabelSet, filterIndividualRatioOptions } from './offer-choices-grain-filter.js';
 
 export const name = 'offer_choices';
 export const description =
@@ -53,17 +58,44 @@ export async function handler(
     return { emitted: false, count: args.options.length };
   }
 
+  // Grain gate on the free-form path (same rule + flag as the engine path):
+  // when the session has already resolved an individual ranking entity, strip
+  // ratio-metric chips (ARPU/ARPDAU/LTV) the model may have offered. Read-only;
+  // skips silently on any failure so a chip set is never lost to this.
+  let options = args.options;
+  if (config.agentEngineRouting && ctx.db) {
+    try {
+      const entity = getResolutions(ctx.db, ctx.sessionId).entity?.value;
+      if (isIndividualEntity(entity)) {
+        const glossary = await fetchOfficialGlossary().catch(() => []);
+        const { options: kept, dropped } = filterIndividualRatioOptions(
+          options,
+          true,
+          ratioLabelSet(glossary),
+        );
+        if (dropped.length > 0) {
+          options = kept;
+          console.info(
+            `[offer_choices] grain gate dropped ratio metrics for an individual ranking (${entity?.cube}): ${dropped.join(', ')}`,
+          );
+        }
+      }
+    } catch {
+      /* gate is best-effort — never block the chip set */
+    }
+  }
+
   ctx.sseEmitter.emit('disambig_options', {
     slot: 'choice',
     prompt: args.prompt,
     // Confidence descends slightly by position so the FE can keep the agent's
     // ordering; values are presentational hints only.
-    options: args.options.map((o, idx) => ({
+    options: options.map((o, idx) => ({
       label: o.label,
       pinText: o.pinText,
       confidence: 1 - idx * 0.05,
     })),
   });
 
-  return { emitted: true, count: args.options.length };
+  return { emitted: true, count: options.length };
 }

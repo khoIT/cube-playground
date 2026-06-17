@@ -35,7 +35,7 @@ export interface ClarifyInput {
 const USER_GRAIN_PK = /(?:^|[._])(user_id|vopenid|openid|uid|role_id|roleid)$/i;
 
 /** True when the resolved entity ranks individuals (one person per row). */
-function isIndividualEntity(entity?: { cube: string; pk: string }): boolean {
+export function isIndividualEntity(entity?: { cube: string; pk: string }): boolean {
   if (!entity) return false;
   if (USER_GRAIN_PK.test(entity.pk)) return true;
   const cube = entity.cube.toLowerCase();

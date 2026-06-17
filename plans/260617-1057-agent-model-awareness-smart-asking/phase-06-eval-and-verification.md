@@ -51,6 +51,18 @@ the per-capability unit tests. The live runner is manual (start the service with
 run N≥3, read the median). Live multi-run + screenshots deferred to operational verification,
 same as P01's manual meta-fetch smoke.
 
+## Live smoke result (2026-06-17) — faithful A/B
+Ran baseline (flags off, engine `targeted`) vs treatment (flags on, `aggressive`) on the
+live subscription lane, 8-prompt corpus, single threaded session each. Both completed 8/8
+turns with zero errors. **Aggregate clarifying turns: 4 = 4 (no change), per-prompt identical.**
+Finding: the *guidance-based* capabilities (smart-defaults, posture) did NOT reduce
+clarifications on this corpus — the deterministic engine clarifies an unresolved metric
+regardless of mode, before prompt guidance applies. The real leverage is CODE-level (the
+grain gate + engine routing), which is exactly why the grain rule was extended to the
+free-form path. The boolean clarify metric is also too crude (it counts a correct
+grain-recovery clarification the same as an obvious one) — a future refinement is to
+classify clarification TYPE. Telemetry confirmed flags + mode were active/aligned per turn.
+
 ## Success criteria
 - Treatment shows ↓ clarifying turns, 0 grain errors, 0 re-asks of locked slots, ↓ meta fetches vs baseline;
   full suites green.

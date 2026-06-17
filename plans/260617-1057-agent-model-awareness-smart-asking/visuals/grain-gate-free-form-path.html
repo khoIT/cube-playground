@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grain gate — engine vs free-form path</title>
+<style>
+  :root {
+    --ink: #1c1a17;
+    --ink-soft: #5c554c;
+    --faint: #8a8278;
+    --paper: #f6f3ec;
+    --card: #fffdf8;
+    --line: #e1dacd;
+    --rust: #b4471f;        /* single accent — the gate / the gap */
+    --teal: #1f6f63;        /* "covered / correct" */
+    --amber-bg: #fbf0d9;
+    --amber-ink: #8a5a12;
+    --mono: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, Menlo, monospace;
+    --serif: "Newsreader", "Iowan Old Style", Georgia, "Times New Roman", serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); line-height: 1.5;
+    padding: 48px 40px 64px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--rust); margin: 0 0 10px;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600; font-size: 34px;
+    line-height: 1.12; letter-spacing: -.01em; margin: 0 0 12px;
+  }
+  .lede {
+    font-size: 16px; color: var(--ink-soft); max-width: 78ch; margin: 0 0 8px;
+    text-wrap: pretty;
+  }
+  .lede b { color: var(--ink); font-weight: 600; }
+  code, .mono { font-family: var(--mono); font-size: .88em; }
+  .lede code { background: #00000008; padding: 1px 5px; border-radius: 4px; }
+
+  .rule { height: 1px; background: var(--line); border: 0; margin: 30px 0; }
+
+  .section-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 16px;
+  }
+
+  /* ---- two paths ---- */
+  .paths { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .path {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px 22px 22px; position: relative;
+  }
+  .path h2 { font-family: var(--sans); font-size: 15px; font-weight: 700; margin: 0 0 2px; }
+  .path .sub { font-size: 12.5px; color: var(--faint); margin: 0 0 16px; }
+  .badge {
+    position: absolute; top: 18px; right: 18px; font-family: var(--mono);
+    font-size: 10px; letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 9px; border-radius: 999px; font-weight: 600;
+  }
+  .badge.covered { background: #e3efe9; color: var(--teal); }
+  .badge.gap { background: #f7e0d4; color: var(--rust); }
+
+  .flow { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px;
+    background: #fff; font-size: 13px;
+  }
+  .step .k { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+  .step .d { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .arrow { text-align: center; color: var(--faint); font-size: 13px; line-height: 1.1; padding: 5px 0; }
+
+  .step.gate {
+    border-color: var(--rust); border-width: 1.5px; background: #fff6f1;
+    box-shadow: 0 1px 0 #00000005;
+  }
+  .step.gate .k { color: var(--rust); font-weight: 700; }
+  .step.guidance {
+    border-style: dashed; border-color: #c9a87f; background: var(--amber-bg);
+  }
+  .step.guidance .k { color: var(--amber-ink); font-weight: 700; }
+  .step.out { background: #f3f1ea; }
+
+  .note {
+    margin-top: 14px; font-size: 12px; color: var(--ink-soft);
+    border-left: 2px solid var(--line); padding-left: 11px; text-wrap: pretty;
+  }
+  .note.warn { border-left-color: var(--rust); color: #7a3417; }
+
+  /* ---- crux strip ---- */
+  .crux {
+    margin-top: 22px; background: #2a2620; color: #f1ece2; border-radius: 12px;
+    padding: 18px 24px; display: flex; gap: 18px; align-items: baseline;
+  }
+  .crux .q { font-family: var(--serif); font-size: 19px; font-weight: 600; white-space: nowrap; }
+  .crux .a { font-size: 14px; color: #d7cfc1; text-wrap: pretty; }
+  .crux .a b { color: #fff; font-weight: 600; }
+  .crux .a .hl { color: #f2a07a; font-weight: 600; }
+
+  /* ---- scenario matrix ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--faint); font-weight: 600;
+    padding: 0 14px 9px; border-bottom: 1px solid var(--line); vertical-align: bottom;
+  }
+  tbody td { padding: 13px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  .scn { font-weight: 600; font-size: 13.5px; }
+  .scn .ex { display: block; font-weight: 400; color: var(--faint); font-size: 12px; margin-top: 3px; font-family: var(--mono); }
+  .verdict { font-weight: 700; font-size: 12.5px; white-space: nowrap; }
+  .verdict.help { color: var(--rust); }
+  .verdict.ok { color: var(--teal); }
+  .why { color: var(--ink-soft); font-size: 12.5px; text-wrap: pretty; }
+  tr.spot td { background: #fdf4ee; }
+  tr.spot .scn::before {
+    content: "▶"; color: var(--rust); font-size: 10px; margin-right: 7px; vertical-align: 1px;
+  }
+
+  .foot { margin-top: 26px; font-size: 12px; color: var(--faint); text-wrap: pretty; }
+  .foot code { font-family: var(--mono); color: var(--ink-soft); }
+  .pill { display:inline-block; font-family:var(--mono); font-size:11px; padding:2px 7px; border-radius:5px; background:#00000008; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">chat-service · agent grain rule · P5 follow-up</p>
+  <h1>The grain gate lives in the engine.<br/>The agent often doesn't go through the engine.</h1>
+  <p class="lede">
+    A “rank top-N by metric” turn resolves the metric down <b>one of two paths</b>, and <b>the model picks which</b>.
+    The deterministic grain gate — drop per-head <b>ratio</b> metrics (a sum ÷ a head-count) when ranking <b>individuals</b> —
+    sits only on the engine path. Extending it to the free-form path closes the cases where the agent offers metrics
+    <b>without</b> ever calling the engine. Below: where that gap is real, and where it isn't.
+  </p>
+
+  <hr class="rule" />
+  <p class="section-label">The two paths a metric resolves down</p>
+
+  <div class="paths">
+    <!-- ENGINE PATH -->
+    <div class="path">
+      <span class="badge covered">gate already here</span>
+      <h2>1 · Deterministic engine</h2>
+      <p class="sub">agent calls <span class="mono">disambiguate_query</span></p>
+      <div class="flow">
+        <div class="step"><div class="k">disambiguate_query</div><div class="d">extract slots: intent=leaderboard, entity, metric=∅</div></div>
+        <div class="arrow">↓</div>
+        <div class="step"><div class="k">clarification-builder · metricOptions()</div><div class="d">rank glossary candidates for the chip set</div></div>
+        <div class="arrow">↓</div>
+        <div class="step gate">
+          <div class="k">⟐ GRAIN GATE</div>
+          <div class="d">entity is individual → drop <span class="mono">refKind==='ratio'</span> candidates. Code-enforced, unit-tested.</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="step out"><div class="k">disambig_options →</div><div class="d">metric chips, ratios already removed for individuals</div></div>
+      </div>
+      <p class="note">Already correct. <b>No change needed.</b> The gate is the one I shipped in P5 (<span class="mono">gateIndividualRatios</span>).</p>
+    </div>
+
+    <!-- FREE-FORM PATH -->
+    <div class="path">
+      <span class="badge gap">guidance only</span>
+      <h2>2 · Free-form agent</h2>
+      <p class="sub">agent answers / offers via <span class="mono">offer_choices</span></p>
+      <div class="flow">
+        <div class="step"><div class="k">model reasons in-context</div><div class="d">reads the prompt, decides the metric set itself</div></div>
+        <div class="arrow">↓</div>
+        <div class="step guidance">
+          <div class="k">⌁ prompt guidance only</div>
+          <div class="d">“don’t offer ARPU to rank individuals” — a sentence the model <i>may</i> follow. No code gate on this path.</div>
+        </div>
+        <div class="arrow">↓</div>
+        <div class="step out"><div class="k">offer_choices →</div><div class="d">metric chips the model chose — a ratio <i>can</i> slip in</div></div>
+      </div>
+      <p class="note warn">Not enforced. Under load / nondeterminism the model can list <span class="mono">ltv</span> / <span class="mono">arpdau</span> as a way to rank one player. <b>This is the path extending the gate would cover.</b></p>
+    </div>
+  </div>
+
+  <div class="crux">
+    <div class="q">Why the gap exists</div>
+    <div class="a">
+      The smoke run showed the agent took the <b>free-form path</b> for “top spenders” — it auto-answered and never called <span class="mono" style="color:#e6b89c">disambiguate_query</span>.
+      So the gate <span class="hl">never ran</span>. Coverage today = <b>only the turns where the model chooses the engine</b>, which is the minority.
+    </div>
+  </div>
+
+  <hr class="rule" />
+  <p class="section-label">In which situation extending the gate actually helps</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:30%">Situation</th>
+        <th style="width:12%">Path taken</th>
+        <th style="width:16%">Extend the gate?</th>
+        <th style="width:42%">Why</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="spot">
+        <td class="scn">Individual ranking, model offers metrics directly
+          <span class="ex">“top spenders” → offer_choices chips, ratio in set</span></td>
+        <td class="why">Free-form</td>
+        <td class="verdict help">YES — the gap</td>
+        <td class="why">Engine never called → no code gate fired. A ratio (<span class="mono">ltv/arpdau</span>) can reach the chips. Only enforcement here is a prompt sentence. <b>This is the case worth fixing.</b></td>
+      </tr>
+      <tr>
+        <td class="scn">Individual ranking, model calls the engine
+          <span class="ex">“rank players by ?” → disambiguate_query</span></td>
+        <td class="why">Engine</td>
+        <td class="verdict ok">No — already covered</td>
+        <td class="why">P5 gate runs in <span class="mono">metricOptions()</span>; ratios already dropped. Duplicating on the free-form path is redundant here.</td>
+      </tr>
+      <tr>
+        <td class="scn">Group ranking
+          <span class="ex">“top countries by ARPU”</span></td>
+        <td class="why">Either</td>
+        <td class="verdict ok">No — ratios are valid</td>
+        <td class="why">A per-head average <i>is</i> well-defined over a group. Gating here would <b>wrongly remove</b> a correct option. The gate must stay grain-aware, not blanket-ban ratios.</td>
+      </tr>
+      <tr>
+        <td class="scn">Grain unknown / no entity resolved
+          <span class="ex">“top VIP players” (no concept match)</span></td>
+        <td class="why">Either</td>
+        <td class="verdict ok">No — fail-safe</td>
+        <td class="why">Can’t prove it’s an individual → don’t exclude anything (same rule both paths). Excluding on a guess risks dropping a valid metric.</td>
+      </tr>
+      <tr>
+        <td class="scn">Metric already named, or no ratio in the candidate set
+          <span class="ex">“top spenders by revenue”</span></td>
+        <td class="why">Either</td>
+        <td class="verdict ok">No — moot</td>
+        <td class="why">Nothing to gate: the gate only ever removes ratio candidates, and there are none (or the metric is pinned).</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="foot">
+    <span class="pill">net</span>&nbsp; Extending the gate to the free-form path buys exactly <b>one</b> scenario — the ▶ row — but it's the most common live path for ranking questions, and the only one where a wrong-grain metric can actually surface to a user.
+    The other four are already correct (engine-covered, or correctly <i>not</i> gated).
+    Mechanism if we do it: apply the same <code>refKind==='ratio'</code> + <code>isIndividualEntity</code> filter to the metric set the agent passes into <code>offer_choices</code> (validate-and-strip at the tool boundary), so the rule is code-enforced on both paths — not guidance on one. On <span class="mono">cfm_vn</span>, that drops <code>ltv/arpdau/arppu</code> but keeps <code>arpu</code> (it's a per-user <i>measure</i>, <code>mf_users.arpu_vnd</code>, not a ratio).
+  </p>
+
+</div>
+</body>
+</html>
