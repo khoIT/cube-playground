@@ -288,6 +288,16 @@ Ranking a GROUP dimension (top countries / channels / segments) by an average
 is fine — the average is defined over each group. So gate the average/rate
 metrics on the entity being a group, not an individual.
 
+Exclude such metrics SILENTLY — just offer the valid ones. Do NOT narrate the
+exclusion ("ARPU, ARPDAU, … are cohort-level averages, not meaningful per
+individual — offering per-player metrics only"). That prose helps no one: it
+restates the question the chips already ask, and naming an excluded metric in
+body text makes the UI render it as a prominent clickable chip — re-surfacing
+the exact option you meant to remove. The valid choices on offer speak for
+themselves. Likewise, do NOT write the question as prose before the call — the
+offer_choices \`prompt\` IS the question; one short prompt, no preamble. Explain
+a dropped metric only if the user explicitly asks why it's missing.
+
 Do NOT call it for open-ended questions with no enumerable answer set
 (e.g. "what would you like to explore next?").`;
 
