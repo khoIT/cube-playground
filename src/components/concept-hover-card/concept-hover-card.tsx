@@ -250,7 +250,10 @@ const CARD_STYLE: React.CSSProperties = {
   zIndex: 1000,
   minWidth: 220,
   maxWidth: 320,
-  background: 'var(--bg-card)',
+  // Deeper warm-cream surface (one step below the page/card fill) so the card
+  // reads as a distinct floating panel — --bg-card is identical to the page
+  // background, which left the card relying on border+shadow alone.
+  background: 'var(--surface-inset)',
   border: '1px solid var(--border-card)',
   borderRadius: 'var(--radius-lg)',
   boxShadow: 'var(--shadow-md)',
