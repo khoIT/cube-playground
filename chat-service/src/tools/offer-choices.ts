@@ -29,8 +29,11 @@ export const description =
   'Each option needs a short `label` (what the chip says) and a `pinText` (the message sent verbatim ' +
   'when the chip is clicked). pinText MUST be a self-contained, imperative instruction that encodes the ' +
   'chosen value AND the intent it resolves — e.g. label "Revenue" → pinText "Rank the top VIP players ' +
-  'by Revenue (total recharge over the last 30 days)" — NOT a bare echo of the label. Do NOT call this ' +
-  'for open-ended questions with no enumerable answer set.';
+  'by Revenue (total recharge over the last 30 days)" — NOT a bare echo of the label. When the options ' +
+  'are metrics to rank INDIVIDUALS by (top players/users), offer only per-entity amounts (revenue, ' +
+  'lifetime value, sessions, playtime) — never population averages or rates (ARPU, ARPDAU, ARPPU, ' +
+  'conversion/retention rate, DAU/MAU), which are cohort aggregates and meaningless per person. Do NOT ' +
+  'call this for open-ended questions with no enumerable answer set.';
 
 const optionSchema = z.object({
   label: z.string().min(1).max(60),

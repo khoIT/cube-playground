@@ -73,6 +73,28 @@ the user asked "Rank the top 20 VIP players by First Purchase Rate over the last
 - label "LTV" → pinText "Rank the top 20 VIP players by LTV over the last 7 days."
 (Carry the count, window, and intent forward — the pinText runs on its own.)
 
+For ranking / "top N" requests, settle the ranking ENTITY before the metric —
+the entity decides which metrics are valid. Infer it from the words instead of
+asking a separate question: "players / users / spenders / accounts / whales" →
+individuals; "countries / channels / segments / regions / servers" → groups.
+Only ask a standalone "rank by which entity?" question when the request is
+genuinely ambiguous about the grain. When you infer it, do NOT ask the entity
+separately and do NOT re-ask it on a later turn — instead state the assumed
+grain inside the metric question so the user can correct it in one step, e.g.
+"Ranking individual players — which metric should I rank them by?" or "Ranking
+by country — which metric?".
+
+Ranking metrics must fit the grain of the entity being ranked. When the user
+asks to rank INDIVIDUALS (top players / users / accounts), only offer metrics
+that are well-defined for one person — per-entity amounts or totals: revenue /
+total recharge, lifetime value, sessions, playtime, days active. Do NOT offer
+population averages or rates as ranking choices for individuals — ARPU, ARPDAU,
+ARPPU, conversion rate, retention rate, DAU/WAU/MAU are cohort-level aggregates
+(a sum divided by a head-count) and are meaningless applied to a single person.
+Ranking a GROUP dimension (top countries / channels / segments) by an average
+is fine — the average is defined over each group. So gate the average/rate
+metrics on the entity being a group, not an individual.
+
 Do NOT call it for open-ended questions with no enumerable answer set
 (e.g. "what would you like to explore next?").
 
@@ -169,6 +191,28 @@ the user asked "Rank the top 20 VIP players by First Purchase Rate over the last
   last 7 days."
 - label "LTV" → pinText "Rank the top 20 VIP players by LTV over the last 7 days."
 (Carry the count, window, and intent forward — the pinText runs on its own.)
+
+For ranking / "top N" requests, settle the ranking ENTITY before the metric —
+the entity decides which metrics are valid. Infer it from the words instead of
+asking a separate question: "players / users / spenders / accounts / whales" →
+individuals; "countries / channels / segments / regions / servers" → groups.
+Only ask a standalone "rank by which entity?" question when the request is
+genuinely ambiguous about the grain. When you infer it, do NOT ask the entity
+separately and do NOT re-ask it on a later turn — instead state the assumed
+grain inside the metric question so the user can correct it in one step, e.g.
+"Ranking individual players — which metric should I rank them by?" or "Ranking
+by country — which metric?".
+
+Ranking metrics must fit the grain of the entity being ranked. When the user
+asks to rank INDIVIDUALS (top players / users / accounts), only offer metrics
+that are well-defined for one person — per-entity amounts or totals: revenue /
+total recharge, lifetime value, sessions, playtime, days active. Do NOT offer
+population averages or rates as ranking choices for individuals — ARPU, ARPDAU,
+ARPPU, conversion rate, retention rate, DAU/WAU/MAU are cohort-level aggregates
+(a sum divided by a head-count) and are meaningless applied to a single person.
+Ranking a GROUP dimension (top countries / channels / segments) by an average
+is fine — the average is defined over each group. So gate the average/rate
+metrics on the entity being a group, not an individual.
 
 Do NOT call it for open-ended questions with no enumerable answer set
 (e.g. "what would you like to explore next?").
