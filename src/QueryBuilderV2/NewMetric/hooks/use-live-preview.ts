@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQueryBuilderContext } from '../../context';
 import { postSchemaWrite, deleteSchemaWrite } from '../api';
+import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../../../api/cube-query-source';
 
 const DEBOUNCE_MS = 500;
 
@@ -204,12 +205,17 @@ async function runCubeLoad(
     throw new Error('cube api not configured');
   }
   const base = ctx.apiUrl.endsWith('/v1') ? ctx.apiUrl : `${ctx.apiUrl}/v1`;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    Authorization: ctx.apiToken,
+  };
+  // Tag the issuing surface so the metric-wizard preview /load is attributed
+  // to this page in query telemetry rather than the "API / server" fallback.
+  const source = deriveCubeSource();
+  if (source) headers[CUBE_SOURCE_HEADER] = source;
   const resp = await fetch(`${base}/load`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: ctx.apiToken,
-    },
+    headers,
     body: JSON.stringify({ query }),
   });
   if (!resp.ok) {

@@ -7,6 +7,7 @@
 import type { ApiError } from '../types/segment-api';
 import { getActiveWorkspaceId, WORKSPACE_HEADER } from '../components/workspace-context';
 import { getActiveGameId, GAME_HEADER } from '../components/Header/active-game-storage';
+import { deriveCubeSource, CUBE_SOURCE_HEADER } from './cube-query-source';
 import { readAppToken, clearAppToken } from '../auth/auth-storage';
 
 const AUTH_FORCE_LOGOUT_EVENT = 'gds-cube:auth-force-logout';
@@ -102,6 +103,13 @@ export function buildRequestHeaders(extra?: Record<string, string>): Record<stri
   const gameId = getActiveGameId();
   if (gameId && !finalHeaders[GAME_HEADER]) {
     finalHeaders[GAME_HEADER] = gameId;
+  }
+
+  // Tag which app surface issued this request (for /cube-api query telemetry).
+  // Derived from the live route; the server only reads it on the proxy path.
+  const source = deriveCubeSource();
+  if (source && !finalHeaders[CUBE_SOURCE_HEADER]) {
+    finalHeaders[CUBE_SOURCE_HEADER] = source;
   }
 
   // Bearer auth: forward the app JWT when present. Server still accepts

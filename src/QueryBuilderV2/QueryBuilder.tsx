@@ -20,6 +20,7 @@ import { useAppContext } from '../hooks';
 import { useGameContext, useActiveGameId } from '../components/Header/use-game-context';
 import { useWorkspaceContext } from '../components/workspace-context';
 import { cubeProxyAuthorization } from '../auth/auth-storage';
+import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../api/cube-query-source';
 
 interface FriendlyMetaError {
   title: string;
@@ -126,11 +127,15 @@ export function QueryBuilder(
   // `Cube 'retention' not found for path '...'` on local-only schemas.
   const { workspaceId, workspace } = useWorkspaceContext();
   const activeGameId = useActiveGameId();
+  // Tag query-builder /load calls so query telemetry attributes them to this
+  // surface ("Query Builder") instead of falling back to the Referer path.
+  const source = deriveCubeSource();
   const cubeApi = useMemo(() => {
     if (!apiUrl || !apiToken || apiToken === 'undefined') return undefined;
     const headers: Record<string, string> = {};
     if (workspaceId) headers['x-cube-workspace'] = workspaceId;
     if (activeGameId) headers['x-cube-game'] = activeGameId;
+    if (source) headers[CUBE_SOURCE_HEADER] = source;
     return cube(apiToken, {
       apiUrl,
       transport: new HttpTransport({
@@ -141,7 +146,7 @@ export function QueryBuilder(
         headers,
       }),
     } as Parameters<typeof cube>[1]);
-  }, [apiUrl, apiToken, workspaceId, activeGameId]);
+  }, [apiUrl, apiToken, workspaceId, activeGameId, source]);
 
   // Prefix workspaces (e.g. prod cube-dev) return all cubes from every game.
   // Restrict the playground sidebar / search / joinable graph to the active

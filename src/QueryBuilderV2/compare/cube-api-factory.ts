@@ -11,6 +11,7 @@
 import cubejs, { HttpTransport } from '@cubejs-client/core';
 import type { CubeApi } from '@cubejs-client/core';
 import { cubeProxyAuthorization } from '../../auth/auth-storage';
+import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../../api/cube-query-source';
 
 function activeWorkspaceId(): string | null {
   try {
@@ -36,6 +37,10 @@ export function makeCubeApi(
   // identical to the active game. Forward the target game so the comparison
   // query is scoped to the game it claims to represent.
   if (gameId) headers['x-cube-game'] = gameId;
+  // Tag the issuing surface so query telemetry attributes comparison /load
+  // calls to the page that ran them instead of the Referer/"API server" fallback.
+  const source = deriveCubeSource();
+  if (source) headers[CUBE_SOURCE_HEADER] = source;
   return cubejs(token, {
     apiUrl,
     // App JWT so the proxy attributes query telemetry to the logged-in user.

@@ -34,13 +34,37 @@ function sinceParam(raw: string | undefined): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+/** Extract the segment UUID from a `segment:<id>[:<tab>]` source tag. */
+function segmentIdOf(source: string | null): string | null {
+  if (!source || !source.startsWith('segment:')) return null;
+  const id = source.slice('segment:'.length).split(':')[0];
+  return id || null;
+}
+
+/**
+ * Resolve segment UUIDs in a row set to their human names in ONE query. The
+ * `source` tag only carries the id (it's set from the route); the admin UI shows
+ * the name. Cross-game lookup (the admin sees every game), so this reads the
+ * segments table directly rather than the game-scoped list endpoint.
+ */
+function resolveSegmentNames(db: ReturnType<typeof getDb>, rows: QueryPerfRow[]): Map<string, string> {
+  const ids = [...new Set(rows.map((r) => segmentIdOf(r.source)).filter((x): x is string => !!x))];
+  if (ids.length === 0) return new Map();
+  const placeholders = ids.map(() => '?').join(',');
+  const found = db
+    .prepare(`SELECT id, name FROM segments WHERE id IN (${placeholders})`)
+    .all(...ids) as Array<{ id: string; name: string }>;
+  return new Map(found.map((s) => [s.id, s.name]));
+}
+
 /**
  * Shape a stored row into the API DTO + read-time classifier verdict. The
  * verdict (preagg-hit tri-state + matchability + reason) is computed against the
  * row's game registry view — see query-perf-classifier. Per-game views are
- * memoized within a single request via `viewCache`.
+ * memoized within a single request via `viewCache`. `segmentNames` maps segment
+ * UUIDs (from the `source` tag) to their display names.
  */
-function toDto(r: QueryPerfRow, viewCache: Map<string, RegistryView>) {
+function toDto(r: QueryPerfRow, viewCache: Map<string, RegistryView>, segmentNames: Map<string, string>) {
   const usedPreaggs = r.usedPreaggs ? safeParseArray(r.usedPreaggs) : [];
   const gameKey = r.game ?? '';
   let view = viewCache.get(gameKey);
@@ -69,6 +93,9 @@ function toDto(r: QueryPerfRow, viewCache: Map<string, RegistryView>) {
     // Admin-only: the verbatim query (incl. values/dateRange) + originating route.
     queryFull: r.queryFull,
     source: r.source,
+    // Resolved display name for `segment:<id>` sources (null for other sources
+    // or a since-deleted segment); the UI prefers this over the raw UUID.
+    segmentName: segmentNames.get(segmentIdOf(r.source) ?? '') ?? null,
   };
 }
 
@@ -93,7 +120,8 @@ export default async function queryPerfRoutes(app: FastifyInstance): Promise<voi
       const limit = intParam(req.query.limit, 200, 1000);
       const rows = queryPerf(getDb(), { statusClass: 'fail', since, limit });
       const viewCache = new Map<string, RegistryView>();
-      return { rows: rows.map((r) => toDto(r, viewCache)) };
+      const segmentNames = resolveSegmentNames(getDb(), rows);
+      return { rows: rows.map((r) => toDto(r, viewCache, segmentNames)) };
     },
   );
 
@@ -106,7 +134,8 @@ export default async function queryPerfRoutes(app: FastifyInstance): Promise<voi
       const limit = intParam(req.query.limit, 200, 1000);
       const rows = queryPerf(getDb(), { statusClass: 'success', since, limit });
       const viewCache = new Map<string, RegistryView>();
-      return { rows: rows.map((r) => toDto(r, viewCache)) };
+      const segmentNames = resolveSegmentNames(getDb(), rows);
+      return { rows: rows.map((r) => toDto(r, viewCache, segmentNames)) };
     },
   );
 

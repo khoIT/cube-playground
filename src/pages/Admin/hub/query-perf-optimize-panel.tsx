@@ -15,6 +15,7 @@ import {
   useLlmSuggest,
   type QueryPerfRowDto,
 } from './query-perf-data';
+import { humanizeCubeSource } from '../../../api/cube-query-source';
 
 const lab: React.CSSProperties = {
   fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em',
@@ -25,15 +26,6 @@ const codePre: React.CSSProperties = {
   background: 'var(--surface-inverse)', color: 'var(--text-inverse)', borderRadius: 8,
   padding: 12, fontSize: 11.5, lineHeight: 1.5, overflow: 'auto', margin: '6px 0',
 };
-
-/** Humanize a Referer route into a readable "Section › id" label. */
-function sourceLabel(source: string | null): string {
-  if (!source) return 'API / server';
-  const parts = source.split('/').filter(Boolean);
-  if (parts.length === 0) return 'App';
-  const section = parts[0].replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  return parts.length > 1 ? `${section} › ${parts.slice(1).join('/')}` : section;
-}
 
 /** The verbatim query (admin-only) — collapsible since it can be long. */
 function QueryBlock({ query }: { query: unknown }) {
@@ -78,10 +70,10 @@ export function QueryPerfOptimizePanel({ row }: { row: QueryPerfRowDto }) {
       }}
       data-testid="qp-optimize-panel"
     >
-      {/* Where the query came from (Referer-derived route) + HTTP method. */}
+      {/* Which app surface issued the query (from the x-cube-source tag) + method. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-secondary)', marginBottom: 10 }}>
         <LayoutGrid size={14} style={{ color: 'var(--text-muted)' }} />
-        Used in <b style={{ color: 'var(--text-primary)' }}>{sourceLabel(row.source)}</b>
+        Used in <b style={{ color: 'var(--text-primary)' }}>{humanizeCubeSource(row.source, row.segmentName)}</b>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 6, padding: '1px 7px' }}>
           {row.method}
         </span>

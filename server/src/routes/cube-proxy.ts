@@ -29,6 +29,8 @@ const CUBE_FETCH_TIMEOUT_MS = 30_000;
 
 // Header carrying the active game (mirrors workspace-header.ts GAME_HEADER).
 const GAME_HEADER = 'x-cube-game';
+// Header carrying the originating app surface (set by the client).
+const SOURCE_HEADER = 'x-cube-source';
 
 function gameIdOf(req: FastifyRequest): string | null {
   const raw = req.headers[GAME_HEADER];
@@ -36,20 +38,24 @@ function gameIdOf(req: FastifyRequest): string | null {
 }
 
 /**
- * The originating app route, derived from the browser Referer — e.g.
- * `/dashboards/123`, `/segments/45`, `/playground`. Path only (querystring
- * stripped so no stray values ride along); it is an app route, not PII.
- * Server-to-server callers (chat-service) send no Referer → null (shown as
- * "api" in the admin UI). Bounded length so a hostile header can't bloat a row.
+ * Which app surface issued the query. Prefers the explicit `x-cube-source`
+ * header the client sets (e.g. `query-builder`, `dashboard:123`,
+ * `segment:45:care`, `chat:<sessionId>`) — a stable machine string, not PII.
+ * Falls back to the browser Referer path for any caller that didn't tag itself,
+ * and null when neither is present (shown as "API / server" in the admin UI).
+ * Bounded length so a hostile header can't bloat a row.
  */
 function sourceOf(req: FastifyRequest): string | null {
+  const explicit = req.headers[SOURCE_HEADER];
+  const tag = Array.isArray(explicit) ? explicit[0] : explicit;
+  if (typeof tag === 'string' && tag.trim()) return tag.trim().slice(0, 200);
+
   const raw = req.headers.referer ?? req.headers.referrer;
   const ref = Array.isArray(raw) ? raw[0] : raw;
   if (typeof ref !== 'string' || !ref) return null;
   try {
     return new URL(ref).pathname.slice(0, 200);
   } catch {
-    // Not an absolute URL — keep the path portion only, drop any querystring.
     return ref.split('?')[0].slice(0, 200) || null;
   }
 }

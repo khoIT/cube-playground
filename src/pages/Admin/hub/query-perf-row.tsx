@@ -12,6 +12,7 @@
 import React from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { QueryPerfRowDto } from './query-perf-data';
+import { humanizeCubeSource } from '../../../api/cube-query-source';
 
 /** Fallback slow threshold (ms) when the server summary hasn't loaded yet. */
 const DEFAULT_SLOW_MS = 3000;
@@ -96,6 +97,9 @@ export function QueryPerfRow({
       </td>
       <td style={{ padding: '11px 14px', fontVariantNumeric: 'tabular-nums', fontWeight: 600, color: latBad ? 'var(--destructive-ink)' : 'var(--text-primary)' }}>
         {(row.latencyMs / 1000).toFixed(1)}s
+      </td>
+      <td style={{ padding: '11px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+        {humanizeCubeSource(row.source, row.segmentName)}
       </td>
       <td style={{ padding: '11px 14px' }}><RoutingBadge row={row} /></td>
       <td style={{ padding: '11px 14px' }}><ShapeChips row={row} /></td>

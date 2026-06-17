@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import cubejs, { CubeApi, HttpTransport } from '@cubejs-client/core';
 import { useAppContext } from '../../../hooks';
 import { cubeProxyAuthorization } from '../../../auth/auth-storage';
+import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../../../api/cube-query-source';
 
 /**
  * Wide cube-meta shape we read from the extended /meta endpoint.
@@ -80,6 +81,10 @@ export function useNewMetricMeta(): UseNewMetricMetaResult {
     }
     const headers: Record<string, string> = {};
     if (wsId) headers['x-cube-workspace'] = wsId;
+    // Tag the issuing surface so the wizard's /load + /sql calls are attributed
+    // to this page in query telemetry rather than the "API / server" fallback.
+    const source = deriveCubeSource();
+    if (source) headers[CUBE_SOURCE_HEADER] = source;
     return cubejs(ctx.token, {
       apiUrl: ctx.apiUrl,
       transport: new HttpTransport({

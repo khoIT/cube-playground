@@ -38,6 +38,8 @@ export interface QueryPerfRowDto {
   queryFull: unknown | null;
   /** Originating app route, e.g. "/dashboards/123"; null for API callers. */
   source: string | null;
+  /** Resolved name for a `segment:<id>` source; null otherwise. */
+  segmentName: string | null;
 }
 
 export interface QueryPerfSummaryDto {

@@ -50,7 +50,7 @@ const TH: React.CSSProperties = {
   textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid var(--border-card)', fontWeight: 600,
 };
 
-const COL_COUNT = 5;
+const COL_COUNT = 6;
 
 /**
  * Failure/success table. Failure rows are expandable: clicking a row toggles an
@@ -70,8 +70,8 @@ function RowTable({
     <table style={{ width: '100%', borderCollapse: 'collapse', background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 10, overflow: 'hidden' }}>
       <thead>
         <tr>
-          <th style={TH}>Status</th><th style={TH}>Latency</th><th style={TH}>Routing</th>
-          <th style={TH}>Query shape</th><th style={TH}>Game</th>
+          <th style={TH}>Status</th><th style={TH}>Latency</th><th style={TH}>Used in</th>
+          <th style={TH}>Routing</th><th style={TH}>Query shape</th><th style={TH}>Game</th>
         </tr>
       </thead>
       <tbody>

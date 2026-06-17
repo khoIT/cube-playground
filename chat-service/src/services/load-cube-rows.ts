@@ -54,6 +54,8 @@ export async function loadCubeRows(
       Accept: 'application/json',
       'X-Cube-Workspace': ctx.workspace,
       'X-Cube-Game': ctx.gameId,
+      // Tag query telemetry with the originating chat conversation.
+      'X-Cube-Source': ctx.sessionId ? `chat:${ctx.sessionId}` : 'chat',
     },
     body: JSON.stringify({ query }),
   });

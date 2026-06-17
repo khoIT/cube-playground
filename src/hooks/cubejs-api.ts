@@ -4,6 +4,7 @@ import cubejs, { HttpTransport } from '@cubejs-client/core';
 import { useWorkspaceContext } from '../components/workspace-context';
 import { useActiveGameId } from '../components/Header/use-game-context';
 import { cubeProxyAuthorization } from '../auth/auth-storage';
+import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../api/cube-query-source';
 
 /**
  * Cube SDK factory that forwards the active workspace + game on every request.
@@ -25,6 +26,9 @@ export function useCubejsApi(apiUrl: string | null, token: string | null, gameOv
   const { workspaceId } = useWorkspaceContext();
   const activeGameId = useActiveGameId();
   const gameId = gameOverride !== undefined && gameOverride !== null ? gameOverride : activeGameId;
+  // Which surface owns this client — re-keys the transport on navigation so the
+  // query-telemetry source reflects the page actually running the query.
+  const source = deriveCubeSource();
   return useMemo(() => {
     if (!token || !apiUrl || token === 'undefined') {
       return null;
@@ -33,6 +37,7 @@ export function useCubejsApi(apiUrl: string | null, token: string | null, gameOv
     const headers: Record<string, string> = {};
     if (workspaceId) headers['x-cube-workspace'] = workspaceId;
     if (gameId) headers['x-cube-game'] = gameId;
+    if (source) headers[CUBE_SOURCE_HEADER] = source;
 
     // Cast because @cubejs-client/core@1.6.46 types omit `transport` from
     // CubeApiOptions even though the runtime accepts it. The transport pattern
@@ -46,5 +51,5 @@ export function useCubejsApi(apiUrl: string | null, token: string | null, gameOv
         headers,
       }),
     } as Parameters<typeof cubejs>[1]);
-  }, [apiUrl, token, workspaceId, gameId]);
+  }, [apiUrl, token, workspaceId, gameId, source]);
 }
