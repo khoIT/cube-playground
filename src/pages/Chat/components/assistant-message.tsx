@@ -76,6 +76,7 @@ function renderTextLeaf(
   link: (text: string) => LinkedSegment[],
   termsById: Map<string, GlossaryTerm>,
   keyPrefix: string,
+  seen: Set<string>,
 ): React.ReactNode[] {
   const out: React.ReactNode[] = [];
 
@@ -96,14 +97,14 @@ function renderTextLeaf(
     FIELD_TOKEN_REGEX.lastIndex = 0;
     while ((match = FIELD_TOKEN_REGEX.exec(plainText)) !== null) {
       if (match.index > last) {
-        pushGlossaryChunks(out, plainText.slice(last, match.index), link, termsById, `${segKey}-t-${last}`);
+        pushGlossaryChunks(out, plainText.slice(last, match.index), link, termsById, `${segKey}-t-${last}`, seen);
       }
       const fqn = match[1];
       out.push(<FieldChip key={`${segKey}-f-${match.index}`} fqn={fqn} />);
       last = FIELD_TOKEN_REGEX.lastIndex;
     }
     if (last < plainText.length) {
-      pushGlossaryChunks(out, plainText.slice(last), link, termsById, `${segKey}-t-${last}`);
+      pushGlossaryChunks(out, plainText.slice(last), link, termsById, `${segKey}-t-${last}`, seen);
     }
   });
 
@@ -116,6 +117,7 @@ function pushGlossaryChunks(
   link: (text: string) => LinkedSegment[],
   termsById: Map<string, GlossaryTerm>,
   keyPrefix: string,
+  seen: Set<string>,
 ): void {
   const segments = link(text);
   if (segments.length === 0) {
@@ -123,7 +125,16 @@ function pushGlossaryChunks(
     return;
   }
   segments.forEach((seg, i) => {
+    // First-occurrence-wins: chip a term only the first time it appears in this
+    // message; later mentions render as plain text. A dozen repeated `churn` /
+    // `DAU` chips in one answer is visual noise — the first link is enough to
+    // reach the definition.
+    if (seg.kind === 'term' && seg.termId && seen.has(seg.termId)) {
+      out.push(<React.Fragment key={`${keyPrefix}-p-${i}`}>{seg.text}</React.Fragment>);
+      return;
+    }
     if (seg.kind === 'term') {
+      if (seg.termId) seen.add(seg.termId);
       const resolvable = {
         id: seg.termId ?? '',
         primaryCatalogId: seg.primaryCatalogId ?? null,
@@ -169,10 +180,11 @@ function transformLeaves(
   children: React.ReactNode,
   link: (text: string) => LinkedSegment[],
   termsById: Map<string, GlossaryTerm>,
+  seen: Set<string>,
 ): React.ReactNode {
   const arr = React.Children.toArray(children);
   return arr.flatMap((child, i) => {
-    if (typeof child === 'string') return renderTextLeaf(child, link, termsById, `c${i}`);
+    if (typeof child === 'string') return renderTextLeaf(child, link, termsById, `c${i}`, seen);
     return [child];
   });
 }
@@ -180,8 +192,9 @@ function transformLeaves(
 function buildMarkdownComponents(
   link: (text: string) => LinkedSegment[],
   termsById: Map<string, GlossaryTerm>,
+  seen: Set<string>,
 ): Components {
-  const wrap = (children: React.ReactNode) => transformLeaves(children, link, termsById);
+  const wrap = (children: React.ReactNode) => transformLeaves(children, link, termsById, seen);
   return {
     p: ({ children }) => <p style={P_STYLE}>{wrap(children)}</p>,
     strong: ({ children }) => <strong>{wrap(children)}</strong>,
@@ -333,10 +346,17 @@ function TextParagraph({ text }: { text: string }) {
     for (const t of terms) m.set(t.id, t);
     return m;
   }, [terms]);
+  // Per-render dedup scope for glossary chips: reset before each render pass so
+  // first-occurrence-wins is recomputed deterministically. A stable ref keeps
+  // the same Set instance inside the memoized components closure; clearing it
+  // each render means react-markdown repopulates it in document order.
+  const seenRef = React.useRef<Set<string>>();
+  if (!seenRef.current) seenRef.current = new Set();
+  seenRef.current.clear();
   // Memoize the components map against both link and termsById so we don't
   // churn react-markdown's renderer on every keystroke.
   const components = React.useMemo(
-    () => buildMarkdownComponents(link, termsById),
+    () => buildMarkdownComponents(link, termsById, seenRef.current!),
     [link, termsById],
   );
   return (
@@ -434,6 +454,9 @@ interface AssistantMessageProps {
   disambigSelectedPinText?: string | null;
   /** Pick handler for a disambig chip — sends pinText as the next user turn. */
   onDisambigPick?: (pinText: string) => void;
+  /** Side-panel surface uses the tighter gutter — must match UserMessage so the
+   *  question heading and the reply share one left rail. */
+  compact?: boolean;
 }
 
 function extractFollowupContext(sections: ReadonlyArray<AssistantSection>): {
@@ -480,6 +503,7 @@ function AssistantMessageImpl({
   disambigOptions,
   disambigSelectedPinText,
   onDisambigPick,
+  compact,
 }: AssistantMessageProps) {
   // Merge tool_result into its matching tool_call so we render one chip per call.
   const merged = mergeToolSections(sections);
@@ -496,14 +520,17 @@ function AssistantMessageImpl({
   const hasExplicitOptions = !!disambigOptions && disambigOptions.options.length > 0;
 
   return (
-    <div style={{ padding: '4px 16px' }}>
+    // Horizontal gutter matches UserMessage (16 compact / 24 full) so the reply
+    // shares the question's left rail. Top padding 0 keeps the "Cube" header
+    // tucked under its question; the user heading's bottom padding is the gap.
+    <div style={{ padding: compact ? '0 16px 4px' : '0 24px 8px' }}>
       {/* Agent header */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 7,
-          marginBottom: 6,
+          marginBottom: 8,
         }}
       >
         <img
@@ -546,7 +573,9 @@ function AssistantMessageImpl({
         )}
       </div>
 
-      {/* Sections */}
+      {/* Sections — hanging-indent under the agent label (logo width + gap), so
+          the answer body aligns with "Cube" while the logo shares the outer left
+          rail with the question heading above. Matches the reference layout. */}
       <div style={{ paddingLeft: 31 }}>
         {groupToolCallRuns(merged).map((unit, i) =>
           unit.kind === 'tool_run' ? (

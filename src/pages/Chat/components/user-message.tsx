@@ -8,6 +8,7 @@
 import React from 'react';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { T } from '../../../shell/theme';
+import { useRelativeTimeTick } from './use-relative-time';
 
 /**
  * Format an ISO timestamp as a relative-then-absolute pair.
@@ -23,6 +24,30 @@ function formatLocalTimestamp(ts: string): { display: string; title: string } | 
   };
 }
 
+const TIMESTAMP_STYLE: React.CSSProperties = {
+  marginTop: 4,
+  fontFamily: T.fSans,
+  fontSize: 11,
+  color: 'var(--shell-text-subtle)',
+};
+
+/**
+ * Relative timestamp that refreshes itself in place. Subscribing to the shared
+ * tick re-renders only this leaf (not the memoized UserMessage), so "2 hours
+ * ago" advances to "3 hours ago" without a reload while the heading and its
+ * already-parsed reply stay untouched.
+ */
+function RelativeTimestamp({ ts }: { ts: string }) {
+  useRelativeTimeTick();
+  const tsLabel = formatLocalTimestamp(ts);
+  if (!tsLabel) return null;
+  return (
+    <div title={tsLabel.title} style={TIMESTAMP_STYLE}>
+      {tsLabel.display}
+    </div>
+  );
+}
+
 interface UserMessageProps {
   text: string;
   ts?: string;
@@ -30,10 +55,12 @@ interface UserMessageProps {
 }
 
 function UserMessageImpl({ text, ts, compact }: UserMessageProps) {
-  const tsLabel = ts ? formatLocalTimestamp(ts) : null;
   return (
     <div
       style={{
+        // Horizontal padding (16 compact / 24 full) is the shared left rail:
+        // AssistantMessage uses the same gutter so the question heading and the
+        // reply body align on one edge.
         padding: compact ? '16px 16px 4px' : '24px 24px 8px',
       }}
     >
@@ -51,19 +78,7 @@ function UserMessageImpl({ text, ts, compact }: UserMessageProps) {
       >
         {text}
       </h2>
-      {tsLabel && (
-        <div
-          title={tsLabel.title}
-          style={{
-            marginTop: 4,
-            fontFamily: T.fSans,
-            fontSize: 11,
-            color: 'var(--shell-text-subtle)',
-          }}
-        >
-          {tsLabel.display}
-        </div>
-      )}
+      {ts && <RelativeTimestamp ts={ts} />}
     </div>
   );
 }

@@ -120,6 +120,7 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, onDisambi
             disambigOptions={msg.disambigOptions}
             disambigSelectedPinText={msg.disambigSelectedPinText}
             onDisambigPick={onDisambigPick}
+            compact={compact}
           />
         );
       })}
