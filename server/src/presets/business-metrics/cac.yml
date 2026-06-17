@@ -1,0 +1,26 @@
+id: cac
+label: CAC
+description: >-
+  Customer acquisition cost — marketing spend per net-new paying user (cost / NNPU). Distinct from
+  CPN, which is spend per new registered user.
+synonyms:
+  - customer_acquisition_cost
+tier: 2
+domain: marketing
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: game_key_metrics.cost_vnd
+  denominator: game_key_metrics.nnpu
+game_compatibility:
+  required_cubes:
+    - game_key_metrics
+format: currency
+meta:
+  game_id: cfm_vn
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:05:36.907Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; fixes dangling glossary primary ref

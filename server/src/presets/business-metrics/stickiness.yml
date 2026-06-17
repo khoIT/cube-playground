@@ -1,0 +1,25 @@
+id: stickiness
+label: Stickiness
+description: DAU / MAU — fraction of monthly active players who play on any given day.
+synonyms:
+  - dau_mau
+  - dau_over_mau
+tier: 2
+domain: engagement
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: active_daily.dau
+  denominator: active_daily.mau
+game_compatibility:
+  required_cubes:
+    - active_daily
+format: percent
+meta:
+  game_id: cfm_vn
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:05:36.578Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; fixes dangling glossary primary ref

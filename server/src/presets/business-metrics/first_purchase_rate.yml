@@ -1,0 +1,27 @@
+id: first_purchase_rate
+label: First purchase rate
+description: >-
+  Share of new players who made their first purchase in the period (NNPU / NRU). Same-period proxy
+  for first-purchase conversion.
+synonyms:
+  - first_pay_rate
+  - first_purchase_conversion
+tier: 2
+domain: payments
+owner: data-platform@vng
+trust: certified
+formula:
+  type: ratio
+  numerator: game_key_metrics.nnpu
+  denominator: game_key_metrics.nru
+game_compatibility:
+  required_cubes:
+    - game_key_metrics
+format: percent
+meta:
+  game_id: cfm_vn
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T06:05:37.172Z'
+      actor: khoitn@vng.com.vn
+      note: refs resolve vs cfm_vn /meta; fixes dangling glossary primary ref
