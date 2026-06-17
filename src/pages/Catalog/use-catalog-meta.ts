@@ -102,11 +102,13 @@ export function useCatalogMeta(): UseCatalogMetaResult {
     // repositoryFactory actually reads — a `game_id` query param is ignored.
     const isPrefixWorkspace = workspace?.gameModel === 'prefix';
     const url = `${base}/meta?extended=true`;
-    // 10s timeout — Cube can hang (TCP-up, HTTP-stuck) and `fetch` without an
+    // 35s timeout — Cube can hang (TCP-up, HTTP-stuck) and `fetch` without an
     // AbortController would leave `loading=true` forever, surfacing as an
-    // infinite "Loading…" spinner across Catalog routes.
+    // infinite "Loading…" spinner across Catalog routes. Sits just above the
+    // proxy's 30s /meta ceiling so the server returns its own clean error first
+    // (and a cold meta compile on a large prefix workspace isn't cut short).
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 10_000);
+    const timer = setTimeout(() => ctl.abort(), 35_000);
     // No-auth workspaces (e.g. prod cube-dev open access) return a null token
     // from the mint endpoint — only set Authorization if we actually have one.
     // The Fastify cube-proxy injects/validates auth per workspace upstream.

@@ -20,12 +20,27 @@ import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-f
 import { recordActivity, projectQueryShape } from '../services/activity-store.js';
 import { recordQueryPerf, shouldCapture } from '../services/query-perf-store.js';
 
-// Browser query-builder queries on per-user dimensions (e.g. mf_users.user_id
-// with a date range) bypass pre-aggregations and read raw from Trino; a cold
-// Trino read can run past 15s. Give the upstream fetch a 30s ceiling so those
-// queries return data instead of a 504 the user reads as "timeout". nginx
-// (`proxy_read_timeout 120s`) already sits above this in prod.
+// Per-upstream-fetch ceiling. Cube emits `{error:"Continue wait"}` (HTTP 200)
+// once it has held a query for its continue-wait window (25s), so a single
+// fetch must outlast that window to receive either the data or the warming
+// signal — 30s gives it ~5s of slack.
 const CUBE_FETCH_TIMEOUT_MS = 30_000;
+
+// Total budget for a /load that keeps warming. A cold pre-agg / raw per-user
+// read returns `Continue wait` each 25s window and needs several to materialise;
+// the proxy polls across windows up to this ceiling instead of handing back a
+// 30s single-shot 504. Kept just under nginx's `proxy_read_timeout 120s` so the
+// warm completes here rather than tripping the upstream timeout. Only cold
+// queries poll — a fast query returns on the first fetch and is unaffected.
+const CUBE_LOAD_MAX_WAIT_MS = Number(process.env.CUBE_LOAD_MAX_WAIT_MS) || 110_000;
+
+// Cube's warming signal: a 200 body of `{error:"Continue wait"}`.
+const CONTINUE_WAIT_RE = /Continue wait/i;
+export function isContinueWait(status: number, body: unknown): boolean {
+  if (status !== 200) return false;
+  const e = (body as { error?: unknown } | null)?.error;
+  return typeof e === 'string' && CONTINUE_WAIT_RE.test(e);
+}
 
 // Header carrying the active game (mirrors workspace-header.ts GAME_HEADER).
 const GAME_HEADER = 'x-cube-game';
@@ -181,6 +196,30 @@ async function forward(
   }
 }
 
+/**
+ * Forward a /load and transparently poll Cube's continue-wait protocol. Each
+ * inner `forward()` outlasts one 25s window; while Cube keeps returning
+ * `Continue wait` we re-issue the same query until it resolves or the total
+ * budget elapses, then hand back the last response (data on success, or the
+ * final `Continue wait` so an SDK client can keep polling on its own). Mirrors
+ * the server-side `loadWithContinueWait` used by batch jobs, but over the
+ * workspace-resolved proxy target. Replaces the old 30s single-shot that 504'd
+ * cold reads well below the 120s the infra already allows.
+ */
+export async function forwardLoadWithContinueWait(
+  target: ProxyTarget,
+  method: 'GET' | 'POST',
+  search: string,
+  body: unknown,
+): Promise<{ status: number; body: unknown }> {
+  const deadline = Date.now() + CUBE_LOAD_MAX_WAIT_MS;
+  for (;;) {
+    const res = await forward(target, method, '/load', search, body);
+    if (!isContinueWait(res.status, res.body) || Date.now() >= deadline) return res;
+    await new Promise((r) => setTimeout(r, Math.min(700, deadline - Date.now())));
+  }
+}
+
 export default async function cubeProxyRoutes(app: FastifyInstance): Promise<void> {
   // GET /cube-api/v1/meta(?extended=true&...)
   app.get('/cube-api/v1/meta', async (req, reply) => {
@@ -206,7 +245,7 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
   app.get('/cube-api/v1/load', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
     const started = performance.now();
-    const { status, body } = await forward(req.cubeCtx, 'GET', '/load', search, undefined);
+    const { status, body } = await forwardLoadWithContinueWait(req.cubeCtx, 'GET', search, undefined);
     const latencyMs = performance.now() - started;
     const query = parseGetQuery(req);
     emitQueryRun(req, status, query);
@@ -216,7 +255,7 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
 
   app.post('/cube-api/v1/load', async (req, reply) => {
     const started = performance.now();
-    const { status, body } = await forward(req.cubeCtx, 'POST', '/load', '', req.body);
+    const { status, body } = await forwardLoadWithContinueWait(req.cubeCtx, 'POST', '', req.body);
     const latencyMs = performance.now() - started;
     const query = (req.body as { query?: unknown } | undefined)?.query;
     emitQueryRun(req, status, query);

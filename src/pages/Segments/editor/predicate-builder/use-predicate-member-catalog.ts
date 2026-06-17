@@ -212,9 +212,11 @@ async function fetchRawMeta(
       if (workspaceId) headers[WORKSPACE_HEADER] = workspaceId;
       if (gameId) headers['x-cube-game'] = gameId;
 
-      // 10s timeout — matches use-catalog-meta.ts defensive pattern.
+      // 35s timeout — matches use-catalog-meta.ts: sits just above the proxy's
+      // 30s /meta ceiling so the server returns a clean error before the client
+      // aborts, and a cold meta compile isn't cut short.
       const ctl = new AbortController();
-      const timer = setTimeout(() => ctl.abort(), 10_000);
+      const timer = setTimeout(() => ctl.abort(), 35_000);
 
       let cubes: RawMetaCube[];
       try {

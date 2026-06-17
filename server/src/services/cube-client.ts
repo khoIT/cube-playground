@@ -24,14 +24,13 @@ export interface WorkspaceCtx {
 // Cube can hang in a TCP-up / HTTP-stuck mode (container alive, queries
 // frozen). Without an AbortController, `fetch` sits forever and propagates
 // the hang into every route that calls into Cube — most visibly the metric
-// detail page, which 'Loading…'s indefinitely. 15s is enough for legit
-// /meta + /sql calls (well under Cube's own slow-query window) but bounds
-// the worst case. This is the DEFAULT; batch callers that legitimately need
-// longer (e.g. the card precompute polling Cube's 25s continue-wait window
-// against a cold cohort) pass an explicit larger timeout — capping every
-// caller at 15s silently aborts heavy precompute queries before Cube can
-// even respond, so they never complete and never cache.
-const CUBE_FETCH_TIMEOUT_MS = 15_000;
+// detail page, which 'Loading…'s indefinitely. This DEFAULT bounds the worst
+// case while still sitting ABOVE Cube's continue-wait window (25s): a shorter
+// default (the old 15s) aborts before Cube emits its first `Continue wait`
+// signal, so any default-timeout caller is GUARANTEED to fail a cold read.
+// 30s lets a default caller receive at least one warming signal; batch callers
+// that need to poll several windows pass an explicit larger timeout.
+const CUBE_FETCH_TIMEOUT_MS = 30_000;
 
 async function cubeFetch(
   url: string,

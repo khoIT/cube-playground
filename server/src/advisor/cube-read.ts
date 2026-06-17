@@ -79,7 +79,12 @@ export async function readWithProvenance(
 const ADVISOR_QUERY_TIMEOUT_MS = (() => {
   const raw = process.env.ADVISOR_CUBE_QUERY_TIMEOUT_MS;
   const n = raw == null || raw.trim() === '' ? NaN : Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : 30_000;
+  // 80s default: a cold pre-agg warms across several of Cube's 25s
+  // continue-wait windows, so a per-query cap near one window (the old 30s)
+  // gave a cold lens query ~1 attempt then failed `inconclusive` while most of
+  // the 240s turn budget sat unused. 80s spans 3+ windows yet stays well under
+  // the turn cap so one lens still can't starve the rest.
+  return Number.isFinite(n) && n > 0 ? n : 80_000;
 })();
 
 /**
