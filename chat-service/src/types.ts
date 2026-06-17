@@ -133,6 +133,13 @@ export type SseEvent =
       };
     }
   | { type: 'done'; data: Record<string, never> }
+  /**
+   * Liveness heartbeat. Emitted on a fixed interval while a turn streams so
+   * proxy hops don't idle-close the SSE connection and the client's stall
+   * watchdog can tell a slow-but-alive turn from a dead socket. Carries no
+   * payload; the FE reducer ignores it beyond resetting its silence timer.
+   */
+  | { type: 'ping'; data: Record<string, never> }
   | { type: 'compact_warning'; data: { from: string; to: string; summary: string } }
   /**
    * Phase-01: emitted when a turn opens by resuming a prior SDK conversation.

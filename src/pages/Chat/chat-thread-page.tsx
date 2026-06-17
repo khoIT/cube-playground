@@ -162,7 +162,7 @@ export function ChatThreadPage() {
     disambigOptions: streamDisambigOptions,
     lastCompactWarning, retryAfterMs,
     error: streamError, errorTitle: streamErrorTitle, errorHint: streamErrorHint,
-    sendTurn, cancel, reconnect, clearStreamBuffers,
+    sendTurn, cancel, reconnect, clearStreamBuffers, resetStream,
   } = useChatStream({ sessionId: isNew ? null : id ?? null, game: gameId });
 
   // Phase 04 — server-side cancel for the in-flight turn. Pairs the FE-side
@@ -259,6 +259,22 @@ export function ChatThreadPage() {
     }
     prevStatusRef.current = status;
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Zombie-stream reconciliation. If the in-flight turn is already persisted
+  // server-side (its row id matches our streamTurnId) but our stream entry is
+  // still showing it as in-flight or stalled — a dead socket never delivered
+  // `done` — drop the stale entry and re-sync the committed answer from the DB.
+  // Without this the user sees a frozen spinner / duplicate ghost bubble next to
+  // the real answer. Gated on the turnId match so a freshly-started turn (not yet
+  // persisted) is never reset out from under itself.
+  useEffect(() => {
+    if (!session || !streamTurnId) return;
+    if (status !== 'loading' && status !== 'streaming' && status !== 'disconnected') return;
+    const persisted = session.turns.find((t) => t.id === streamTurnId && t.role === 'assistant');
+    if (!persisted) return;
+    resetStream();
+    setCommittedMessages(sessionTurnsToMessages(session.turns));
+  }, [session, streamTurnId, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = useCallback(() => {
     const text = composerValue.trim();

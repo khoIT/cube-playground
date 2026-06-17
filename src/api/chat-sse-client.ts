@@ -174,6 +174,17 @@ export interface SseDone extends SseEventBase {
   data: Record<string, never>;
 }
 
+/**
+ * Liveness heartbeat from the server, emitted on a fixed interval while a turn
+ * streams. The reducer ignores it; the dispatch loop only uses its arrival to
+ * reset the stall watchdog so a slow-but-alive turn isn't mistaken for a dead
+ * socket.
+ */
+export interface SsePing extends SseEventBase {
+  type: 'ping';
+  data: Record<string, never>;
+}
+
 export interface SseCompactWarning extends SseEventBase {
   type: 'compact_warning';
   data: { from: string; to: string; summary: string };
@@ -236,6 +247,7 @@ export type SseEvent =
   | SseResult
   | SseError
   | SseDone
+  | SsePing
   | SseCompactWarning
   | SseTurnStarted
   | SseTurnAborted

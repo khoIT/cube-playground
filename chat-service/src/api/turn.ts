@@ -49,6 +49,10 @@ interface TurnRouteOptions {
   db: Database.Database;
 }
 
+// Heartbeat cadence while a turn streams. Comfortably shorter than the client's
+// stall watchdog so a healthy turn always lands ≥2 pings before it would trip.
+const PING_INTERVAL_MS = 20_000;
+
 const TurnBodySchema = z.object({
   session_id: z.string().nullable().optional(),
   owner_id: z.string().min(1),
@@ -167,10 +171,25 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // Verifies where turn latency goes (compose / meta / cache / LLM / persist).
     const timer = createTurnTimer(turnId);
 
+    // Tool-call start times, keyed by tool_use id, so tool_result can report
+    // real wall-clock latency. The SDK user-message carrying tool_result has no
+    // timing, so sse-stream emits ms:0; we pair it with the earlier tool_call
+    // here to stamp the true duration on the live chip.
+    const toolCallStartMs = new Map<string, number>();
+
     // Helper: write an SSE event, mirror into the registry's ring buffer.
     function emit(event: SseEvent): void {
-      registry.append(turnId, event);
-      writeSseEvent(stream, event);
+      let outEvent = event;
+      if (event.type === 'tool_call') {
+        toolCallStartMs.set(event.data.id, Date.now());
+      } else if (event.type === 'tool_result' && event.data.ms === 0) {
+        const startedMs = toolCallStartMs.get(event.data.id);
+        if (startedMs !== undefined) {
+          outEvent = { ...event, data: { ...event.data, ms: Date.now() - startedMs } };
+        }
+      }
+      registry.append(turnId, outEvent);
+      writeSseEvent(stream, outEvent);
     }
 
     // --- 5. Create session if needed ---
@@ -305,6 +324,9 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     // same doubling (they fan out into many sequential cube queries and were
     // routinely killed mid-analysis). 0 disables the timeout entirely.
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    // Liveness heartbeat handle — armed once the live-LLM stream starts, cleared
+    // in the finally before the stream closes (writing to a closed stream throws).
+    let pingTimer: ReturnType<typeof setInterval> | null = null;
     const effectiveTimeoutMs =
       researchModeEnabled || isHeavyAnalysisQuestion(body.message)
         ? config.chatTurnTimeoutMs * 2
@@ -444,6 +466,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     });
 
     try {
+      // Heartbeat: a periodic ping keeps proxy hops from idle-closing the SSE
+      // connection and lets the client's stall watchdog distinguish a slow-but-
+      // alive turn from a dead socket (no pings → watchdog trips → reconnect).
+      // Fans out to replay listeners via the registry, so refreshed clients get
+      // it too. Cleared in the finally before stream.end().
+      pingTimer = setInterval(() => emit({ type: 'ping', data: {} }), PING_INTERVAL_MS);
+
       let sawFirstEvent = false;
       for await (const event of claudeRunner.run({
         sessionId,
@@ -785,6 +814,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       if (timeoutHandle) {
         clearTimeout(timeoutHandle);
         timeoutHandle = null;
+      }
+      // Stop the heartbeat before the stream closes — a ping written to a
+      // closed stream would throw.
+      if (pingTimer) {
+        clearInterval(pingTimer);
+        pingTimer = null;
       }
       // Fire-and-forget Langfuse flush — must not delay SSE close or throw.
       // The Langfuse SDK queues internally; a missed flush is bounded loss.

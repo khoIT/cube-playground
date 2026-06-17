@@ -136,6 +136,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     sendTurn,
     cancel,
     clearStreamBuffers,
+    resetStream,
   } = useChatStream({ sessionId, game: gameId });
 
   const buildStreamingSections = (): AssistantSection[] => {
@@ -181,6 +182,20 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     }
     prevStatusRef.current = status;
   }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Zombie-stream reconciliation (mirrors chat-thread-page). If the in-flight
+  // turn is already persisted server-side but our stream entry still shows it
+  // in-flight/stalled (dead socket, no `done`), drop the stale entry and re-sync
+  // the committed answer from the DB. Gated on the turnId match so a freshly-
+  // started turn isn't reset before it persists.
+  useEffect(() => {
+    if (!session || !streamTurnId) return;
+    if (status !== 'loading' && status !== 'streaming' && status !== 'disconnected') return;
+    const persisted = session.turns.find((t) => t.id === streamTurnId && t.role === 'assistant');
+    if (!persisted) return;
+    resetStream();
+    setCommittedMessages(turnsToMessages(session.turns));
+  }, [session, streamTurnId, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Phase 03 — `/forget` support inside the side-panel composer. Shares the
   // GET/DELETE focus client with the chip + Settings.

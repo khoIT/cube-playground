@@ -110,6 +110,13 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     useChatStreamStore.getState().clearBuffers(liveSessionIdRef.current);
   }, []);
 
+  // Wipe the live entry back to idle. Used to reconcile a zombie stream whose
+  // turn already finished server-side (a dead socket never delivered `done`),
+  // so the stale spinner/ghost bubble clears once the DB shows it complete.
+  const resetStream = useCallback(() => {
+    useChatStreamStore.getState().reset(liveSessionIdRef.current);
+  }, []);
+
   // Re-fires session-changed event so useChatSession / rails refetch persisted
   // history. Preserved from the legacy hook for the "Reconnect" CTA.
   const reconnect = useCallback(async () => {
@@ -152,5 +159,6 @@ export function useChatStream({ sessionId, game }: UseChatStreamOptions) {
     cancel,
     reconnect,
     clearStreamBuffers,
+    resetStream,
   };
 }

@@ -45,6 +45,14 @@ export type {
 
 const NEW_SESSION_KEY = '__new__';
 
+// Stall watchdog: if no SSE event (token, tool, thinking, or server `ping`
+// heartbeat) arrives within this window, treat the connection as dead and flip
+// to `disconnected` so the spinner stops and the reconnect banner shows. Longer
+// than the server's 20s heartbeat so a slow-but-alive turn never trips it; far
+// shorter than the hard per-turn timeout so a genuinely dead socket recovers
+// quickly instead of spinning forever.
+const STALL_TIMEOUT_MS = 50_000;
+
 function keyOf(sessionId: string | null): string {
   return sessionId ?? NEW_SESSION_KEY;
 }
@@ -228,6 +236,34 @@ async function runDispatchLoop(
   // new ids so future subscribers find the same entry.
   let currentSessionId: string | null = initialSessionId;
 
+  // Stall watchdog. Rearmed on every received event; if it fires, the socket
+  // has gone silent past STALL_TIMEOUT_MS — mark the entry disconnected and
+  // abort the fetch so the for-await unblocks and the loop unwinds cleanly.
+  let watchdog: ReturnType<typeof setTimeout> | null = null;
+  function disarmWatchdog(): void {
+    if (watchdog) {
+      clearTimeout(watchdog);
+      watchdog = null;
+    }
+  }
+  function armWatchdog(): void {
+    disarmWatchdog();
+    watchdog = setTimeout(() => {
+      set((s) => {
+        const cur = s.streams.get(key);
+        if (!cur) return s;
+        // Only a still-streaming turn can stall. Terminal states stay put.
+        if (cur.status !== 'loading' && cur.status !== 'streaming') return s;
+        const next = new Map(s.streams);
+        next.set(key, { ...cur, status: 'disconnected' });
+        return { streams: next };
+      });
+      // Abort the underlying fetch so the for-await loop ends (AbortError is
+      // swallowed below); status is already set to disconnected above.
+      get().streams.get(key)?.cancel?.();
+    }, STALL_TIMEOUT_MS);
+  }
+
   function applyEvent(event: SseEvent): void {
     set((s) => {
       const cur = s.streams.get(key);
@@ -251,7 +287,9 @@ async function runDispatchLoop(
   }
 
   try {
+    armWatchdog();
     for await (const event of stream) {
+      armWatchdog();
       applyEvent(event);
 
       if (event.type === 'session_created') {
@@ -295,6 +333,7 @@ async function runDispatchLoop(
       return { streams: next };
     });
   } finally {
+    disarmWatchdog();
     // Strip the cancel handle once the loop exits (subsequent cancel() calls
     // become no-ops).
     set((s) => {
