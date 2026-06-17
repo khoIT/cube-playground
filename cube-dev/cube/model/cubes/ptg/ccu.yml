@@ -1,0 +1,68 @@
+cubes:
+  - name: ccu
+    sql: >
+      SELECT bucket AS online_time, log_date, SUM(server_online) AS concurrent
+      FROM (
+        SELECT date_add('minute',
+                 CAST(floor(extract(minute FROM logdatetime_timezone_utc_7) / 5) * 5 AS INTEGER),
+                 date_trunc('hour', logdatetime_timezone_utc_7)) AS bucket,
+               log_date, serverid, MAX(numberuseronline) AS server_online
+        FROM etl_ingame_ccu
+        GROUP BY date_add('minute',
+                   CAST(floor(extract(minute FROM logdatetime_timezone_utc_7) / 5) * 5 AS INTEGER),
+                   date_trunc('hour', logdatetime_timezone_utc_7)), log_date, serverid
+      ) per_server_5min
+      GROUP BY bucket, log_date
+    title: PTG — Concurrent Users (system-wide CCU, one row per 5-minute bucket)
+    description: >
+      One row per 5-minute bucket = total players online across all servers in
+      that window. The two servers sample every ~5 min on UNSYNCHRONIZED
+      timestamps (~2.5 min apart), so a plain GROUP BY raw timestamp groups one
+      server per row and under-counts the total. We align servers into a 5-minute
+      bucket (tz-preserving via date_trunc/extract, NOT epoch round-trip, to
+      avoid day-shift — both servers always present, verified), take MAX per
+      server in the bucket, then SUM across servers. Bucket time is GMT+7 (source
+      logdatetime_timezone_utc_7). Query online_time at granularity:hour for
+      hourly peak/avg/low. CCU is concurrency, NOT DAU. For per-server breakdown
+      use ccu_by_server.
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CAST({CUBE}.online_time AS VARCHAR)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: online_time
+        sql: online_time
+        type: time
+        description: 5-minute bucket (GMT+7); unique after system-wide aggregation.
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition date (DATE) — bound large-range queries by this.
+
+    measures:
+      - name: peak
+        sql: concurrent
+        type: max
+        description: Peak concurrent users (PCU) — max sample in the window/bucket.
+
+      - name: low
+        sql: concurrent
+        type: min
+        description: Lowest concurrent users (LCU) — min sample in the window/bucket.
+
+      - name: avg
+        sql: concurrent
+        type: avg
+        description: Average concurrent users (ACU) — mean of samples in the window/bucket.
+
+      - name: sample_count
+        sql: concurrent
+        type: count
+        description: Number of CCU samples covered (one per system snapshot).

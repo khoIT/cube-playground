@@ -1,0 +1,81 @@
+cubes:
+  - name: ccu_by_server
+    sql: >
+      SELECT online_time, log_date, server,
+             MAX(online) AS server_online,
+             MAX(vng_online_num) AS vng_online,
+             MAX(cloud_online_num) AS cloud_online,
+             MAX(other_online_num) AS other_online
+      FROM etl_ingame_ccu
+      GROUP BY online_time, log_date, server
+    title: JUS VN — Concurrent Users by Server + Channel (CCU breakdown)
+    description: >
+      One row per (online_time, server) = players online on that server at that
+      ~30-second sample, with the login-channel split (vng / cloud / other;
+      online = vng+cloud+other, verified). MAX collapses the source's
+      null-complementary row pair per server. Use for per-server load balancing
+      (hot vs cold shards, merge/split decisions) and channel mix. For the
+      single system-wide CCU number use the ccu cube.
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(CAST({CUBE}.online_time AS VARCHAR), '__', {CUBE}.server)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: online_time
+        sql: online_time
+        type: time
+
+      - name: log_date
+        sql: log_date
+        type: time
+
+      - name: server
+        sql: server
+        type: string
+        description: Game server / shard id.
+
+    measures:
+      - name: server_peak
+        sql: server_online
+        type: max
+        description: Peak concurrent on this server in the window.
+
+      - name: server_avg
+        sql: server_online
+        type: avg
+        description: Average concurrent on this server in the window.
+
+      - name: server_low
+        sql: server_online
+        type: min
+        description: Lowest concurrent on this server in the window.
+
+      - name: vng_peak
+        sql: vng_online
+        type: max
+        description: Peak VNG-account concurrent.
+
+      - name: cloud_peak
+        sql: cloud_online
+        type: max
+        description: Peak cloud-gaming concurrent (currently 0 — channel not live in jus).
+
+      - name: other_peak
+        sql: other_online
+        type: max
+        description: Peak other-channel concurrent.
+
+      - name: sample_count
+        sql: server_online
+        type: count
+
+      - name: distinct_servers
+        sql: server
+        type: count_distinct_approx
+        description: Number of distinct servers seen in the window.

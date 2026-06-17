@@ -83,19 +83,19 @@ flipping it (cfm's "single-character" note was factually wrong — `user_roles`
 proves multi-role — so flipping it was justified; the concurrency notes are
 correct, so they stay).
 
-## Current snapshot (2026-06-17, local workspace — after role-measure sweep)
+## Current snapshot (2026-06-17, local workspace — after role-measure + CCU sweeps)
 
 | game | certified | gap | n/a |
 |---|---|---|---|
 | cfm_vn | 63 | 0 | 10 |
-| ptg | 54 | 19 | 0 |
-| ballistar | 52 | 21 | 0 |
-| jus_vn | 52 | 21 | 0 |
-| muaw | 52 | 21 | 0 |
-| pubg | 52 | 21 | 0 |
-| cros | 47 | 26 | 0 |
-| tf | 45 | 28 | 0 |
-| **total** | **417** | **157** | **10** |
+| ptg | 58 | 15 | 0 |
+| jus_vn | 56 | 17 | 0 |
+| ballistar | 52 | 17 | 4 |
+| muaw | 52 | 17 | 4 |
+| pubg | 52 | 17 | 4 |
+| cros | 47 | 22 | 4 |
+| tf | 45 | 24 | 4 |
+| **total** | **425** | **129** | **30** |
 
 `ready` is 0 everywhere: because trust is global, the cfm pass already
 certified every globally-resolvable metric for all games. Remaining drafts are
@@ -111,6 +111,19 @@ globally `certified`, so once the cube resolved the refs they un-downgraded
 on display. Verified real on jus_vn: 190,711 active / 55,284 new roles (last
 30d), distinct, with role grain genuinely above user grain (2.13 roles/user
 in-window).
+
+The 4 concurrency metrics (`ccu`/`acu`/`lcu`/`pcu`, +8 certified, 417→425)
+moved out of GAP for jus_vn + ptg — the two games that actually have an
+`etl_ingame_ccu` sampling source — via a new per-game `ccu` cube (system-wide,
+backs the metrics) + `ccu_by_server` cube (per-server load + jus channel mix).
+Refs repointed `mf_users.*`→`ccu.*`; `ccu`→`ccu.avg` (headline = series mean).
+The other 5 games + cfm marked `applicable:false` (verified no `etl_ingame_ccu`)
+→ 20 displays moved GAP→N/A. **Modeling gotcha worth remembering:** servers
+sample on UNSYNCHRONIZED timestamps, so a naive `GROUP BY raw_timestamp` groups
+≈one server per row and under-counts system CCU (caught it: avg was 11× too low,
+sample_count implausibly high). Fix = align servers into a time bucket (1-min
+jus, 5-min ptg, tz-preserving) before summing across servers. Verified jus_vn
+2026-06-15 peak 24,683 / avg 10,617; ptg peak 150,377 / avg 97,095.
 
 ### Verified source reality (2026-06-17) — the "port from cfm" assumption was wrong
 
@@ -146,14 +159,16 @@ So these are GAP-blocked-on-source, not portable.
 | `recharge` | paying_rate, paying_users | tf only | tf recharge-cube gap |
 | `mf_users` paying_role/new_paying_role | paying_role, new_paying_role | all | build role-grain recharge from `etl_ingame_recharge` (has role_id); best value on multi-role games (jus_vn ≈2.13 roles/user in-window, 7 servers; cfm 1.03/1 server) |
 | `funnel` (cvr_*) | cvr_install, cvr_register, cvr_login_form, cvr_cdn_download | all | **blocked**: no funnel cube anywhere + AppsFlyer feed not ingested — new source + cube |
-| `mf_users` concurrency | acu, ccu, lcu, pcu | all | **mostly N/A**, but **jus_vn + ptg have `etl_ingame_ccu`** (raw concurrent-user samples) → buildable there with CCU sampling semantics; cfm + the other 5 have no CCU source → N/A |
+| `ccu` concurrency | acu, ccu, lcu, pcu | jus_vn, ptg | ✅ **DONE 2026-06-17** — new per-game `ccu` + `ccu_by_server` cubes on `etl_ingame_ccu`; certified for jus_vn+ptg. cfm + other 5 → **N/A** (verified no `etl_ingame_ccu`) |
 
-**Reality after this pass:** the one clean cross-game sweep (role measures) is
-done. The remaining 157 gaps are NOT ports — they need per-game source
+**Reality after these passes:** two sweeps done — role measures (all 7) and CCU
+(jus_vn/ptg). The remaining 129 gaps are NOT ports — they need per-game source
 ingestion or per-game cube modeling. The next real opportunities are narrow,
 not broad: (a) role-grain recharge → paying_role/new_paying_role on the
-multi-role games; (b) jus_vn/ptg concurrency from `etl_ingame_ccu`;
-(c) jus_vn/ptg money_flow as bespoke per-game cubes.
+multi-role games (build from `etl_ingame_recharge.role_id`); (b) jus_vn/ptg
+money_flow as bespoke per-game cubes (`etl_ingame_money_flow`, own enums);
+(c) per-game `active_daily` online-time/trailing completeness. Funnel cvr_*
+stays blocked (no cube + no AppsFlyer feed).
 
 ## Worked examples from the cfm pass
 

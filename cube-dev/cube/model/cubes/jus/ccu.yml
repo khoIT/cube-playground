@@ -1,0 +1,65 @@
+cubes:
+  - name: ccu
+    sql: >
+      SELECT bucket AS online_time, log_date, SUM(server_online) AS concurrent
+      FROM (
+        SELECT date_trunc('minute', online_time) AS bucket, log_date, server,
+               MAX(online) AS server_online
+        FROM etl_ingame_ccu
+        GROUP BY date_trunc('minute', online_time), log_date, server
+      ) per_server_minute
+      GROUP BY bucket, log_date
+    title: JUS VN — Concurrent Users (system-wide CCU, one row per minute)
+    description: >
+      One row per minute = total players online across all servers in that
+      minute. Servers sample independently every ~30s on UNSYNCHRONIZED
+      timestamps, so a plain GROUP BY raw timestamp groups ≈one server per row
+      and badly under-counts the system total. We align servers into a 1-minute
+      bucket first (all 14 servers report every minute — verified), take MAX per
+      server in the minute (also collapses the source's two null-complementary
+      rows: one carries `online` + cloud_online_num, the other vng_online_num +
+      other_online_num, with online = vng+cloud+other — verified), then SUM
+      across servers. Query online_time at granularity:hour for hourly
+      peak/avg/low. CCU is concurrency, NOT DAU — a player online all day is in
+      every sample. For per-server / channel breakdown use ccu_by_server.
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CAST({CUBE}.online_time AS VARCHAR)"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: online_time
+        sql: online_time
+        type: time
+        description: Minute bucket (tz-aware UTC); unique after system-wide aggregation.
+
+      - name: log_date
+        sql: log_date
+        type: time
+        description: Partition date (DATE) — bound large-range queries by this.
+
+    measures:
+      - name: peak
+        sql: concurrent
+        type: max
+        description: Peak concurrent users (PCU) — max sample in the window/bucket.
+
+      - name: low
+        sql: concurrent
+        type: min
+        description: Lowest concurrent users (LCU) — min sample in the window/bucket.
+
+      - name: avg
+        sql: concurrent
+        type: avg
+        description: Average concurrent users (ACU) — mean of samples in the window/bucket.
+
+      - name: sample_count
+        sql: concurrent
+        type: count
+        description: Number of CCU samples covered (one per system snapshot).

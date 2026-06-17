@@ -1,25 +1,19 @@
 id: ccu
 label: CCU
 description: Concurrent users — distinct users online at a measurement timestamp.
-synonyms: [concurrent_users]
+synonyms:
+  - concurrent_users
 tier: 2
 domain: concurrency
 owner: data-platform@vng
-trust: draft
+trust: certified
 formula:
   type: measure
-  ref: mf_users.ccu
-format: compact
+  ref: ccu.avg
 game_compatibility:
-  required_cubes: [mf_users]
-meta:
-  applicability:
-    - game: cfm_vn
-      applicable: false
-      at: "2026-06-10T00:00:00.000Z"
-      note: >-
-        cfm_vn has no concurrent-user sampling pipeline — there is no CCU sample
-        source cube in the model, so concurrency cannot be computed.
+  required_cubes:
+    - ccu
+format: compact
 anomaly:
   state: low
   deltaPct: -4.1
@@ -27,8 +21,65 @@ anomaly:
   breakdowns:
     country:
       - label: VN
-        deltaPct: -6.0
+        deltaPct: -6
       - label: TH
         deltaPct: -2.2
       - label: ID
-        deltaPct: -1.0
+        deltaPct: -1
+meta:
+  applicability:
+    - game: jus_vn
+      applicable: true
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        etl_ingame_ccu sampling source exists (~30s, 14 servers); the ccu cube aligns servers into a
+        1-min bucket and sums system-wide concurrency. Headline CCU = average of the per-bucket
+        system series over the window.
+    - game: ptg
+      applicable: true
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        etl_ingame_ccu sampling source exists (~5min, 2 servers); the ccu cube aligns servers into a
+        5-min bucket and sums system-wide concurrency. Headline CCU = average of the per-bucket
+        system series over the window.
+    - game: cfm_vn
+      applicable: false
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        no etl_ingame_ccu sampling source in this game's schema (verified via information_schema
+        2026-06-17) — concurrency cannot be computed.
+    - game: ballistar
+      applicable: false
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        no etl_ingame_ccu sampling source in this game's schema (verified via information_schema
+        2026-06-17) — concurrency cannot be computed.
+    - game: cros
+      applicable: false
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        no etl_ingame_ccu sampling source in this game's schema (verified via information_schema
+        2026-06-17) — concurrency cannot be computed.
+    - game: tf
+      applicable: false
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        no etl_ingame_ccu sampling source in this game's schema (verified via information_schema
+        2026-06-17) — concurrency cannot be computed.
+    - game: muaw
+      applicable: false
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        no etl_ingame_ccu sampling source in this game's schema (verified via information_schema
+        2026-06-17) — concurrency cannot be computed.
+    - game: pubg
+      applicable: false
+      at: '2026-06-17T00:00:00.000Z'
+      note: >-
+        no etl_ingame_ccu sampling source in this game's schema (verified via information_schema
+        2026-06-17) — concurrency cannot be computed.
+  trust_history:
+    - trust: certified
+      at: '2026-06-17T07:24:33.280Z'
+      actor: lap16299@vng.com.vn
+      note: refs resolve vs jus_vn /meta; metric-trust audit rollout
