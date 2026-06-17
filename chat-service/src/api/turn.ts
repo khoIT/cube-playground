@@ -382,8 +382,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       emit({ type: 'chart', data: chart });
     });
     let clarifyEmitted = false;
+    // Last disambig_options frame the turn emitted, kept so it can be persisted
+    // on the assistant row and re-rendered as choice chips when the session
+    // reloads (otherwise the chips are live-only and vanish on refresh).
+    let lastDisambig: Extract<SseEvent, { type: 'disambig_options' }>['data'] | null = null;
     sseEmitter.on('disambig_options', (data: Extract<SseEvent, { type: 'disambig_options' }>['data']) => {
       clarifyEmitted = true;
+      lastDisambig = data;
       emit({ type: 'disambig_options', data });
     });
 
@@ -657,6 +662,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         systemPromptText: systemPrompt,
         model: resolvedModel,
         llmAuthLabel,
+        disambigJson: lastDisambig ? JSON.stringify(lastDisambig) : undefined,
         startedAt,
         endedAt,
       });

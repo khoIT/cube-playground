@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useReducer } from 'react';
 import type { ChartArtifact } from '../../../api/chat-sse-client';
+import type { DisambigOptionsPayload } from '../../../stores/chat-stream-store-actions';
 import { chatHeaders } from '../../../api/chat-auth-headers';
 import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 
@@ -48,6 +49,9 @@ export interface ChatTurn {
   cacheFreshness?: 'refreshed' | 'stale' | null;
   /** Turn id of the original cached turn this was replayed from (provenance). */
   originalTurnId?: string | null;
+  /** Choice-chip set this turn offered (offer_choices / disambiguate_query),
+   *  persisted server-side so the chips re-render on reload. Null when none. */
+  disambig?: DisambigOptionsPayload | null;
 }
 
 export interface ChatSession {

@@ -30,8 +30,12 @@ export interface AssistantChatMessage {
   cacheHit?: boolean;
   /** Freshness of cached payload — set only when cacheHit=true. */
   cacheFreshness?: 'refreshed' | 'stale' | null;
-  /** Disambig chips to render below this message — set only on the live turn. */
+  /** Disambig chips to render below this message. Set on the live turn and,
+   *  once persisted, re-rendered on reload. */
   disambigOptions?: DisambigOptionsPayload | null;
+  /** pinText of the option the user already picked (matched from the following
+   *  user turn on a reloaded session). Highlights that chip; all stay clickable. */
+  disambigSelectedPinText?: string | null;
 }
 
 export type ChatMessage = UserChatMessage | AssistantChatMessage;
@@ -114,6 +118,7 @@ export function ChatMessageList({ messages, streaming, onFollowupPick, onDisambi
             showFollowups={showFollowups}
             onFollowupPick={onFollowupPick}
             disambigOptions={msg.disambigOptions}
+            disambigSelectedPinText={msg.disambigSelectedPinText}
             onDisambigPick={onDisambigPick}
           />
         );

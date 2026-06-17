@@ -336,6 +336,12 @@ export interface AppendTurnParams {
   model?: string;
   /** Auth lane that served the turn ('primary'|'stg'|'backup'|'subscription'). */
   llmAuthLabel?: string | null;
+  /**
+   * Serialized {slot, prompt, options} of the disambig_options SSE frame this
+   * turn emitted (offer_choices / disambiguate_query). Lets a reloaded session
+   * re-render the clickable choice chips. Undefined when no choices were offered.
+   */
+  disambigJson?: string;
   startedAt: number;
   endedAt?: number;
 }
@@ -356,9 +362,9 @@ export function appendTurn(
         cache_creation_tokens, cache_read_tokens,
         cache_hit, original_turn_id, cache_freshness,
         skill, system_prompt_text, model,
-        stop_reason, llm_auth_label,
+        stop_reason, llm_auth_label, disambig_json,
         started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -383,6 +389,7 @@ export function appendTurn(
     params.model ?? null,
     params.stopReason ?? null,
     params.llmAuthLabel ?? null,
+    params.disambigJson ?? null,
     params.startedAt,
     params.endedAt ?? null,
   );

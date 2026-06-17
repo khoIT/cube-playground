@@ -49,12 +49,12 @@ import { useSessionFocus } from './hooks/use-session-focus';
 // Helper — convert persisted session turns → ChatMessage[]
 // ---------------------------------------------------------------------------
 
-function sessionTurnsToMessages(
+export function sessionTurnsToMessages(
   turns: ReturnType<typeof useChatSession>['session'] extends null
     ? never
     : ReturnType<typeof useChatSession>['session']['turns'],
 ): ChatMessage[] {
-  return turns.map((t) => {
+  return turns.map((t, idx, arr) => {
     if (t.role === 'user') return { role: 'user', id: t.id, text: t.text, ts: t.createdAt };
     const sections: AssistantSection[] = [];
     // Section order matches buildStreamingSections so layout is stable across
@@ -80,6 +80,15 @@ function sessionTurnsToMessages(
       if (embeddedChartIds.has(ch.id)) continue;
       sections.push({ type: 'chart', artifact: ch });
     }
+    // The persisted choice-chip set, plus which option (if any) was already
+    // picked — inferred from the following user turn whose text equals an
+    // option's pinText (a chip click sends pinText verbatim as the next turn).
+    const disambig = t.disambig ?? null;
+    const nextTurn = arr[idx + 1];
+    const disambigSelectedPinText =
+      disambig && nextTurn?.role === 'user'
+        ? disambig.options.find((o) => o.pinText === nextTurn.text)?.pinText ?? null
+        : null;
     return {
       role: 'assistant',
       id: t.id,
@@ -87,6 +96,8 @@ function sessionTurnsToMessages(
       ts: t.createdAt,
       cacheHit: t.cacheHit ?? false,
       cacheFreshness: t.cacheFreshness ?? null,
+      disambigOptions: disambig,
+      disambigSelectedPinText,
     };
   });
 }

@@ -229,6 +229,43 @@ describe('chatStore', () => {
       expect(turns[0].reasoning_json).toBe(reasoning);
     });
 
+    it('round-trips disambigJson on the assistant row (choice chips survive reload)', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const disambig = JSON.stringify({
+        slot: 'choice',
+        prompt: 'Pick a direction',
+        options: [
+          { label: 'Revenue trend', pinText: 'Show daily revenue last 90 days.' },
+          { label: 'IAP vs Web', pinText: 'Compare IAP vs Web revenue last 30 days.' },
+        ],
+      });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'Which direction?',
+        disambigJson: disambig,
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].disambig_json).toBe(disambig);
+      expect(JSON.parse(turns[0].disambig_json!).options).toHaveLength(2);
+    });
+
+    it('leaves disambig_json NULL when no choices were offered', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'plain answer',
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+      expect(chatStore.listTurns(db, session.id)[0].disambig_json).toBeNull();
+    });
+
     it('appends and lists turns in order', () => {
       const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
 

@@ -429,6 +429,9 @@ interface AssistantMessageProps {
    * for the rest of the session via kv_cache memory.
    */
   disambigOptions?: DisambigOptionsPayload | null;
+  /** pinText of the option already picked on a reloaded turn — highlights that
+   *  chip while keeping all of them clickable. */
+  disambigSelectedPinText?: string | null;
   /** Pick handler for a disambig chip — sends pinText as the next user turn. */
   onDisambigPick?: (pinText: string) => void;
 }
@@ -475,6 +478,7 @@ function AssistantMessageImpl({
   showFollowups,
   onFollowupPick,
   disambigOptions,
+  disambigSelectedPinText,
   onDisambigPick,
 }: AssistantMessageProps) {
   // Merge tool_result into its matching tool_call so we render one chip per call.
@@ -560,6 +564,7 @@ function AssistantMessageImpl({
             prompt={disambigOptions.prompt}
             slot={disambigOptions.slot}
             options={disambigOptions.options}
+            selectedPinText={disambigSelectedPinText}
             onPick={(pinText) => onDisambigPick?.(pinText)}
           />
         ) : null}

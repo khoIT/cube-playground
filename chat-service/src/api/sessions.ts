@@ -14,7 +14,7 @@ import * as chatStore from '../db/chat-store.js';
 import { canAccessOwnedResource } from './debug-shared.js';
 import { writeChatSnapshot } from '../db/snapshot-store.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
-import type { ChatTurnRow, QueryArtifact, ChartArtifact } from '../types.js';
+import type { ChatTurnRow, QueryArtifact, ChartArtifact, DisambigOptionsData } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Row → FE-DTO transform
@@ -43,6 +43,8 @@ interface TurnDto {
   cacheFreshness?: 'refreshed' | 'stale' | null;
   /** Turn id of the original cached turn this replayed from (provenance). */
   originalTurnId?: string | null;
+  /** Choice-chip set this turn offered, re-rendered on reload. Null when none. */
+  disambig?: DisambigOptionsData | null;
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -72,6 +74,10 @@ function rowToTurn(row: ChatTurnRow): TurnDto {
     cacheHit,
     cacheFreshness: cacheHit ? row.cache_freshness ?? null : null,
     originalTurnId: cacheHit ? row.original_turn_id ?? null : null,
+    disambig:
+      row.role === 'assistant'
+        ? safeParseJson<DisambigOptionsData | null>(row.disambig_json ?? null, null)
+        : null,
   };
 }
 

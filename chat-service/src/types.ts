@@ -211,6 +211,13 @@ export type SseEvent =
       data: { sessionId: string };
     };
 
+/**
+ * Payload of a `disambig_options` SSE frame — the clickable choice-chip set a
+ * turn offers. Extracted as a named type so the persist/serialize path can
+ * reuse the exact shape the runner emits (no drift between live + reloaded).
+ */
+export type DisambigOptionsData = Extract<SseEvent, { type: 'disambig_options' }>['data'];
+
 // ---------------------------------------------------------------------------
 // Tool execution context — injected per request
 // ---------------------------------------------------------------------------
@@ -329,6 +336,14 @@ export interface ChatTurnRow {
    * legacy turns and cache-hit replays (no LLM call made).
    */
   llm_auth_label?: string | null;
+  /**
+   * Serialized {slot, prompt, options} of the disambig_options SSE frame this
+   * turn emitted (offer_choices or disambiguate_query). Persisted so a reloaded
+   * session can re-render the clickable choice chips instead of dropping them —
+   * without it the chips are live-only and the prose that references them
+   * ("the chips above…") dangles on reload. NULL for turns that emitted none.
+   */
+  disambig_json?: string | null;
 }
 
 // ---------------------------------------------------------------------------

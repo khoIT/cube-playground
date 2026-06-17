@@ -23,6 +23,13 @@ interface Props {
   prompt: string;
   slot: 'metric' | 'dimension' | 'timeRange' | 'choice';
   options: ReadonlyArray<DisambigOption>;
+  /**
+   * pinText of the option the user already picked (matched from the following
+   * user turn when a session reloads). The matching chip renders in the
+   * selected (filled) state but stays clickable so the user can re-pick a
+   * different option — same affordance as the live turn.
+   */
+  selectedPinText?: string | null;
   onPick: (pinText: string) => void;
 }
 
@@ -42,9 +49,15 @@ const CHOICE_CHIP_CSS = `
   color: var(--text-on-brand);
   outline: none;
 }
+/* Already-picked choice chip: rests in the filled (solid brand) state so the
+   prior selection reads at a glance, while remaining clickable to re-pick. */
+.${CHOICE_CHIP_CLASS}--selected {
+  background: var(--brand);
+  color: var(--text-on-brand);
+}
 `;
 
-export function DisambigChips({ prompt, slot, options, onPick }: Props) {
+export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }: Props) {
   if (options.length === 0) return null;
 
   const isChoice = slot === 'choice';
@@ -63,53 +76,70 @@ export function DisambigChips({ prompt, slot, options, onPick }: Props) {
         {prompt}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {options.map((opt, idx) => (
-          <button
-            key={`${opt.label}-${idx}`}
-            type="button"
-            data-chip-label={opt.label}
-            className={isChoice ? CHOICE_CHIP_CLASS : undefined}
-            onClick={() => {
-              postChatAudit({
-                kind: 'disambig_chip_picked',
-                detail: { slot, label: opt.label },
-              });
-              onPick(opt.pinText);
-            }}
-            style={
-              isChoice
-                ? {
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 13px',
-                    borderRadius: 999,
-                    cursor: 'pointer',
-                    fontFamily: T.fSans,
-                    fontSize: 12.5,
-                    fontWeight: 600,
-                    transition: 'background 0.12s ease, color 0.12s ease',
-                  }
-                : {
-                    padding: '6px 12px',
-                    borderRadius: 999,
-                    border: `1px solid var(--shell-border-strong)`,
-                    background: 'var(--surface-raised)',
-                    color: 'var(--shell-text-emphasis)',
-                    cursor: 'pointer',
-                    fontFamily: T.fSans,
-                    fontSize: 12.5,
-                  }
-            }
-          >
-            {isChoice && (
-              <span aria-hidden style={{ fontSize: 11, opacity: 0.9 }}>
-                ▸
-              </span>
-            )}
-            {opt.label}
-          </button>
-        ))}
+        {options.map((opt, idx) => {
+          const isSelected = !!selectedPinText && opt.pinText === selectedPinText;
+          const choiceClass = isChoice
+            ? `${CHOICE_CHIP_CLASS}${isSelected ? ` ${CHOICE_CHIP_CLASS}--selected` : ''}`
+            : undefined;
+          // Neutral (engine-slot) selected chip: brand-tinted to echo the
+          // choice-chip selection without the solid fill the choice slot uses.
+          const neutralSelectedStyle = isSelected
+            ? {
+                border: '1px solid var(--brand)',
+                background: 'var(--brand-soft)',
+                color: 'var(--brand-hover)',
+              }
+            : {};
+          return (
+            <button
+              key={`${opt.label}-${idx}`}
+              type="button"
+              data-chip-label={opt.label}
+              aria-pressed={isSelected}
+              className={choiceClass}
+              onClick={() => {
+                postChatAudit({
+                  kind: 'disambig_chip_picked',
+                  detail: { slot, label: opt.label },
+                });
+                onPick(opt.pinText);
+              }}
+              style={
+                isChoice
+                  ? {
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '6px 13px',
+                      borderRadius: 999,
+                      cursor: 'pointer',
+                      fontFamily: T.fSans,
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      transition: 'background 0.12s ease, color 0.12s ease',
+                    }
+                  : {
+                      padding: '6px 12px',
+                      borderRadius: 999,
+                      border: `1px solid var(--shell-border-strong)`,
+                      background: 'var(--surface-raised)',
+                      color: 'var(--shell-text-emphasis)',
+                      cursor: 'pointer',
+                      fontFamily: T.fSans,
+                      fontSize: 12.5,
+                      ...neutralSelectedStyle,
+                    }
+              }
+            >
+              {isChoice && (
+                <span aria-hidden style={{ fontSize: 11, opacity: 0.9 }}>
+                  {isSelected ? '✓' : '▸'}
+                </span>
+              )}
+              {opt.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
