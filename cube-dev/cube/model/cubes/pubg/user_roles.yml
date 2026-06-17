@@ -153,6 +153,25 @@ cubes:
         type: count_distinct_approx
         sql: server_id
 
+      # Role-grain population counts keyed on the full (user, server, role)
+      # identity so the same role_id reused across servers/users is not merged.
+      # active_roles vs new_roles share SQL and differ only by the time
+      # dimension the query scopes them with: last_active_date counts roles
+      # active in the window, first_active_date counts roles created in it.
+      - name: active_roles
+        type: count_distinct_approx
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.server_id, '__', {CUBE}.role_id)"
+        description: >-
+          Distinct roles (user×server×role). Scope to a period via the
+          last_active_date time dimension to count roles active in that window.
+
+      - name: new_roles
+        type: count_distinct_approx
+        sql: "CONCAT({CUBE}.user_id, '__', {CUBE}.server_id, '__', {CUBE}.role_id)"
+        description: >-
+          Distinct roles by creation. Scope to a period via the first_active_date
+          time dimension to count roles first-active (created) in that window.
+
       - name: roles_revenue_vnd
         sql: ingame_total_recharge_value_vnd
         type: sum

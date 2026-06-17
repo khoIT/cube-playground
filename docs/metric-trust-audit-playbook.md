@@ -83,43 +83,77 @@ flipping it (cfm's "single-character" note was factually wrong — `user_roles`
 proves multi-role — so flipping it was justified; the concurrency notes are
 correct, so they stay).
 
-## Current snapshot (2026-06-17, local workspace)
+## Current snapshot (2026-06-17, local workspace — after role-measure sweep)
 
 | game | certified | gap | n/a |
 |---|---|---|---|
 | cfm_vn | 63 | 0 | 10 |
-| ptg | 52 | 21 | 0 |
-| ballistar | 50 | 22 | 1 |
-| jus_vn | 50 | 23 | 0 |
-| muaw | 50 | 23 | 0 |
-| pubg | 50 | 23 | 0 |
-| cros | 45 | 28 | 0 |
-| tf | 43 | 30 | 0 |
-| **total** | **403** | **170** | **11** |
+| ptg | 54 | 19 | 0 |
+| ballistar | 52 | 21 | 0 |
+| jus_vn | 52 | 21 | 0 |
+| muaw | 52 | 21 | 0 |
+| pubg | 52 | 21 | 0 |
+| cros | 47 | 26 | 0 |
+| tf | 45 | 28 | 0 |
+| **total** | **417** | **157** | **10** |
 
 `ready` is 0 everywhere: because trust is global, the cfm pass already
 certified every globally-resolvable metric for all games. Remaining drafts are
 GAP or N/A — all modeling work, nothing left to auto-promote until a cube is
 added.
 
-### Systematic gaps (the worklist) — same handful of cubes, repeated per game
+The `active_role` / `new_role` pair (+14 certified, prior snapshot 403→417)
+moved out of GAP for all 7 non-cfm games on 2026-06-17 by porting the
+`active_roles` / `new_roles` measures into every game's `user_roles` cube
+(`mf_ingame_roles` exists in all 8 schemas — confirmed via
+`information_schema.tables`). No PATCH was needed: the metrics were already
+globally `certified`, so once the cube resolved the refs they un-downgraded
+on display. Verified real on jus_vn: 190,711 active / 55,284 new roles (last
+30d), distinct, with role grain genuinely above user grain (2.13 roles/user
+in-window).
+
+### Verified source reality (2026-06-17) — the "port from cfm" assumption was wrong
+
+Before this pass the worklist assumed cfm's event cubes could be ported to the
+other games. An `information_schema.tables` check across all 8 game schemas in
+`game_integration` **falsifies that for three of the four**:
+
+- `etl_ingame_lotteryshoot` (gacha) → **cfm_vn only.**
+- `etl_ingame_newbietutorial` (tutorial) → **cfm_vn only.**
+- `etl_ingame_moneyflow` (the exact cfm table) → **cfm_vn only.** jus_vn and ptg
+  have a *differently named* cousin (`etl_ingame_money_flow`, underscore) with
+  its own schema + its own currency/reason enums — a per-game modeling project,
+  NOT a verbatim port. The cfm cube's `money_type` / `reason_base` / `reason_action`
+  CASE maps are CrossFire-specific and would mislabel any other game.
+- `mf_ingame_roles` (role grain) → **all 8 schemas** — the one genuinely
+  portable piece; done this pass.
+
+cfm_vn is uniquely deep-instrumented: 28 `etl_ingame_*` tables vs 4–11 for the
+rest. Porting a cube onto a table that doesn't exist in the target schema does
+NOT unblock the metric — the cube fails to introspect and the ref stays broken.
+So these are GAP-blocked-on-source, not portable.
+
+### Systematic gaps (the worklist) — corrected against verified table reality
 
 | Missing | Metrics | Games affected | Verdict |
 |---|---|---|---|
-| `etl_lottery_shoot` | gacha_pulls, gacha_players, gacha_diamond_cost | all but cfm | **port from cfm** (cfm has the cube) |
-| `etl_money_flow` | diamond_net_delta, diamond_spend_events, economy_spenders | all but cfm | **port from cfm** |
-| `etl_newbie_tutorial` | tutorial_*starters/completions/rate | all but cfm | **port from cfm** |
-| `user_roles` active/new_roles | active_role, new_role | all but cfm | **port from cfm** (added there 2026-06-17) |
+| `user_roles` active/new_roles | active_role, new_role | all but cfm | ✅ **DONE 2026-06-17** — measures added to all 7; resolve + display-certify |
+| `etl_lottery_shoot` | gacha_pulls, gacha_players, gacha_diamond_cost | all but cfm | **blocked: source absent** — `etl_ingame_lotteryshoot` is cfm-only; needs per-game gacha t-log ingestion, not a port |
+| `etl_newbie_tutorial` | tutorial_*starters/completions/rate | all but cfm | **blocked: source absent** — `etl_ingame_newbietutorial` is cfm-only |
+| `etl_money_flow` | diamond_net_delta, diamond_spend_events, economy_spenders | all but cfm | **blocked: source absent** for verbatim port; jus_vn/ptg have own `etl_ingame_money_flow` (different schema + enums) = separate per-game project; diamond_* are cfm-currency-specific |
 | `active_daily` online-time/trailing | avg_online_time, total_online_time, (cros/tf also wau, trailing_mau, trailing_wau) | most | per-game cube completeness |
 | `user_recharge_daily` | trailing_mpu, trailing_wpu | cros, tf | per-game |
 | `recharge` | paying_rate, paying_users | tf only | tf recharge-cube gap |
-| `mf_users` paying_role/new_paying_role | paying_role, new_paying_role | all | build role-grain recharge from `etl_ingame_recharge` (has role_id); best value on multi-role games (jus_vn 1.32 roles/user, 7 servers; cfm 1.03/1 server) |
+| `mf_users` paying_role/new_paying_role | paying_role, new_paying_role | all | build role-grain recharge from `etl_ingame_recharge` (has role_id); best value on multi-role games (jus_vn ≈2.13 roles/user in-window, 7 servers; cfm 1.03/1 server) |
 | `funnel` (cvr_*) | cvr_install, cvr_register, cvr_login_form, cvr_cdn_download | all | **blocked**: no funnel cube anywhere + AppsFlyer feed not ingested — new source + cube |
-| `mf_users` concurrency | acu, ccu, lcu, pcu | all | **N/A**: no CCU sampling pipeline exists — never build from current data |
+| `mf_users` concurrency | acu, ccu, lcu, pcu | all | **mostly N/A**, but **jus_vn + ptg have `etl_ingame_ccu`** (raw concurrent-user samples) → buildable there with CCU sampling semantics; cfm + the other 5 have no CCU source → N/A |
 
-**Highest leverage:** porting cfm's `etl_lottery_shoot` / `etl_money_flow` /
-`etl_newbie_tutorial` cubes + the `user_roles` active/new_roles measures to the
-other 7 games unblocks ~9 metrics × 7 games in one sweep.
+**Reality after this pass:** the one clean cross-game sweep (role measures) is
+done. The remaining 157 gaps are NOT ports — they need per-game source
+ingestion or per-game cube modeling. The next real opportunities are narrow,
+not broad: (a) role-grain recharge → paying_role/new_paying_role on the
+multi-role games; (b) jus_vn/ptg concurrency from `etl_ingame_ccu`;
+(c) jus_vn/ptg money_flow as bespoke per-game cubes.
 
 ## Worked examples from the cfm pass
 
