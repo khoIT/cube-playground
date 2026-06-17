@@ -1,0 +1,53 @@
+{
+  "preAggregations": [
+    {
+      "id": "cfm_vn_game_key_metrics.rev_by_source_daily",
+      "preAggregationName": "rev_by_source_daily",
+      "preAggregation": {
+        "type": "rollup",
+        "granularity": "day",
+        "partitionGranularity": "month",
+        "refreshKey": {
+          "every": "1 hour",
+          "incremental": true
+        },
+        "allowNonStrictDateRangeMatch": true,
+        "scheduledRefresh": true,
+        "external": true,
+        "refreshRangeStart": {},
+        "refreshRangeEnd": {}
+      },
+      "cube": "cfm_vn_game_key_metrics",
+      "references": {
+        "allowNonStrictDateRangeMatch": true,
+        "dimensions": [
+          "cfm_vn_game_key_metrics.country_code",
+          "cfm_vn_game_key_metrics.is_paid_install",
+          "cfm_vn_game_key_metrics.media_source",
+          "cfm_vn_game_key_metrics.platform"
+        ],
+        "measures": [
+          "cfm_vn_game_key_metrics.clicks",
+          "cfm_vn_game_key_metrics.cost_vnd",
+          "cfm_vn_game_key_metrics.impressions",
+          "cfm_vn_game_key_metrics.installs",
+          "cfm_vn_game_key_metrics.npu",
+          "cfm_vn_game_key_metrics.nru",
+          "cfm_vn_game_key_metrics.rev"
+        ],
+        "timeDimensions": [
+          {
+            "dimension": "cfm_vn_game_key_metrics.report_date",
+            "granularity": "day"
+          }
+        ],
+        "rollups": [],
+        "rollupsReferences": []
+      },
+      "refreshKey": {
+        "every": "1 hour",
+        "incremental": true
+      }
+    }
+  ]
+}

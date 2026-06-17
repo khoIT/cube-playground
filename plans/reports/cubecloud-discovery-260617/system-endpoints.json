@@ -1,0 +1,26 @@
+{
+  "pre-aggregations_timezones": {
+    "status": 200,
+    "body": "{\"timezones\":[]}"
+  },
+  "pre-aggregations_security-contexts": {
+    "status": 200,
+    "body": "{\"securityContexts\":[]}"
+  },
+  "context": {
+    "status": 200,
+    "body": "{\"basePath\":\"/cubejs-api\",\"dockerVersion\":\"v1.6.57\",\"serverCoreVersion\":\"1.6.57\"}"
+  },
+  "settings": {
+    "status": 200,
+    "body": "{\"defaultLimit\":10000,\"maxLimit\":50000,\"autoRunMode\":true}"
+  },
+  "meta": {
+    "status": 200,
+    "body": "{\"cubes\":[{\"name\":\"orders\",\"type\":\"cube\",\"title\":\"Orders\",\"isVisible\":true,\"public\":true,\"measures\":[{\"name\":\"orders.count\",\"title\":\"Orders Count\",\"shortTitle\":\"Count\",\"formatDescription\":{\"name\":\"number\",\"specifier\":\",.2~f\"},\"cumulativeTotal\":false,\"cumulative\":false,\"type\":\"number\",\"aggType\":\"count\",\"drillMembers\":[],\"drillMembersGrouped\":{\"measures\":[],\"dimensions\":[]},\"isVisible\":true,\"public\":true},{\"name\":\"orders.amount\",\"title\":\"Orders Amount\",\"shortTitle\":\"Amount\",\"formatDescription\":{\"name\":\"number\",\"specifier\":\",.2~f\"},\"cumulativeTotal\":false,\"cumulative\":false,\"type\":\"number\",\"aggType\":\"sum\",\"drillMembers\":[],\"drillMembersGrouped\":{\"measures\":[],\"dimensions\":[]},\"isVisible\":true,\"public\":true}],\"dimensions\":[{\"name\":\"orders.id\",\"title\":\"Orders Id\",\"type\":\"number\",\"shortTitle\":\"Id\",\"suggestFilterValues\":true,\"formatDescription\":{\"name\":\"number\",\"specifier\":\",.2~f\"},\"isVisible\":false,\"public\":false,\"primaryKey\":true},{\"name\":\"orders.status\",\"title\":\"Orders Status\",\"type\":\"string\",\"shortTitle\":\"Status\",\"suggestFilterValues\":true,\"isVisible\":true,\"public\":true,\"primaryKey\":false}],\"segments\":[],\"hierarchies\":[],\"folders\":[],\"nestedFolders\":[]}]}"
+  },
+  "pre-aggregations": {
+    "status": 200,
+    "body": "{\"preAggregations\":[]}"
+  }
+}

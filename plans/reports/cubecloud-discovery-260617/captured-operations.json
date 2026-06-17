@@ -1,0 +1,122 @@
+{
+  "base": "https://khoi-analytics.cubecloud.dev",
+  "visited": [
+    {
+      "route": "/d/1/model",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/model",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/model",
+      "headings": []
+    },
+    {
+      "route": "/d/1",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1",
+      "headings": []
+    },
+    {
+      "route": "/d/1/workspace",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/workspace",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/workspace",
+      "headings": [
+        "Workspace"
+      ]
+    },
+    {
+      "route": "/d/1/explore",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/explore",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/explore",
+      "headings": [
+        "Select Semantic View"
+      ]
+    },
+    {
+      "route": "/d/1/playground",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/playground",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/playground",
+      "headings": []
+    },
+    {
+      "route": "/d/1/sql-runner",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/sql-runner",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/sql-runner",
+      "headings": []
+    },
+    {
+      "route": "/d/1/settings/edit",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/settings/edit",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/settings/edit",
+      "headings": [
+        "Settings",
+        "Deployment",
+        "Danger Zone"
+      ]
+    },
+    {
+      "route": "/d/1/status",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/status",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/status",
+      "headings": [
+        "Status"
+      ]
+    },
+    {
+      "route": "/d/1/query-history",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/query-history",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/query-history",
+      "headings": [
+        "Query History",
+        "Requests",
+        "Average Response Time"
+      ]
+    },
+    {
+      "route": "/d/1/chat-history",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/chat-history",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/chat-history",
+      "headings": [
+        "Chat Threads"
+      ]
+    },
+    {
+      "route": "/d/1/pre-aggregations",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/pre-aggregations",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/pre-aggregations",
+      "headings": [
+        "Pre-Aggregations"
+      ]
+    },
+    {
+      "route": "/d/1/performance",
+      "target": "https://khoi-analytics.cubecloud.dev/d/1/performance",
+      "url": "https://khoi-analytics.cubecloud.dev/d/1/performance",
+      "headings": [
+        "Performance Insights",
+        "API instances",
+        "Requests by cache type",
+        "Requests by data model compilation",
+        "Average response time by cache type",
+        "Average time for data model compilation",
+        "Load for queries by Cube Store workers",
+        "Load for jobs by Cube Store workers"
+      ]
+    }
+  ],
+  "graphqlOperations": [
+    {
+      "operationName": null,
+      "query": "",
+      "vars": null
+    }
+  ],
+  "dataApiCalls": [
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/settings",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-api/v1/meta",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/context",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/pre-aggregations/security-contexts",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/pre-aggregations/timezones",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/data-sources?extendedFromEnvs=true",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/bi/sync-configs",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/data-sources",
+    "GET https://green-locust.aws-us-east-1.cubecloudapp.dev/cubejs-system/v1/pre-aggregations?cacheOnly=true&metaOnly=true"
+  ]
+}
