@@ -157,14 +157,14 @@ describe('runDetectorTick (SQLite mode)', () => {
 
   it('games with empty metric config produce no Cube calls', async () => {
     vi.spyOn(gamesConfig, 'loadGamesConfig').mockReturnValue({
-      defaultGameId: 'ptg',
-      games: [{ id: 'ptg', name: 'Play Together' }],
+      defaultGameId: 'muaw',
+      games: [{ id: 'muaw', name: 'Mu Awaken' }],
     });
     vi.spyOn(resolveToken, 'resolveCubeTokenForGame').mockReturnValue('tok');
     const loadSpy = vi.spyOn(cubeClient, 'load');
 
     await runDetectorTick();
-    // ptg has empty ANOMALY_METRICS → no load calls
+    // muaw has empty ANOMALY_METRICS → no load calls
     expect(loadSpy).not.toHaveBeenCalled();
   });
 });

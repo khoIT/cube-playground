@@ -14,18 +14,11 @@ game_compatibility:
   required_cubes:
     - ccu
 format: compact
-anomaly:
-  state: low
-  deltaPct: -4.1
-  period: vs prior 24h
-  breakdowns:
-    country:
-      - label: VN
-        deltaPct: -6
-      - label: TH
-        deltaPct: -2.2
-      - label: ID
-        deltaPct: -1
+# No static anomaly block: CCU resolves per game (jus_vn ~10k avg, ptg ~97k) so a
+# single global hardcoded delta can't be correct for both. Anomaly state comes
+# from the live detector — the legacy /load pass z-scores ccu.avg per game and
+# the SQLite inbox watches ccu.peak (see anomaly-config.ts). The badge falls back
+# to nothing (not a fabricated value) when the detector has no entry.
 meta:
   applicability:
     - game: jus_vn

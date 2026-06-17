@@ -48,6 +48,16 @@ const REVENUE: AnomalyMetricConfig = {
   threshold: BASE_THRESHOLDS,
 };
 
+// Peak concurrent users — the headline ops alert (a peak drop = incident /
+// player loss, a spike = event). Only jus_vn + ptg carry a CCU sampling source
+// (etl_ingame_ccu); the ccu cube buckets and sums servers into a per-time-bucket
+// system series, so daily granularity yields one peak per day to z-score.
+const CCU_PEAK: AnomalyMetricConfig = {
+  metric: 'ccu.peak',
+  timeDim: 'ccu.online_time',
+  threshold: BASE_THRESHOLDS,
+};
+
 /**
  * Map of gameId → metrics to watch.
  * Extend this map when new games gain active_daily or recharge cubes.
@@ -55,9 +65,10 @@ const REVENUE: AnomalyMetricConfig = {
 export const ANOMALY_METRICS: Record<string, AnomalyMetricConfig[]> = {
   ballistar: [ACTIVE_DAILY_DAU, REVENUE],
   cfm:       [ACTIVE_DAILY_DAU, REVENUE],
-  jus:       [ACTIVE_DAILY_DAU, REVENUE],
+  jus:       [ACTIVE_DAILY_DAU, REVENUE, CCU_PEAK],
   pubg:      [ACTIVE_DAILY_DAU, REVENUE],
-  // muaw + ptg lack active_daily cube — no metrics to watch
+  // muaw lacks active_daily cube — no metrics to watch
   muaw: [],
-  ptg:  [],
+  // ptg lacks active_daily cube but has a CCU sampling source (etl_ingame_ccu)
+  ptg:  [CCU_PEAK],
 };
