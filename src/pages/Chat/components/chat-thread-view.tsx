@@ -34,6 +34,12 @@ interface ChatThreadViewProps {
   /** When true the session is shared and caller is NOT the owner — hide the
    *  composer and show a read-only footer notice instead. */
   readOnly?: boolean;
+  /** Optional node (the "Stop generating" affordance) rendered just above the
+   *  composer, inside the same pinned-bottom region. Kept here — rather than as
+   *  a trailing sibling of this view — so it stays glued to the composer when
+   *  the composer is sticky and the thread is short, instead of floating
+   *  mid-page in normal flow. */
+  cancelSlot?: React.ReactNode;
 }
 
 export function ChatThreadView({
@@ -53,6 +59,7 @@ export function ChatThreadView({
   researchMode,
   onToggleResearchMode,
   readOnly,
+  cancelSlot,
 }: ChatThreadViewProps) {
   // Compact (side panel) keeps its self-contained scroll + flex-pinned
   // composer. Main route delegates scroll to the page wrapper and uses a
@@ -112,6 +119,11 @@ export function ChatThreadView({
         </div>
       ) : (
         <div style={composerWrapperStyle}>
+          {cancelSlot ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '0 0 8px' }}>
+              {cancelSlot}
+            </div>
+          ) : null}
           <ChatComposer
             value={composerValue}
             onChange={onComposerChange}

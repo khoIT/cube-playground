@@ -485,6 +485,14 @@ export function ChatThreadPage() {
               researchMode={researchMode}
               onToggleResearchMode={() => setResearchMode((v) => !v)}
               readOnly={isReadOnly}
+              cancelSlot={
+                <TurnCancelButton
+                  turnId={streamTurnId}
+                  isStreaming={isStreaming}
+                  onCancel={cancelTurnRemote}
+                  busy={cancelBusy}
+                />
+              }
             />
           )}
           {lastCompactWarning && status === 'done' && <CompactWarningChip />}
@@ -496,22 +504,6 @@ export function ChatThreadPage() {
               detail={streamError}
             />
           )}
-          {/* Phase 04 — Stop generating affordance. Visible only while the
-              turn is streaming and the server has surfaced a turnId. */}
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              padding: '8px 0 16px',
-            }}
-          >
-            <TurnCancelButton
-              turnId={streamTurnId}
-              isStreaming={isStreaming}
-              onCancel={cancelTurnRemote}
-              busy={cancelBusy}
-            />
-          </div>
         </div>
       </div>
     </div>

@@ -207,24 +207,15 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onToggleWebSearch={onToggleWebSearch}
             researchMode={researchMode}
             onToggleResearchMode={onToggleResearchMode}
-          />
-          {/* Phase 04 — Stop generating affordance in the side panel. */}
-          {isStreaming && liveTurnId && (
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                padding: '4px 0 12px',
-              }}
-            >
+            cancelSlot={
               <TurnCancelButton
                 turnId={liveTurnId}
                 isStreaming={isStreaming}
                 onCancel={cancelTurnRemote}
                 busy={cancelBusy}
               />
-            </div>
-          )}
+            }
+          />
         </>
       )}
     </aside>
