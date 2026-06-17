@@ -137,7 +137,9 @@ export interface DisambigOption {
 export interface SseDisambigOptions extends SseEventBase {
   type: 'disambig_options';
   data: {
-    slot: 'metric' | 'dimension' | 'timeRange';
+    // 'choice' = an agent-authored turn-ending option set (offer_choices),
+    // distinct from the engine's three fixed disambiguation slots.
+    slot: 'metric' | 'dimension' | 'timeRange' | 'choice';
     prompt: string;
     options: DisambigOption[];
   };

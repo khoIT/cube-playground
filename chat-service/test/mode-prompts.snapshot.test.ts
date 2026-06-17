@@ -32,6 +32,7 @@ const EXPLORE_SKILL = {
     'preview_cube_query',
     'explain_cube_sql',
     'emit_query_artifact',
+    'offer_choices',
   ],
   body: `# Explore Skill\n\nStep 1: identify the metric.\nStep 2: emit the artifact.`,
 };
@@ -97,8 +98,10 @@ describe('mode-prompts.compose — snapshots', () => {
   it('explore skill with game "ptg" matches snapshot', () => {
     const result = compose({ skill: 'explore', game: 'ptg' });
 
-    expect(result.allowedToolNames).toHaveLength(8);
+    expect(result.allowedToolNames).toHaveLength(9);
     expect(result.allowedToolNames).toContain('emit_query_artifact');
+    // Skills that allow offer_choices get the turn-ending choices contract.
+    expect(result.systemPrompt).toContain('## Turn-ending choices');
     expect(result.systemPrompt).toMatchSnapshot();
   });
 
@@ -116,6 +119,8 @@ describe('mode-prompts.compose — snapshots', () => {
       'get_business_metric',
       'emit_query_artifact',
     ]);
+    // Skills without the tool must NOT carry the choices guidance.
+    expect(result.systemPrompt).not.toContain('## Turn-ending choices');
     expect(result.systemPrompt).toMatchSnapshot();
   });
 
@@ -127,7 +132,7 @@ describe('mode-prompts.compose — snapshots', () => {
     expect(warnSpy).toHaveBeenCalledWith(
       expect.stringContaining('"nope"'),
     );
-    expect(result.allowedToolNames).toHaveLength(8); // explore's tools
+    expect(result.allowedToolNames).toHaveLength(9); // explore's tools
     expect(result.systemPrompt).toContain('Explore'); // falls back to explore body
 
     warnSpy.mockRestore();

@@ -12,6 +12,7 @@ import * as resolveQueryTerms from './resolve-query-terms.js';
 import * as listDimensionValues from './list-dimension-values.js';
 import * as getTimeCoverage from './get-time-coverage.js';
 import * as disambiguateQuery from './disambiguate-query.js';
+import * as offerChoices from './offer-choices.js';
 import * as previewCubeQuery from './preview-cube-query.js';
 import * as emitQueryArtifact from './emit-query-artifact.js';
 import * as listBusinessMetrics from './list-business-metrics.js';
@@ -75,6 +76,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: disambiguateQuery.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: disambiguateQuery.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: offerChoices.name,
+    description: offerChoices.description,
+    inputSchema: offerChoices.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: offerChoices.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
   {
     name: previewCubeQuery.name,

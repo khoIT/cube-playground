@@ -138,6 +138,7 @@ function pushGlossaryChunks(
           kind="concept"
           label={seg.text}
           to={href}
+          tone="brand"
         />
       );
       // Trust is intentionally omitted from the inline chip to keep the chat
@@ -486,6 +487,10 @@ function AssistantMessageImpl({
     ? suggestFollowups(extractFollowupContext(merged))
     : [];
 
+  // Explicit options (engine disambiguation or agent-authored choices) take
+  // precedence over the heuristic followup row.
+  const hasExplicitOptions = !!disambigOptions && disambigOptions.options.length > 0;
+
   return (
     <div style={{ padding: '4px 16px' }}>
       {/* Agent header */}
@@ -558,7 +563,10 @@ function AssistantMessageImpl({
             onPick={(pinText) => onDisambigPick?.(pinText)}
           />
         ) : null}
-        {showFollowups && followupChips.length > 0 ? (
+        {/* Explicit options (engine disambiguation or agent-authored choices)
+            take precedence: they're the actual next step the turn asked for, so
+            the generic heuristic followups are suppressed while they're shown. */}
+        {!hasExplicitOptions && showFollowups && followupChips.length > 0 ? (
           <FollowupChips
             chips={followupChips}
             onPick={(chip) => onFollowupPick?.(chip.text)}

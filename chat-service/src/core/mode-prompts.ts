@@ -89,6 +89,12 @@ export function compose(params: ComposeParams): ComposeResult {
 
   parts.push(FIELD_CHIP_TOKEN_GUIDANCE);
 
+  // Reinforce the turn-ending choice-chip contract for skills that expose the
+  // tool, so a clarifying reply ends with clickable options instead of prose.
+  if (skillMeta?.allowedTools?.includes('offer_choices')) {
+    parts.push(OFFER_CHOICES_GUIDANCE);
+  }
+
   parts.push(LANGUAGE_MIRROR_GUIDANCE);
   if (params.language) {
     parts.push(
@@ -139,6 +145,36 @@ Examples:
 Use the token in body text only; tool-result payloads should keep raw
 identifiers. Do not invent fields — only emit tokens for fields that
 exist in the active game's catalog.`;
+
+/**
+ * Turn-ending choice chips. When a reply ends by asking the user to pick from
+ * a small enumerable set, the agent should hand those options to the UI via
+ * offer_choices instead of writing them as prose — they render as clickable
+ * chips and the picked option's pinText becomes the next turn verbatim. The
+ * value is in the pinText: it must fully resolve the uncertainty so the next
+ * turn runs with zero re-clarification.
+ */
+const OFFER_CHOICES_GUIDANCE = `## Turn-ending choices
+
+When your reply ends by asking the user to choose among 2–6 discrete,
+enumerable answers (a clarifying question like "which metric should I rank
+by?", or "pick one of these candidates"), call \`offer_choices\` as the FINAL
+action of the turn. Do NOT also write the options as a prose list — the UI
+renders them as clickable chips.
+
+Each option has:
+- \`label\`: the short text on the chip (e.g. "Revenue").
+- \`pinText\`: the message sent verbatim as the next turn when the chip is
+  clicked. It MUST be a self-contained, imperative instruction that encodes
+  the chosen value AND the intent it resolves — safe to run on its own.
+
+Example — reply asks "Which metric should I rank the top VIP players by?":
+- label "Revenue" → pinText "Rank the top 20 VIP players by Revenue (total
+  recharge over the last 30 days)."
+- label "LTV" → pinText "Rank the top 20 VIP players by lifetime value."
+
+Do NOT call it for open-ended questions with no enumerable answer set
+(e.g. "what would you like to explore next?").`;
 
 /**
  * Reply-language guardrail. Static half of the guardrail (always present);

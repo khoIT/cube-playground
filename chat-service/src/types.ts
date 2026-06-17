@@ -76,9 +76,12 @@ export type SseEvent =
       data: {
         /**
          * Slot the user is being asked to resolve. The chip click pins this
-         * slot in the next turn so the disambig tool routes auto.
+         * slot in the next turn so the disambig tool routes auto. The engine
+         * disambiguator uses the three fixed slots; 'choice' is the open slot
+         * for agent-authored turn-ending option sets (offer_choices), whose
+         * pinText is a self-contained instruction rather than a slot value.
          */
-        slot: 'metric' | 'dimension' | 'timeRange';
+        slot: 'metric' | 'dimension' | 'timeRange' | 'choice';
         /** Short prompt to display above the chip row. */
         prompt: string;
         /** Chip-friendly option list, ordered by candidate confidence. */

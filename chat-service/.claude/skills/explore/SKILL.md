@@ -28,6 +28,7 @@ allowed_tools:
   - list_dimension_values
   - get_time_coverage
   - disambiguate_query
+  - offer_choices
   - list_business_metrics
   - get_business_metric
   - list_segments

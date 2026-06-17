@@ -21,6 +21,7 @@ allowed_tools:
   - preview_cube_query
   - emit_query_artifact
   - emit_chart
+  - offer_choices
 enable_web_search: false
 enable_research_mode: false
 ---

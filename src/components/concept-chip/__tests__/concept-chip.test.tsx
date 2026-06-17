@@ -71,4 +71,22 @@ describe('ConceptChip', () => {
     expect(screen.queryByText('draft')).toBeNull();
     expect(screen.queryByText('deprecated')).toBeNull();
   });
+
+  // Brand tone overrides the per-kind type color with the brand accent so the
+  // chat glossary highlight pops on the warm page. Default tone keeps the
+  // type-vocabulary color (blue info fill) used by the catalog/builder.
+  it('uses the brand fill + border when tone="brand"', () => {
+    renderChip(<ConceptChip kind="concept" label="Revenue" tone="brand" />);
+    const el = screen.getByRole('button');
+    expect(el.style.background).toBe('var(--brand-soft)');
+    expect(el.style.color).toBe('var(--brand)');
+    expect(el.style.border).toContain('var(--brand)');
+  });
+
+  it('keeps the info-blue type color at the default tone', () => {
+    renderChip(<ConceptChip kind="concept" label="Revenue" />);
+    const el = screen.getByRole('button');
+    expect(el.style.background).toBe('var(--info-soft)');
+    expect(el.style.color).toBe('var(--info-ink)');
+  });
 });

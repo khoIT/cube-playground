@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<!-- Load the REAL design tokens so the chips resolve against production values
+     (cream canvas, orange brand ramp), not hand-copied hex. -->
+<link rel="stylesheet" href="../../../src/theme/tokens.css" />
+<style>
+  body {
+    margin: 0;
+    font-family: var(--font-sans, Inter, sans-serif);
+    background: var(--bg-app);
+    color: var(--text-primary);
+  }
+  .panel { padding: 28px 32px; max-width: 760px; }
+  .panel + .panel { border-top: 1px solid var(--border-card); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin: 0 0 14px; font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 18px; }
+  .caption { font-size: 11px; color: var(--text-secondary); margin: 0 0 6px; }
+  .prose { font-size: 14px; line-height: 1.6; max-width: 600px; }
+
+  /* ---- choice action chip (slot='choice') — soft → solid on hover ---- */
+  .disambig-choice-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 999px; cursor: pointer;
+    font-family: var(--font-sans); font-size: 12.5px; font-weight: 600;
+    background: var(--brand-soft); border: 1px solid var(--brand); color: var(--brand-hover);
+  }
+  .disambig-choice-chip.is-hover,
+  .disambig-choice-chip:hover {
+    background: var(--brand); color: var(--text-on-brand);
+  }
+  .disambig-choice-chip .mk { font-size: 11px; opacity: .9; }
+
+  /* ---- engine disambig chip (unchanged neutral) ---- */
+  .engine-chip {
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--shell-border-strong, var(--border-strong));
+    background: var(--surface-raised, var(--bg-card)); color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 12.5px; cursor: pointer;
+  }
+
+  /* ---- glossary concept pill ---- */
+  .concept-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 6px; border-radius: var(--radius-sm); font-size: 12.5px;
+    font-family: var(--font-sans); font-weight: 500; line-height: 20px;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .concept-pill.brand { background: var(--brand-soft); color: var(--brand); border: 1px solid var(--brand); }
+  .concept-pill.blue  { background: var(--info-soft);  color: var(--info-ink); }
+  .concept-pill .ic { font-size: 12px; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h2>Turn-ending action chips · slot="choice"</h2>
+    <p class="caption">At rest — brand-soft fill, brand border, brand-hover ink</p>
+    <div class="row">
+      <button class="disambig-choice-chip"><span class="mk">▸</span>Revenue</button>
+      <button class="disambig-choice-chip"><span class="mk">▸</span>LTV</button>
+      <button class="disambig-choice-chip"><span class="mk">▸</span>ARPU</button>
+      <button class="disambig-choice-chip"><span class="mk">▸</span>ARPDAU</button>
+      <button class="disambig-choice-chip"><span class="mk">▸</span>First purchase rate</button>
+    </div>
+    <p class="caption">Hover / focus — solid brand fill, white ink</p>
+    <div class="row">
+      <button class="disambig-choice-chip is-hover"><span class="mk">▸</span>Revenue</button>
+      <button class="disambig-choice-chip"><span class="mk">▸</span>LTV</button>
+      <button class="disambig-choice-chip"><span class="mk">▸</span>ARPU</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Engine disambiguation chips · slot=metric/dimension/timeRange (unchanged)</h2>
+    <div class="row">
+      <button class="engine-chip">ARPDAU</button>
+      <button class="engine-chip">ARPU</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Glossary highlight — chat (brand) vs catalog/builder (blue, unchanged)</h2>
+    <p class="prose">
+      Here's your Top 20 VIP leaderboard ranked by
+      <span class="concept-pill brand"><span class="ic">ⓘ</span>Revenue</span>.
+      A few patterns worth noting in the
+      <span class="concept-pill brand"><span class="ic">ⓘ</span>retention curve</span> this week.
+    </p>
+    <p class="caption" style="margin-top:18px">Catalog / builder keep the type-vocabulary blue:</p>
+    <div class="row">
+      <span class="concept-pill blue"><span class="ic">ⓘ</span>Revenue</span>
+      <span class="concept-pill blue"><span class="ic">ⓘ</span>retention curve</span>
+    </div>
+  </div>
+</body>
+</html>

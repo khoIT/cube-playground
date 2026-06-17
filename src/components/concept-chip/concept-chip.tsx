@@ -38,6 +38,15 @@ interface Props {
   onClick?: React.MouseEventHandler<HTMLAnchorElement | HTMLButtonElement>;
   className?: string;
   title?: string;
+  /**
+   * Color treatment. 'default' uses the per-kind type vocabulary (concept=blue,
+   * metric=purple, …) shared with the catalog. 'brand' overrides any kind with
+   * the brand accent (soft fill + brand border/ink) so the chip reads as a
+   * highlighted, on-brand term. Used only in chat answers, where the glossary
+   * highlight should pop on the warm page; the catalog/builder keep 'default'
+   * so the type palette stays intact there.
+   */
+  tone?: 'default' | 'brand';
 }
 
 // Icon + color tokens per affordance vocabulary. Icons match the catalog's
@@ -85,15 +94,21 @@ const TRUST_BADGE_STYLE: React.CSSProperties = {
   lineHeight: '15px',
 };
 
-export function ConceptChip({ kind, label, to, trust, onClick, className, title }: Props) {
+export function ConceptChip({ kind, label, to, trust, onClick, className, title, tone = 'default' }: Props) {
   const { Icon, bg, ink, mono } = KIND_META[kind];
+  const brandTone = tone === 'brand';
 
   const chipStyle: React.CSSProperties = {
     ...BASE_STYLE,
-    background: bg,
-    color: ink,
-    fontFamily: mono ? 'var(--font-mono)' : 'var(--font-sans)',
-    fontSize: mono ? 12 : 12.5,
+    // Brand tone: soft brand fill with a brand border so the pill reads as a
+    // distinct highlight on the warm page (a borderless soft fill would blend
+    // into the cream canvas). The border also distinguishes it from the plain
+    // type-vocabulary chips elsewhere.
+    background: brandTone ? 'var(--brand-soft)' : bg,
+    color: brandTone ? 'var(--brand)' : ink,
+    border: brandTone ? '1px solid var(--brand)' : BASE_STYLE.border,
+    fontFamily: mono && !brandTone ? 'var(--font-mono)' : 'var(--font-sans)',
+    fontSize: mono && !brandTone ? 12 : 12.5,
   };
 
   const inner = (
@@ -132,7 +147,7 @@ export function ConceptChip({ kind, label, to, trust, onClick, className, title 
   return (
     <button
       type="button"
-      style={{ ...chipStyle, background: bg }}
+      style={chipStyle}
       onClick={onClick as React.MouseEventHandler<HTMLButtonElement>}
       className={className}
       title={title}
