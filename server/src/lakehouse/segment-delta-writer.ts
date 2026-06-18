@@ -85,7 +85,11 @@ export async function writeSegmentMembershipDeltaForSegment(
     // a segment skipped yesterday). When prev_ts is NULL the FULL OUTER JOIN
     // on `p` naturally yields no rows, making every member of `d` 'entered'.
     const insertSql =
-      `INSERT INTO ${SEGMENT_MEMBERSHIP_DELTA}\n` +
+      // Explicit column list: snapshot_ts was ADDed to this table after it
+      // shipped, so its physical position differs across environments (appended
+      // last on already-created tables, declared earlier on fresh creates). A
+      // positional INSERT would bind columns by physical order and mismatch.
+      `INSERT INTO ${SEGMENT_MEMBERSHIP_DELTA} (snapshot_date, snapshot_ts, game_id, segment_id, uid, change)\n` +
       `WITH prev_ts AS (\n` +
       `  SELECT max(snapshot_ts) AS ts\n` +
       `  FROM ${SEGMENT_MEMBERSHIP_DAILY}\n` +
@@ -149,7 +153,9 @@ export async function writeSegmentMembershipDelta(
     // today_segs bounds both sides to segments observed on D, so a segment
     // absent from D's snapshot is neither entered nor exited (no observation).
     const insertSql =
-      `INSERT INTO ${SEGMENT_MEMBERSHIP_DELTA}\n` +
+      // Explicit column list (snapshot_ts omitted → NULL): the table now carries
+      // snapshot_ts, so a positional INSERT of these 5 columns would mismatch.
+      `INSERT INTO ${SEGMENT_MEMBERSHIP_DELTA} (snapshot_date, game_id, segment_id, uid, change)\n` +
       `WITH today_segs AS (\n` +
       `  SELECT DISTINCT game_id, segment_id FROM ${SEGMENT_MEMBERSHIP_DAILY} WHERE snapshot_date = ${dateLit}\n` +
       `),\n` +

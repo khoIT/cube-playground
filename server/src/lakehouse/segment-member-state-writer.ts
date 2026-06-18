@@ -38,6 +38,7 @@ import {
   LAKEHOUSE_SCHEMA,
   LAKEHOUSE_STATEMENT_TIMEOUT_MS,
   lakehouseConnectorFromEnv,
+  lakehouseSchemaForGame,
 } from './lakehouse-trino-connector.js';
 import {
   CANONICAL_USER_STATE_COLUMNS,
@@ -251,11 +252,16 @@ export async function writeMemberStateSnapshot(
     // Cube output col name for a physical member: replace "." with "__"
     const cubeColName = (member: string) => member.replace(/\./g, '__');
 
+    // CAST each projected column to its declared canonical type. Cube emits the
+    // underlying dimension types — booleans for is_paying_*, timestamps for date
+    // dims, integer for small counts — which Trino's INSERT will NOT implicitly
+    // coerce into the table's VARCHAR/DATE/BIGINT columns. Casting here makes the
+    // produced column type match the table exactly, independent of Cube's typing.
     const stateColAliases = [
-      `"${cubeColName(physIdentity)}" AS uid`,
+      `CAST("${cubeColName(physIdentity)}" AS VARCHAR) AS uid`,
       ...valueCols.map((c) => {
         const phys = physicalMember(c.member as string, prefix);
-        return `"${cubeColName(phys)}" AS ${c.key}`;
+        return `CAST("${cubeColName(phys)}" AS ${c.sqlType}) AS ${c.key}`;
       }),
     ].join(',\n    ');
 
@@ -285,8 +291,16 @@ export async function writeMemberStateSnapshot(
       `DELETE FROM ${SEGMENT_MEMBER_STATE_DAILY} ` +
       `WHERE game_id = ${gameLit} AND segment_id = ${segLit} AND snapshot_ts = ${tsLit}`;
 
+    // The INSERT embeds the compiled mf_users projection, whose bare `mf_users`
+    // ref resolves against the SESSION schema — so it must run with the game's
+    // game_integration schema (as the membership writer does), NOT the lakehouse
+    // schema. The fully-qualified stag_iceberg target + membership subquery
+    // resolve under any session schema. DELETE/COUNT touch only the qualified
+    // target, so the lakehouse session schema is fine for them.
+    const gameSchema = lakehouseSchemaForGame(segment.gameId) ?? LAKEHOUSE_SCHEMA;
+
     await runQuery(connector, LAKEHOUSE_SCHEMA, deleteSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
-    await runQuery(connector, LAKEHOUSE_SCHEMA, insertSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
+    await runQuery(connector, gameSchema, insertSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
 
     const countRes = await runQuery(
       connector,
@@ -344,11 +358,14 @@ export function buildMemberStateInsertSql(opts: {
   const cubeColName = (member: string) => member.replace(/\./g, '__');
   const physIdentity = physicalMember(identityPhysical, prefix);
 
+  // CAST to each column's declared canonical type so produced types match the
+  // table exactly (Cube emits boolean/timestamp/integer for some dims, which
+  // Trino's INSERT will not implicitly coerce into VARCHAR/DATE/BIGINT).
   const stateColAliases = [
-    `"${cubeColName(physIdentity)}" AS uid`,
+    `CAST("${cubeColName(physIdentity)}" AS VARCHAR) AS uid`,
     ...valueCols.map((c) => {
       const phys = physicalMember(c.member as string, prefix);
-      return `"${cubeColName(phys)}" AS ${c.key}`;
+      return `CAST("${cubeColName(phys)}" AS ${c.sqlType}) AS ${c.key}`;
     }),
   ].join(',\n    ');
 
