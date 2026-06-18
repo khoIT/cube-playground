@@ -242,10 +242,22 @@ export async function forwardLoadWithContinueWait(
   }
 }
 
-/** AbortController that fires when the requesting client disconnects. */
-function clientAbortController(req: FastifyRequest): AbortController {
+/**
+ * AbortController that fires when the client disconnects BEFORE the response is
+ * sent — used to abort an orphaned upstream Cube/Trino query.
+ *
+ * Must listen on the RESPONSE stream, not the request stream. For a POST,
+ * `req.raw` ('close') fires the instant Fastify finishes reading the body —
+ * which is well before a /load upstream answers — so listening there aborts
+ * every POST /load immediately (GET has no body to consume, so it slips by).
+ * `reply.raw` 'close' fires on actual socket close; guarding on
+ * `writableFinished` ensures a normally-completed response never trips the abort.
+ */
+function clientAbortController(reply: FastifyReply): AbortController {
   const ac = new AbortController();
-  req.raw.on('close', () => ac.abort());
+  reply.raw.on('close', () => {
+    if (!reply.raw.writableFinished) ac.abort();
+  });
   return ac;
 }
 
@@ -290,7 +302,7 @@ async function handleLoad(
     }
   }
 
-  const ac = clientAbortController(req);
+  const ac = clientAbortController(reply);
   const started = performance.now();
   let result: { status: number; body: unknown };
   try {
@@ -330,7 +342,7 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
     const { status, body } = await forward(
       req.cubeCtx, 'GET', '/meta', search, undefined,
-      undefined, clientAbortController(req).signal,
+      undefined, clientAbortController(reply).signal,
     );
     // On prefix workspaces, Cube returns every game's cubes. Scope the response
     // to the active game's prefix so consumers (chat agent, Playground) don't
@@ -378,7 +390,7 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
     const { status, body } = await forward(
       req.cubeCtx, 'GET', '/sql', search, undefined,
-      undefined, clientAbortController(req).signal,
+      undefined, clientAbortController(reply).signal,
     );
     return reply.status(status).send(body);
   });
@@ -386,7 +398,7 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
   app.post('/cube-api/v1/sql', async (req, reply) => {
     const { status, body } = await forward(
       req.cubeCtx, 'POST', '/sql', '', req.body,
-      undefined, clientAbortController(req).signal,
+      undefined, clientAbortController(reply).signal,
     );
     return reply.status(status).send(body);
   });
@@ -402,7 +414,7 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
       '',
       req.body,
       undefined,
-      clientAbortController(req).signal,
+      clientAbortController(reply).signal,
     );
     return reply.status(status).send(body);
   });

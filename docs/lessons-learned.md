@@ -939,6 +939,15 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+### A "client disconnected" abort wired to the REQUEST stream aborts every POST immediately — the request closes when its body is read, not when the client leaves
+
+- **Rule:** the /load proxy added a disconnect-aware abort (free Cube/Trino when an orphaned query's client goes away) via `req.raw.on('close', () => ac.abort())`. For a request with a body (POST), Node ends and auto-destroys the IncomingMessage the instant Fastify finishes reading/parsing the body — emitting `'close'` *before* the upstream /load answers. So the abort fired on every POST /load within milliseconds, `forward()` caught the AbortError, and returned its timeout-shaped body `{"error":"Cube request timed out after 110s"}` — a 504 in ~2ms, not a real 110s wait. GET /load has no body to consume so its request stream stays open until the response, slipping past the bug. Net effect: the chat-service (POST via `load-cube-rows`) had ALL its Cube queries killed, while browser surfaces (/build, /segments, /ops — GET via the SDK) worked, so it read as "charts don't render in chat" rather than "chat data is down." Fix: listen on the **response** stream — `reply.raw.on('close', () => { if (!reply.raw.writableFinished) ac.abort(); })` — which fires on actual socket close and the `writableFinished` guard makes a normally-completed response a no-op.
+- **Why:** in Node's HTTP model the request `'close'` means "the inbound stream is done" (body fully read), NOT "the peer disconnected." Conflating the two is a classic footgun that only bites requests that carry a body, so it hides from any test/surface that uses GET. The misleading 504 text (the proxy's own timeout message, reused for any AbortError) sent diagnosis toward "Trino is slow" when the latency (single-digit ms) already disproved a timeout.
+- **Signal:** a POST endpoint returns a *timeout* error in milliseconds; the same query works as GET but not POST (or from a browser but not a server-to-server caller); a disconnect/abort feature that worked in manual GET testing breaks a POST-only consumer; an error body whose wording implies a long wait paired with a tiny measured latency.
+- **Apply:** detect client disconnect on `reply.raw` ('close' + `!writableFinished`), never on `req.raw`. When an abort-shaped failure appears, check the *latency* first — a "timeout" that returns instantly is an abort, not a timeout — and trace the abort source before assuming the upstream. Reproduce a POST-path bug with a real body over HTTP (GET probes will pass and mislead).
+
+---
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
