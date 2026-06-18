@@ -386,6 +386,10 @@ cubes:
         measures:
           - user_count_approx
           - paying_users_approx
+          # LTV sums (additive) so cohort-value cards filtered by payer_tier /
+          # lifecycle_stage route here instead of a raw full-table scan.
+          - ltv_total_vnd
+          - ltv_30d_total_vnd
         dimensions:
           - country
           - media_source
@@ -393,19 +397,9 @@ cubes:
           - payer_tier
           - lifecycle_stage
           - is_paying_user
-        time_dimension: install_date
-        granularity: day
-        partition_granularity: year
+        # No time partitioning: composition is a user-attribute snapshot, not a
+        # time series. One partition covers every user (incl. NULL install_date)
+        # and sidesteps the partial-seal failure of partitioned rollups. All
+        # measures are additive, so any payer_tier/lifecycle filter merges right.
         refresh_key:
           every: 6 hours
-          incremental: true
-        build_range_start:
-          sql: "SELECT from_iso8601_timestamp(CAST(MIN(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
-        build_range_end:
-          sql: "SELECT from_iso8601_timestamp(CAST(MAX(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
-
-      - name: user_composition
-        type: rollup_lambda
-        union_with_source_data: true
-        rollups:
-          - CUBE.user_composition_batch
