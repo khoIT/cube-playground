@@ -102,6 +102,10 @@ export interface CardCacheEntry {
   error?: string;
 }
 
+/** Lakehouse snapshot capture cadence — how often the snapshot job materializes
+ *  this segment. Distinct from refresh_cadence_min (cohort recompute). */
+export type SnapshotCadence = '15m' | '1h' | '3h' | '6h' | '12h' | 'daily';
+
 export interface Segment {
   id: string;
   name: string;
@@ -116,6 +120,10 @@ export interface Segment {
   uid_list: string[];
   tags: string[];
   refresh_cadence_min: number | null;
+  /** Capture cadence for the lakehouse snapshot job. NOT NULL in storage
+   *  (defaults 'daily'); optional here so test fixtures/builders predating it
+   *  still satisfy the type — read it as `snapshot_cadence ?? 'daily'`. */
+  snapshot_cadence?: SnapshotCadence;
   last_refreshed_at: string | null;
   broken_reason: string | null;
   created_at: string;
@@ -221,6 +229,8 @@ export interface SegmentPatch {
   predicate_tree?: PredicateNode | null;
   uid_list?: string[];
   refresh_cadence_min?: number | null;
+  /** Set the lakehouse snapshot capture cadence (15m–daily). */
+  snapshot_cadence?: SnapshotCadence;
   /** Owner may set personal/shared; 'org' requires admin. */
   visibility?: SegmentVisibility;
   /**

@@ -17,6 +17,7 @@ import {
   type MovementGranularity,
 } from '../../../../api/segment-movement-client';
 import { GranularityToggle } from './movement/granularity-toggle';
+import { SnapshotCadenceControl } from './movement/snapshot-cadence-control';
 import { KpiTrendSection } from './movement/kpi-trend-section';
 import { MembershipMovementSection } from './movement/membership-movement-section';
 import { StateDistributionTrendSection } from './movement/state-distribution-trend-section';
@@ -24,9 +25,11 @@ import styles from '../../segments.module.css';
 
 interface Props {
   segment: Segment;
+  /** Propagates a capture-cadence change up so the header/state stay in sync. */
+  onSegmentChange?: (next: Segment) => void;
 }
 
-export function MovementTab({ segment }: Props): ReactElement {
+export function MovementTab({ segment, onSegmentChange }: Props): ReactElement {
   const [granularity, setGranularity] = useState<MovementGranularity>('daily');
   // Finest grain captured in the window; until the first response says
   // otherwise, allow all options (the membership section reports the real value).
@@ -98,8 +101,11 @@ export function MovementTab({ segment }: Props): ReactElement {
           </span>
         </div>
         <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>View</span>
         <GranularityToggle value={granularity} effective={effective} onChange={setGranularity} />
       </header>
+
+      <SnapshotCadenceControl segment={segment} onChange={onSegmentChange} />
 
       <KpiTrendSection segmentId={segment.id} granularity={granularity} days={days} />
       <MembershipMovementSection

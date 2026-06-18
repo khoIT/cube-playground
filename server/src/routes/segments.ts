@@ -24,6 +24,7 @@ import { loadGamesConfig } from '../services/games-config-loader.js';
 import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integrity.js';
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust-mapping.js';
+import { SNAPSHOT_CADENCES } from '../services/snapshot-cadence.js';
 import { canAccessSegment, canMutateSegment, canAdministerSegment } from '../auth/can-access-segment.js';
 import { emailForSub } from '../auth/principal.js';
 import { corePanelsForGame } from '../services/member360-panel-registry.js';
@@ -122,6 +123,11 @@ const segmentPatchSchema = z.object({
   predicate_tree: z.unknown().optional().nullable(),
   uid_list: z.array(z.string()).optional(),
   refresh_cadence_min: z.number().int().positive().nullable().optional(),
+  /** Lakehouse snapshot capture cadence (how often the snapshot job materializes
+   *  this segment's membership/state/KPIs). Distinct from refresh_cadence_min,
+   *  which governs cohort recompute. Defaults daily; only opted-in segments go
+   *  sub-daily. */
+  snapshot_cadence: z.enum(SNAPSHOT_CADENCES).optional(),
   /** Visibility setter. Owner may set personal/shared; 'org' is admin-only. */
   visibility: z.enum(VISIBILITY_VALUES).optional(),
   /**
@@ -780,7 +786,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       UPDATE segments SET
         name = ?, type = ?, cube = ?, predicate_tree_json = ?, cube_query_json = ?,
-        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, status = ?, visibility = ?, updated_at = ?
+        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, snapshot_cadence = ?, status = ?, visibility = ?, updated_at = ?
       WHERE id = ?
     `).run(
       patch.name ?? row.name,
@@ -791,6 +797,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       nextUidCount,
       nextUidListJson,
       patch.refresh_cadence_min !== undefined ? patch.refresh_cadence_min : row.refresh_cadence_min,
+      patch.snapshot_cadence !== undefined ? patch.snapshot_cadence : (row.snapshot_cadence ?? 'daily'),
       nextStatus,
       patch.visibility !== undefined ? patch.visibility : (row.visibility ?? null),
       now,

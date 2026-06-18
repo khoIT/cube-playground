@@ -98,7 +98,7 @@ toggle.
 | 4 | [Per-user state writer](./phase-04-per-user-state-writer.md) | Completed |
 | 5 | [Segment KPI time-series writer](./phase-05-segment-kpi-timeseries-writer.md) | Completed |
 | 6 | [Movement read API](./phase-06-movement-read-api.md) | Completed |
-| 7 | [Movement monitor UI (huashu)](./phase-07-movement-monitor-ui-huashu.md) | Completed (capture-cadence write control deferred) |
+| 7 | [Movement monitor UI (huashu)](./phase-07-movement-monitor-ui-huashu.md) | Completed |
 | 8 | [Tests + docs](./phase-08-tests-docs.md) | Pending |
 
 ## Dependencies

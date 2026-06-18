@@ -255,7 +255,7 @@ export function DetailView(): ReactElement {
           onCadenceChange={setSegment}
         />
       )}
-      {tab === 'movement' && <MovementTab segment={segment} />}
+      {tab === 'movement' && <MovementTab segment={segment} onSegmentChange={setSegment} />}
       {tab === 'insights' && (
         <InsightsTab
           segment={segment}

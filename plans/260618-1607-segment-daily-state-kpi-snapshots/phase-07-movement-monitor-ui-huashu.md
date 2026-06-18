@@ -24,12 +24,16 @@ Files: `src/api/segment-movement-client.ts`; `src/pages/Segments/detail/tabs/mov
 registry/render wiring in `use-active-tab.ts` + `detail-view.tsx`; i18n labels.
 Tests: `tabs/movement/__tests__/build-movement-chart.test.ts` (6). tsc/lint/tests clean.
 
-**Deferred (scope guard, not built): the capture-cadence WRITE control.** Setting a
-segment's `snapshot_cadence` needs a backend CRUD change (it is absent from the
-`Segment` type, `SegmentPatch`, and the PATCH zod/SQL allow-list in
-`server/src/routes/segments.ts`) and is the contentious open question below
-(capture-cadence vs the existing `refresh_cadence_min` control). The shipped tab is
-read/visualization only. Revisit when promoting Movement out of beta.
+**Capture-cadence WRITE control — now built (2026-06-18, follow-up).** Added
+`snapshot_cadence` to the PATCH zod schema + UPDATE column + the `Segment` /
+`SegmentPatch` FE types (optional on read; defaults `'daily'`), and a
+`snapshot-cadence-control.tsx` segmented control at the top of the tab. It is
+owner/admin-gated (server PATCH guard; disabled client-side when
+`can_administer === false`), explicitly labelled "Snapshot capture" with a hint
+"changes how often this segment is captured — not just the view", to disambiguate
+it from the view-time granularity toggle (labelled "View") and the Monitor tab's
+`refresh_cadence_min`. Server test: `test/segment-snapshot-cadence-patch.test.ts`
+(default daily / persist / reject-bad-value / independent of refresh_cadence_min).
 
 # Phase 7: Movement monitor UI (huashu)
 
