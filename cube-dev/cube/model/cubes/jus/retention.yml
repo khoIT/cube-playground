@@ -95,20 +95,19 @@ cubes:
           - churned_d30
         time_dimension: install_date
         granularity: day
-        partition_granularity: month
+        # NOT partitioned, by design. The cohort aggregate is tiny — one row per
+        # install day (~hundreds total). A monthly-partitioned build only ever
+        # materialised the end-month partition on this prod-mode stack: scheduled
+        # refresh builds the partition holding build_range_end and considers the
+        # job done; the earlier months in the range are only built on-demand
+        # (a query touching them), which is disabled here. So historical cohorts
+        # never sealed and D30 churn for mature cohorts returned 0 rows even
+        # though the source has months of data. A single unpartitioned rollup
+        # builds the full history in one CREATE TABLE, so every cohort —
+        # including the ≥30-day-mature ones churn needs — is served. No
+        # build_range needed: the rollup covers exactly what the cube SQL returns.
         refresh_key:
           every: 1 hour
-          incremental: true
-        # Rolling 120-day window with monthly partitions: recent cohorts seal
-        # independently and keep maturing (retained_d30 needs 30 days, well
-        # inside the window); older cohorts fall through to source via the lambda.
-        build_range_start:
-          sql: "SELECT date_add('day', -120, current_timestamp)"
-        # install_date = MIN(log_date) per user, so the latest cohort can never
-        # post-date the latest source row; cap at MAX(log_date) to avoid sealing
-        # empty future partitions (a known cubestore future-seal pitfall).
-        build_range_end:
-          sql: "SELECT COALESCE(from_iso8601_timestamp(CAST(MAX(log_date) AS VARCHAR) || 'T00:00:00Z'), from_iso8601_timestamp('2025-01-01T00:00:00Z')) FROM std_ingame_user_active_daily"
 
       # Lambda union: sealed batch partitions + a live tail straight from source,
       # so recent install cohorts appear without waiting for a refresh cycle.
