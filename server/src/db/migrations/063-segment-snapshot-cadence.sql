@@ -1,0 +1,14 @@
+-- Per-segment snapshot capture cadence.
+--
+-- The membership/state/KPI snapshot job historically ran once per GMT+7
+-- calendar day for every eligible segment. To track intraday movement for
+-- opted-in (test) segments without multiplying cost for the rest, each segment
+-- now carries its own capture cadence. Default 'daily' preserves the prior
+-- behaviour exactly — only segments explicitly switched to a sub-daily cadence
+-- run more often.
+--
+-- The allowed set is enforced at the application layer (snapshot-cadence.ts is
+-- the single source of truth + the cadence-setter route validates) rather than
+-- a column CHECK, so the vocabulary can evolve without a schema migration and
+-- the ALTER stays portable across SQLite versions.
+ALTER TABLE segments ADD COLUMN snapshot_cadence TEXT NOT NULL DEFAULT 'daily';

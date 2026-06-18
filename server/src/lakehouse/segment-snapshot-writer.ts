@@ -57,6 +57,13 @@ export interface SnapshotWriteOptions {
   connector?: Connector;
   /** Cube token override; defaults to the per-game minted token. */
   token?: string;
+  /**
+   * Canonical snapshot timestamp (floored to cadence bucket) as
+   * 'YYYY-MM-DD HH:MM:00'. When omitted the DELETE/INSERT slice keys by
+   * snapshot_date only (legacy daily-only path). When provided the slice
+   * is additionally keyed on snapshot_ts so sub-daily cadences are idempotent.
+   */
+  snapshotTs?: string;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -133,16 +140,29 @@ export async function writeSegmentSnapshot(
     const gameLit = toSqlLiteral(input.gameId);
     const segLit = toSqlLiteral(input.segmentId);
 
+    // When a snapshot_ts is provided, the idempotent slice keys on both
+    // snapshot_date AND snapshot_ts so sub-daily cadences don't clobber each
+    // other's buckets. The legacy daily path (no snapshotTs) slices by date
+    // only — existing row shapes are unchanged.
+    const tsTerm = opts.snapshotTs
+      ? ` AND snapshot_ts = TIMESTAMP '${opts.snapshotTs}'`
+      : '';
+    const tsSelectCol = opts.snapshotTs
+      ? `, TIMESTAMP '${opts.snapshotTs}' AS snapshot_ts`
+      : '';
+    const tsInsertCol = opts.snapshotTs ? ', snapshot_ts' : '';
+
     // Idempotent: clear the partition slice, then land the full cohort. The
     // target columns are listed explicitly so a future table-column reorder
     // can't silently misalign; m.* is the subquery's single identity column
     // (guaranteed by dimensions:[identity] + measures:[]) → maps to `uid`.
     const deleteSql =
       `DELETE FROM ${SEGMENT_MEMBERSHIP_DAILY} ` +
-      `WHERE snapshot_date = ${dateLit} AND game_id = ${gameLit} AND segment_id = ${segLit}`;
+      `WHERE snapshot_date = ${dateLit} AND game_id = ${gameLit} AND segment_id = ${segLit}` +
+      tsTerm;
     const insertSql =
-      `INSERT INTO ${SEGMENT_MEMBERSHIP_DAILY} (snapshot_date, game_id, segment_id, uid) ` +
-      `SELECT ${dateLit} AS snapshot_date, ${gameLit} AS game_id, ${segLit} AS segment_id, m.* ` +
+      `INSERT INTO ${SEGMENT_MEMBERSHIP_DAILY} (snapshot_date, game_id, segment_id, uid${tsInsertCol}) ` +
+      `SELECT ${dateLit} AS snapshot_date, ${gameLit} AS game_id, ${segLit} AS segment_id, m.*${tsSelectCol} ` +
       `FROM ( ${selectSql} ) AS m`;
 
     await runQuery(connector, schema, deleteSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
@@ -150,7 +170,8 @@ export async function writeSegmentSnapshot(
 
     const countSql =
       `SELECT count(*) FROM ${SEGMENT_MEMBERSHIP_DAILY} ` +
-      `WHERE snapshot_date = ${dateLit} AND game_id = ${gameLit} AND segment_id = ${segLit}`;
+      `WHERE snapshot_date = ${dateLit} AND game_id = ${gameLit} AND segment_id = ${segLit}` +
+      tsTerm;
     const countRes = await runQuery(connector, schema, countSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
     const rowCount = Number(countRes.rows[0]?.[0] ?? 0);
 

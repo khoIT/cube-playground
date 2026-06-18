@@ -1,22 +1,23 @@
 /**
- * Nightly job: land every predicate segment's FULL daily membership in the
- * lakehouse (stag_iceberg.khoitn.segment_membership_daily), then derive the
- * day-over-day delta. Decouples cohort COMPUTE (once/day in Trino) from SERVE
- * (many reads via the Cube rollup), and exposes the full cohort + change feed
- * to downstream consumers — unlike refresh-segment, which keeps only a capped
- * uid sample in SQLite.
+ * Periodic job: land every predicate segment's membership in the lakehouse
+ * (stag_iceberg.khoitn.segment_membership_daily), then derive the per-snapshot
+ * delta and member-state snapshots.
  *
- * Safety: the job is wired at bootstrap but only EXECUTES when
- * SEGMENT_SNAPSHOT_ENABLED=true. Cross-catalog INSERTs write to a SHARED Trino
- * lakehouse, so it must be opt-in per environment rather than firing from every
- * dev machine. Runs at most once per GMT+7 calendar day (heartbeat-guarded): a
- * 'started' sentinel row is written before any Trino work so a concurrent tick
- * (or a restart mid-run) short-circuits via alreadyRanToday.
+ * Base tick is 15 minutes. Each tick checks which segments are DUE by comparing
+ * the current cadence bucket against the segment's last-snapshotted bucket — so
+ * a daily segment fires at most once per GMT+7 day regardless of how many 15m
+ * ticks pass. Only segments whose cadence bucket has elapsed actually run Trino
+ * work; all others are a cheap SQLite lookup.
  *
- * Multi-instance: enable on EXACTLY ONE server instance. The daily guard is the
- * SQLite heartbeat — instances with separate DBs won't see each other's
- * sentinel, so env discipline (single enabled instance) is what prevents two
- * full-cohort scans against shared Trino.
+ * Safety: the job executes only when SEGMENT_SNAPSHOT_ENABLED=true. Cross-catalog
+ * INSERTs write to a SHARED Trino lakehouse, so it must be opt-in per environment
+ * rather than firing from every dev machine. An in-flight guard prevents
+ * overlapping runs; a per-(segment, snapshot_ts) heartbeat prevents double-writes
+ * within the same bucket across restarts.
+ *
+ * Multi-instance: enable on EXACTLY ONE server instance. The in-flight guard
+ * lives in this process — instances with separate DBs won't see each other's
+ * sentinel, so env discipline (single enabled instance) prevents stampede.
  */
 
 import { getDb } from '../db/sqlite.js';
@@ -24,7 +25,7 @@ import {
   writeSegmentSnapshot,
   type SegmentSnapshotInput,
 } from '../lakehouse/segment-snapshot-writer.js';
-import { writeSegmentMembershipDelta } from '../lakehouse/segment-delta-writer.js';
+import { writeSegmentMembershipDeltaForSegment } from '../lakehouse/segment-delta-writer.js';
 import {
   writeSegmentDefinitions,
   type SegmentDefinitionSnapshotInput,
@@ -34,15 +35,26 @@ import {
   lakehouseConnectorFromEnv,
   ensureLakehouseTables,
 } from '../lakehouse/lakehouse-trino-connector.js';
+import {
+  type SnapshotCadence,
+  coerceCadence,
+  cadenceElapsed,
+  floorToCadenceBucket,
+  snapshotDateOf,
+} from '../services/snapshot-cadence.js';
+import { writeMemberStateSnapshot } from '../lakehouse/segment-member-state-writer.js';
+import { writeSegmentKpiSnapshot } from '../lakehouse/segment-kpi-writer.js';
 
-const TICK_INTERVAL_MS = 3_600_000; // hourly; daily-guarded inside the tick
-const TZ_OFFSET_MS = 7 * 3_600_000; // GMT+7 (Asia/Saigon) — the ops timezone
+/** Base tick interval — 15 minutes. Each tick is a cheap elapsed-check per segment;
+ *  actual Trino work only runs for segments whose cadence bucket has elapsed. */
+const TICK_INTERVAL_MS = 900_000;
+const TZ_OFFSET_MS = 7 * 3_600_000; // GMT+7 (Asia/Saigon)
 
 /**
- * Cron only attempts the daily run during waking hours [08:00, 24:00) GMT+7 —
- * the window the operator's laptop is likely open. Outside it the hourly tick
- * is a no-op; the daily guard still ensures at most one run per GMT+7 date once
- * inside the window. Manual trigger bypasses this (explicit human action).
+ * Cron only attempts snapshot runs during waking hours [08:00, 24:00) GMT+7.
+ * Outside this window the 15m tick is a no-op; the per-(segment, snapshot_ts)
+ * guard still prevents double-writes inside the window. Manual trigger bypasses
+ * this entirely (explicit human action).
  */
 const WINDOW_START_HOUR = 8;
 const WINDOW_END_HOUR = 24;
@@ -76,19 +88,24 @@ interface SegmentRow {
   name: string;
   type: string;
   predicate_tree_json: string | null;
+  snapshot_cadence: string | null;
 }
 
 /** Eligible segment with the definition fields the definition writer needs on
- *  top of what the membership writer consumes. */
-export type SnapshotEligibleSegment = SegmentSnapshotInput & SegmentDefinitionSnapshotInput;
+ *  top of what the membership writer consumes. Carries resolved cadence. */
+export type SnapshotEligibleSegment = SegmentSnapshotInput &
+  SegmentDefinitionSnapshotInput & {
+    snapshotCadence: SnapshotCadence;
+  };
 
 /** Predicate segments eligible for snapshotting: have a cube, a query, a game
- *  id, and that game maps to a known Trino schema. */
+ *  id, and that game maps to a known Trino schema. Carries snapshot_cadence. */
 export function listSnapshotEligibleSegments(): SnapshotEligibleSegment[] {
   const db = getDb();
   const rows = db
     .prepare(
-      `SELECT id, cube, game_id, workspace, cube_query_json, name, type, predicate_tree_json
+      `SELECT id, cube, game_id, workspace, cube_query_json, name, type,
+              predicate_tree_json, snapshot_cadence
          FROM segments
         WHERE type = 'predicate' AND cube IS NOT NULL AND cube_query_json IS NOT NULL
               AND game_id IS NOT NULL`,
@@ -107,9 +124,30 @@ export function listSnapshotEligibleSegments(): SnapshotEligibleSegment[] {
       name: r.name,
       type: r.type,
       predicateTreeJson: r.predicate_tree_json,
+      snapshotCadence: coerceCadence(r.snapshot_cadence),
     });
   }
   return out;
+}
+
+/**
+ * True when a heartbeat row already exists for (segmentId, snapshotTs) — the
+ * per-bucket idempotence guard. Prevents the same bucket being written twice
+ * if the job is restarted mid-run or two overlapping ticks fire (the in-flight
+ * guard handles the latter, but defence in depth is cheap here).
+ */
+function alreadySnapshotted(segmentId: string, snapshotTs: string): boolean {
+  try {
+    const row = getDb()
+      .prepare(
+        `SELECT 1 FROM segment_snapshot_log
+          WHERE segment_id = ? AND snapshot_ts = ? LIMIT 1`,
+      )
+      .get(segmentId, snapshotTs);
+    return row != null;
+  } catch {
+    return false;
+  }
 }
 
 function logHeartbeat(
@@ -119,15 +157,16 @@ function logHeartbeat(
   rowCount: number | undefined,
   status: string,
   detail: string | undefined,
+  snapshotTs?: string,
 ): void {
   try {
     getDb()
       .prepare(
         `INSERT INTO segment_snapshot_log
-           (snapshot_date, segment_id, game_id, row_count, status, detail)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+           (snapshot_date, segment_id, game_id, row_count, status, detail, snapshot_ts)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(snapshotDate, segmentId, gameId, rowCount ?? null, status, detail ?? null);
+      .run(snapshotDate, segmentId, gameId, rowCount ?? null, status, detail ?? null, snapshotTs ?? null);
   } catch (err) {
     console.warn(`[snapshot-segment-membership] heartbeat write failed:`, (err as Error).message);
   }
@@ -143,15 +182,21 @@ export interface SnapshotRunSummary {
 }
 
 /**
- * Snapshot all eligible segments for `snapshotDate` serially (cross-catalog
- * INSERTs are heavy — no parallelism), then compute the day's delta once.
+ * Snapshot all eligible due segments for a given nowMs, each at its own
+ * snapshot_ts bucket. Idempotent per (segment, snapshot_ts): forced=true
+ * bypasses the cadence-elapsed check and the per-bucket guard (manual trigger).
+ *
+ * Returns a summary keyed to the most common snapshotDate in the run (the
+ * calendar date for the majority of segments — used by callers + listSnapshotRuns).
  */
 export async function runSegmentMembershipSnapshot(
-  snapshotDate: string = gmt7DateString(),
+  snapshotDateHint: string = gmt7DateString(),
+  nowMs: number = Date.now(),
+  forced = false,
 ): Promise<SnapshotRunSummary> {
   const segments = listSnapshotEligibleSegments();
   const summary: SnapshotRunSummary = {
-    snapshotDate,
+    snapshotDate: snapshotDateHint,
     total: segments.length,
     written: 0,
     skipped: 0,
@@ -159,41 +204,79 @@ export async function runSegmentMembershipSnapshot(
     deltaStatus: 'not-run',
   };
 
-  // Sentinel BEFORE any Trino work so a concurrent tick / restart sees this
-  // date as already-running and skips (closes the alreadyRanToday race).
-  logHeartbeat(snapshotDate, '__started__', null, undefined, 'started', undefined);
+  // Run-level sentinel BEFORE any Trino work. A concurrent tick or a restart
+  // sees this and short-circuits via alreadySnapshotted per segment.
+  logHeartbeat(snapshotDateHint, '__started__', null, undefined, 'started', undefined);
 
-  // Build the lakehouse connector once (parses cube-dev/.env) and reuse it for
-  // every segment + the delta, rather than re-reading the file per segment.
+  // Build the lakehouse connector once and reuse it for every segment — avoids
+  // re-parsing the cube-dev/.env on every segment in the loop.
   const connector = lakehouseConnectorFromEnv();
 
-  // Create the env-scoped schema + tables before any writer runs. On a fresh
-  // environment (a newly-pointed schema's first run) nothing has created them
-  // yet, so every INSERT would fail with "Table does not exist". Idempotent
-  // (CREATE … IF NOT EXISTS) — a cheap no-op once they exist. If it fails (e.g.
-  // lakehouse genuinely unreachable) abort before hammering Trino with N
-  // doomed INSERTs; a manual re-run clears today's heartbeat and retries.
+  // Ensure schema + tables before any writer runs. If this fails, abort and
+  // let the next tick retry — hammering N doomed INSERTs is wasteful.
   try {
     await ensureLakehouseTables(connector);
   } catch (err) {
     const detail = (err as Error).message;
-    logHeartbeat(snapshotDate, '__ensure__', null, undefined, 'error', detail);
+    logHeartbeat(snapshotDateHint, '__ensure__', null, undefined, 'error', detail);
     console.warn(`[snapshot-segment-membership] ensure tables failed:`, detail);
     summary.deltaStatus = 'skipped-ensure-failed';
     return summary;
   }
 
-  // Definitions land BEFORE the membership loop so a segment whose membership
-  // INSERT errors still gets its definition row (history of what was
-  // attempted). Failure here never aborts the run — writer doesn't throw.
-  const defs = await writeSegmentDefinitions(segments, snapshotDate, { connector });
-  logHeartbeat(snapshotDate, '__definitions__', null, defs.rowCount, defs.status, defs.error);
+  // Per-(game, snapshotTs) compiled mf_users SELECT cache — state writer
+  // compiles this once per game/ts and reuses across the game's segments.
+  const stateSelectCache = new Map<string, string>();
 
   for (const seg of segments) {
-    const res = await writeSegmentSnapshot(seg, snapshotDate, { connector });
-    if (res.status === 'written') summary.written++;
-    else if (res.status === 'skipped') summary.skipped++;
-    else summary.errored++;
+    const snapshotTs = floorToCadenceBucket(nowMs, seg.snapshotCadence);
+    const snapshotDate = snapshotDateOf(snapshotTs);
+
+    // Per-segment cadence guard: skip if this bucket was already written —
+    // handles restarts and manual/cron overlap. Forced runs bypass this.
+    if (!forced && alreadySnapshotted(seg.segmentId, snapshotTs)) {
+      summary.skipped++;
+      continue;
+    }
+
+    // For non-forced ticks, skip segments whose cadence bucket hasn't elapsed.
+    // We check this AFTER the alreadySnapshotted guard to avoid a DB read on
+    // segments that already fired this tick.
+    if (!forced) {
+      // Retrieve the last logged snapshot_ts for this segment to pass to cadenceElapsed.
+      let lastTs: string | null = null;
+      try {
+        const row = getDb()
+          .prepare(
+            `SELECT snapshot_ts FROM segment_snapshot_log
+              WHERE segment_id = ? AND snapshot_ts IS NOT NULL
+              ORDER BY snapshot_ts DESC LIMIT 1`,
+          )
+          .get(seg.segmentId) as { snapshot_ts: string } | undefined;
+        lastTs = row?.snapshot_ts ?? null;
+      } catch {
+        lastTs = null;
+      }
+      if (!cadenceElapsed(lastTs, nowMs, seg.snapshotCadence)) {
+        summary.skipped++;
+        continue;
+      }
+    }
+
+    // Definition row lands BEFORE membership: a segment whose membership INSERT
+    // errors still gets its definition row (history of what was attempted).
+    await writeSegmentDefinitions([seg], snapshotDate, {
+      connector,
+      snapshotTs,
+      snapshotCadence: seg.snapshotCadence,
+    });
+
+    // Membership snapshot for this (segment, snapshot_ts).
+    const res = await writeSegmentSnapshot(seg, snapshotDate, {
+      connector,
+      snapshotTs,
+    });
+
     logHeartbeat(
       snapshotDate,
       seg.segmentId,
@@ -201,34 +284,80 @@ export async function runSegmentMembershipSnapshot(
       res.rowCount,
       res.status,
       res.reason ?? res.error,
+      snapshotTs,
     );
-  }
 
-  // Derive the delta once for the date — only meaningful if ≥1 segment landed.
-  if (summary.written > 0) {
-    const delta = await writeSegmentMembershipDelta(snapshotDate, { connector });
-    summary.deltaStatus = delta.status;
-    logHeartbeat(snapshotDate, '__delta__', null, delta.rowCount, delta.status, delta.error);
+    if (res.status === 'written') {
+      summary.written++;
+      const memberCount = res.rowCount ?? 0;
+
+      // Delta vs the segment's previous snapshot_ts (per-segment, handles gaps
+      // and cadence changes correctly — no fixed D-1 assumption).
+      const deltaRes = await writeSegmentMembershipDeltaForSegment(
+        seg.gameId,
+        seg.segmentId,
+        snapshotDate,
+        snapshotTs,
+        { connector },
+      );
+      logHeartbeat(
+        snapshotDate,
+        `__delta__:${seg.segmentId}`,
+        seg.gameId,
+        deltaRes.rowCount,
+        deltaRes.status,
+        deltaRes.error,
+        snapshotTs,
+      );
+
+      // Per-user state snapshot: compile mf_users projection once per
+      // (game, snapshotTs) and reuse across that game's segments.
+      const stateCacheKey = `${seg.gameId}:${snapshotTs}`;
+      const stateRes = await writeMemberStateSnapshot(
+        seg,
+        snapshotTs,
+        stateSelectCache,
+        stateCacheKey,
+        { connector },
+      );
+      logHeartbeat(
+        snapshotDate,
+        `__state__:${seg.segmentId}`,
+        seg.gameId,
+        stateRes.rowCount,
+        stateRes.status,
+        stateRes.reason ?? stateRes.error,
+        snapshotTs,
+      );
+
+      // Segment-level KPI time-series: Cube reads scoped to this segment's
+      // predicate, persisted as scalar rows keyed by (snapshot_ts, metric).
+      const kpiRes = await writeSegmentKpiSnapshot(seg, snapshotTs, memberCount, {
+        connector,
+      });
+      logHeartbeat(
+        snapshotDate,
+        `__kpi__:${seg.segmentId}`,
+        seg.gameId,
+        kpiRes.rowCount,
+        kpiRes.status,
+        kpiRes.reason ?? kpiRes.error,
+        snapshotTs,
+      );
+
+      summary.deltaStatus = 'written';
+    } else if (res.status === 'skipped') {
+      summary.skipped++;
+    } else {
+      summary.errored++;
+    }
   }
 
   console.log(
-    `[snapshot-segment-membership] ${snapshotDate}: ${summary.written} written, ` +
-      `${summary.skipped} skipped, ${summary.errored} errored, delta=${summary.deltaStatus}`,
+    `[snapshot-segment-membership] ${snapshotDateHint}: ${summary.written} written, ` +
+      `${summary.skipped} skipped, ${summary.errored} errored`,
   );
   return summary;
-}
-
-/** True when this GMT+7 date already has any snapshot heartbeat (idempotent
- *  across restarts — avoids re-hammering Trino on every hourly tick). */
-function alreadyRanToday(snapshotDate: string): boolean {
-  try {
-    const row = getDb()
-      .prepare(`SELECT 1 FROM segment_snapshot_log WHERE snapshot_date = ? LIMIT 1`)
-      .get(snapshotDate);
-    return row != null;
-  } catch {
-    return false;
-  }
 }
 
 let running = false;
@@ -239,15 +368,13 @@ export function isSnapshotRunning(): boolean {
 }
 
 /**
- * Operator-triggered snapshot for today's GMT+7 date, fire-and-forget.
- * Deliberately bypasses BOTH guards the cron tick honours:
- *  - isEnabled: the whole point is running it on a gateway where the nightly
- *    job is off ("job off on this gateway") — an explicit human action.
- *  - alreadyRanToday: writers are idempotent per (date, game, segment)
- *    (DELETE → INSERT), so a re-run refreshes today's partition in place.
- * Today's heartbeat rows are cleared first so the re-run's tallies REPLACE the
- * prior attempt's — listSnapshotRuns aggregates per date; appending would
- * double-count written/skipped. Only the in-flight guard is kept.
+ * Operator-triggered snapshot: forces ALL eligible segments to snapshot at
+ * their current cadence bucket RIGHT NOW, bypassing the window guard, the
+ * cadence-elapsed check, and the per-bucket idempotence guard. The in-flight
+ * guard is kept (a second manual trigger while one runs short-circuits).
+ *
+ * Clears today's heartbeat rows first so listSnapshotRuns aggregates this
+ * run's tallies cleanly instead of appending to the prior attempt's.
  */
 export function triggerManualSnapshot(nowMs: number = Date.now()): { started: boolean; reason?: string } {
   if (running) return { started: false, reason: 'snapshot already running' };
@@ -258,7 +385,7 @@ export function triggerManualSnapshot(nowMs: number = Date.now()): { started: bo
   } catch {
     // heartbeat cleanup is best-effort — a duplicate-counted date beats no run
   }
-  void runSegmentMembershipSnapshot(date)
+  void runSegmentMembershipSnapshot(date, nowMs, true)
     .catch((err) => {
       console.warn('[snapshot-segment-membership] manual run failed:', (err as Error).message);
     })
@@ -270,14 +397,13 @@ export function triggerManualSnapshot(nowMs: number = Date.now()): { started: bo
 
 export async function snapshotSegmentMembershipTick(nowMs: number = Date.now()): Promise<void> {
   if (!isEnabled() || running) return;
-  // Only attempt during waking hours — outside [08:00, 24:00) GMT+7 the tick is
-  // a no-op (laptop likely asleep; a 03:00 run isn't wanted).
+  // Only attempt during waking hours — outside [08:00, 24:00) GMT+7 the tick
+  // is a no-op (laptop likely asleep; early-morning runs aren't wanted).
   if (!isWithinSnapshotWindow(nowMs)) return;
   const date = gmt7DateString(nowMs);
-  if (alreadyRanToday(date)) return;
   running = true;
   try {
-    await runSegmentMembershipSnapshot(date);
+    await runSegmentMembershipSnapshot(date, nowMs, false);
   } catch (err) {
     console.warn(`[snapshot-segment-membership] tick failed:`, (err as Error).message);
   } finally {

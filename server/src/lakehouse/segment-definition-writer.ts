@@ -55,6 +55,17 @@ export interface DefinitionWriteResult {
 export interface DefinitionWriteOptions {
   /** Injectable for tests; defaults to the env-derived lakehouse connector. */
   connector?: Connector;
+  /**
+   * Canonical snapshot_ts for this snapshot run ('YYYY-MM-DD HH:MM:00').
+   * Stamped on every definition row so the movement API can derive cadence
+   * changes by lagging snapshot_cadence over time. Omitted for legacy daily runs.
+   */
+  snapshotTs?: string;
+  /**
+   * Snapshot cadence of the segment at this run (e.g. 'daily', '1h'). Stored
+   * per-snapshot so the history of cadence changes is queryable.
+   */
+  snapshotCadence?: string;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,11 +78,15 @@ function capJson(raw: string | null, segmentId: string, col: string): string | n
   return raw.slice(0, MAX_JSON_CHARS) + '…[truncated]';
 }
 
-/** One VALUES tuple per segment — all literals escaped via toSqlLiteral. */
+/** One VALUES tuple per segment — all literals escaped via toSqlLiteral.
+ *  Includes optional snapshot_ts and snapshot_cadence when provided, so the
+ *  definition history carries the cadence that was active at capture time. */
 export function definitionValuesTuple(
   seg: SegmentDefinitionSnapshotInput,
   snapshotDate: string,
   identityField: string | null,
+  snapshotTs?: string,
+  snapshotCadence?: string,
 ): string {
   const hash = segmentDefinitionHash({
     type: seg.type,
@@ -79,6 +94,8 @@ export function definitionValuesTuple(
     game_id: seg.gameId,
     predicate_tree_json: seg.predicateTreeJson,
   });
+  const tsCol = snapshotTs ? `, TIMESTAMP '${snapshotTs}'` : ', NULL';
+  const cadenceCol = toSqlLiteral(snapshotCadence ?? null);
   return (
     `(DATE '${snapshotDate}', ` +
     [
@@ -92,7 +109,7 @@ export function definitionValuesTuple(
       toSqlLiteral(capJson(seg.predicateTreeJson, seg.segmentId, 'predicate_tree_json')),
       toSqlLiteral(capJson(seg.cubeQueryJson, seg.segmentId, 'cube_query_json')),
     ].join(', ') +
-    ')'
+    `${tsCol}, ${cadenceCol})`
   );
 }
 
@@ -127,14 +144,21 @@ export async function writeSegmentDefinitions(
       } catch {
         identity = null;
       }
-      tuples.push(definitionValuesTuple(seg, snapshotDate, identity));
+      tuples.push(definitionValuesTuple(seg, snapshotDate, identity, opts.snapshotTs, opts.snapshotCadence));
     }
 
     const dateLit = `DATE '${snapshotDate}'`;
-    const deleteSql = `DELETE FROM ${SEGMENT_DEFINITION_DAILY} WHERE snapshot_date = ${dateLit}`;
+    // When snapshotTs is provided the DELETE is keyed on (date, snapshot_ts) so
+    // sub-daily cadence re-runs only overwrite the same bucket, not the whole
+    // day's definitions. Legacy daily runs (no snapshotTs) clear the day slice.
+    const tsTerm = opts.snapshotTs
+      ? ` AND snapshot_ts = TIMESTAMP '${opts.snapshotTs}'`
+      : '';
+    const deleteSql =
+      `DELETE FROM ${SEGMENT_DEFINITION_DAILY} WHERE snapshot_date = ${dateLit}${tsTerm}`;
     const insertSql =
       `INSERT INTO ${SEGMENT_DEFINITION_DAILY} ` +
-      `(snapshot_date, game_id, segment_id, definition_hash, name, cube_name, type, identity_field, predicate_tree_json, cube_query_json) ` +
+      `(snapshot_date, game_id, segment_id, definition_hash, name, cube_name, type, identity_field, predicate_tree_json, cube_query_json, snapshot_ts, snapshot_cadence) ` +
       `VALUES ${tuples.join(', ')}`;
 
     await runQuery(connector, LAKEHOUSE_SCHEMA, deleteSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);

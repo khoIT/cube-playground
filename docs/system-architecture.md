@@ -740,21 +740,31 @@ CS-facing console for the 21-playbook VIP Care Program. Turns static playbook de
 
 ## Segment Metric-Movement Lakehouse
 
-Dual-layer snapshot architecture: nightly Trino Iceberg (`stag_iceberg.khoitn`) writes of segment definitions + membership deltas, powering latency-bound cohort trajectory and metric-series analytics without live Cube dependencies.
+Dual-layer snapshot architecture: sub-daily Trino Iceberg (`stag_iceberg.khoitn`) writes of segment definitions + membership deltas + per-user state + KPI time-series, powering latency-bound cohort trajectory and metric-series analytics without live Cube dependencies.
 
-### Layer 1: Snapshot Writer (Fastify server, nightly)
+### Per-Segment Capture Cadence (2026-06-18)
 
-The job `server/src/jobs/snapshot-segment-membership.ts` materializes two Iceberg tables nightly:
+**Cadence control:** Each segment carries `snapshot_cadence` (15m|1h|3h|6h|12h|daily, default daily; schema migration 063). The snapshot job tick (`server/src/jobs/snapshot-segment-membership.ts`) runs every 15m (migration 064 guards per-segment,per-timestamp); for each segment, it checks if the current GMT+7 cadence bucket differs from the segment's last-snapshotted bucket. Only segments whose bucket elapsed run Trino work. Default-daily preserves legacy behavior; only opted-in segments run sub-daily. All time math is GMT+7-bucketed; `snapshot_ts` is a tz-naive `YYYY-MM-DD HH:MM:00` key (Trino TIMESTAMP literal; SQLite lexical order). Per-(segment,snapshot_ts) guard in `segment_snapshot_log.snapshot_ts` prevents double-writes across restarts.
 
-1. **`segment_definition_daily`** — metadata snapshot: segment id/name/type, cube name, definition JSON (predicate tree + cube-segments sidecar), definition hash (for change detection), and the resolved identity dimension. Writer is `segment-definition-writer.ts`: deletes the old partition (idempotent), then batches INSERT from SQLite segment rows + Cube metadata joins. Schema-less data seeding (no migration).
+### Layer 1: Snapshot Writer (Fastify server, 15m ticks)
 
-2. **`segment_membership_daily` / `segment_membership_delta`** — existing membership snapshot tables (per-user entry dates, daily state flags) co-live in the same dataset. Delta rows let the reader distinguish exits from no-events.
+The job materializes four Iceberg tables (idempotent per partition):
+
+1. **`segment_definition_daily`** — metadata snapshot: segment id/name/type, cube name, definition JSON (predicate tree + cube-segments sidecar), definition hash (for change detection), resolved identity dimension, and now `snapshot_ts`. Writer is `segment-definition-writer.ts`: deletes the old partition (idempotent), then batches INSERT from SQLite segment rows + Cube metadata joins.
+
+2. **`segment_membership_daily` / `segment_membership_delta`** — membership snapshot tables now threaded with `snapshot_ts` (additive ALTER ADD COLUMN; existing rows coalesce to date 00:00). Delta rows distinguish exits from no-events. Partitioning unchanged (date,game,segment); `snapshot_ts` sorts within partition.
+
+3. **`segment_member_state_daily`** (2026-06-18) — per-user mf_users canonical state per (snapshot_ts,game,segment,uid). One row per segment-member; uid in N segments → N rows. Schema: fixed positional columns from `CANONICAL_USER_STATE_COLUMNS` (identity dim + ingame_name + ltv_vnd + ltv_30d_vnd + is_paying_user + is_paying_30d + total_active_days + days_since_last_active + ...). Columns absent from a game's /meta dropped to NULL. Writer `segment-member-state-writer.ts`: predicate-free mf_users projection (compiled once per game+snapshot_ts, cached within the tick) JOINed in Trino to membership@snapshot_ts — scan-wide, write-narrow, avoids per-segment join-rooting.
+
+4. **`segment_kpi_daily`** (2026-06-18) — per-segment time-series (one row per snapshot_ts,game,segment,metric). Values from card-runner's `runScopedKpi` (same queryForKpi+scopeQuery path as Insights tab) — guarantees persisted KPI == Insights value. Spans mf_users/recharge/etl_game_detail incl. non-additive measures (paying_rate_30d, arppu_vnd, whales_count — never derived from per-user state). Empty cohort writes NULL value. Writer `segment-kpi-writer.ts`: idempotent DELETE+INSERT per (game,segment,snapshot_ts) slice.
 
 **Heartbeat:** Writer emits a `__definitions__` sentinel row per partition, visible in `GET /api/segment-refresh/snapshot-runs` for cross-instance truth detection (10-min TTL cache). Per-instance SQLite guard (`last_definitions_partition_written`) prevents double-writes if two instances both try to write the same date.
 
 ### Layer 2: Snapshot Readers (Server queries, bound-latency)
 
-Three reader patterns, all join membership snapshots to identity map + per-user daily marts (Trino, query-time):
+Five reader patterns: legacy trajectory/metric-series, plus three new movement-analysis endpoints (2026-06-18) over per-user state + KPI time-series.
+
+**Legacy readers** (join membership snapshots to identity map + per-user daily marts):
 
 1. **Trajectory reader** (`segment-trajectory-reader.ts`) — size + entered/exited series. Closed cohort anchored per segment at its refresh date. Used by `GET /api/segments/:id/trajectory` (1h TTL, cache, 502 LAKEHOUSE_UNAVAILABLE on Trino outage).
 
@@ -766,6 +776,14 @@ Three reader patterns, all join membership snapshots to identity map + per-user 
    - **Dead-join warning** — if ≥5 consecutive days have zero members + zero metrics, reader logs WARN + response includes `{deadJoinWarning: true}`.
 
 3. **Eligible metrics** (`GET /api/segments/:id/eligible-metrics`) — which metrics are queryable for this segment's game, gated by registry (`segment-metric-registry.ts`). Registry pre-registers only probe-verified (game, mart) pairs (cfm_vn + jus_vn: revenue, active_members) to prevent unbounded warehouse scans.
+
+**Movement readers** (tokenless, over state + KPI snapshots; routes in `segment-movement.ts`):
+
+4. **KPI trend** (`GET /api/segments/:id/movement/kpi-trend`) — `segment_kpi_daily` time-series per metric. Request bounds (start/end dates), granularity (cadence or coarser), optional downsampling. Supports mixed-cadence windows via `downsample-snapshots.ts` (last-in-bucket aggregation, never sum — snapshots are as-of values). Effective granularity + cadence-change detection in response header.
+
+5. **Movement series** (`GET /api/segments/:id/movement/series`) — member entry/exit over time. Diff `segment_member_state_daily` snapshots to detect state changes. Downsample via effective_granularity.
+
+6. **State distribution + trend** (`GET /api/segments/:id/movement/state-distribution`) / (`…/state-distribution-trend`) — histogram of a dimension (e.g., ltv_vnd bucket, is_paying_user) at a snapshot, or trend across time. Redaction parity with members API: `ltv_vnd`, `is_paying_*`, `payer_tier` redacted from unauthenticated callers (`Boolean(req.user)` signal). Bounded by game + 14-day (sub-daily) or 90-day (daily) range caps.
 
 ### Operational Constraints
 

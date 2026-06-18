@@ -79,6 +79,42 @@ function queryForKpi(spec: KpiSpec): CubeQuery {
   return q;
 }
 
+/**
+ * Run a single KPI spec scoped to a segment's predicate filters, using the
+ * exact same path as runPresetCards — so the persisted value matches the
+ * Insights tab value with zero drift. Returns the scalar numeric value from
+ * the first result row, or null if no rows / non-numeric.
+ *
+ * `prefix` and `cubeSegments` mirror the runPresetCards parameters; pass them
+ * from the segment's resolved workspace/query context.
+ */
+export async function runScopedKpi(
+  spec: KpiSpec,
+  segmentFilters: CardFilter[],
+  opts: {
+    token?: string;
+    prefix?: string | null;
+    cubeSegments?: string[];
+    timeoutMs?: number;
+  } = {},
+): Promise<number | null> {
+  const { token, prefix = null, cubeSegments = [], timeoutMs = PER_CARD_TIMEOUT_MS } = opts;
+  const query = queryForKpi(spec);
+  const scoped = scopeQuery(query, segmentFilters, cubeSegments);
+  const physical = physicalizeQuery(scoped, prefix);
+  try {
+    const raw = await loadWithContinueWait(physical, token, timeoutMs);
+    const rows = logicalizeRows(extractRows(raw), prefix);
+    if (rows.length === 0) return null;
+    const val = rows[0]?.[spec.measure];
+    if (val == null) return null;
+    const n = Number(val);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 function queryForCard(spec: CardSpec): CubeQuery {
   if (spec.kind === 'line') {
     return {

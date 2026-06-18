@@ -1,19 +1,21 @@
 /**
- * Phase: delta computation (D vs D-1).
+ * Delta computation: per-segment entered/exited change feed.
  *
- * After date D's full snapshots land, derive the entered/exited change feed by
- * diffing D against D-1 per (game_id, segment_id), writing to
- * segment_membership_delta. The daily snapshot stays the source of truth; the
- * delta is a downstream convenience derived from it.
+ * Two modes:
+ *  - Date-level (legacy): diff all segments on date D against D-1. One
+ *    statement per date, run after the daily full-cohort pass.
+ *  - Snapshot-ts-level (per-segment): diff a segment's snapshot at `snapshotTs`
+ *    against its immediately prior snapshot (max snapshot_ts < current). Correct
+ *    across cadence changes — the "previous" is always the actual last capture
+ *    for that segment, not a fixed date offset. If no prior snapshot exists,
+ *    every member is 'entered' (first observation for the segment).
  *
- * Runs once per date over ALL segments snapshotted that day (set-based, cheap)
- * — the diff is scoped to (game, segment) pairs present in D's snapshot, so a
- * segment that FAILED to snapshot today produces no spurious 'exited' rows
- * (we have no observation for it, so we emit no change).
+ * The snapshot stays the source of truth; the delta is a derived convenience.
  */
 
 import { runQuery } from '../services/trino-rest-client.js';
 import type { Connector } from '../services/trino-profiler-config.js';
+import { toSqlLiteral } from './inline-sql-params.js';
 import {
   lakehouseConnectorFromEnv,
   LAKEHOUSE_SCHEMA,
@@ -23,20 +25,113 @@ import {
 } from './lakehouse-trino-connector.js';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TS_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
 
 export interface DeltaWriteResult {
   snapshotDate: string;
   status: 'written' | 'error';
-  /** Total change rows (entered + exited) landed for the date. */
+  /** Total change rows (entered + exited) landed. */
+  rowCount?: number;
+  error?: string;
+}
+
+export interface SegmentDeltaWriteResult {
+  segmentId: string;
+  snapshotTs: string;
+  status: 'written' | 'error';
   rowCount?: number;
   error?: string;
 }
 
 /**
- * Compute and write the day-over-day delta for `snapshotDate` (YYYY-MM-DD).
- * Idempotent: clears the date's delta slice first. If D-1 is missing (first
- * run / gap), every member of every D segment is 'entered' (the FULL OUTER
- * JOIN yields this because `p` is empty for those segments).
+ * Compute the entered/exited delta for ONE (segment, snapshotTs) against
+ * that segment's maximum prior snapshot_ts. Idempotent: deletes the
+ * (game, segment, snapshot_ts) slice then inserts fresh. If no prior
+ * snapshot exists all members of the current snapshot are 'entered'.
+ *
+ * Never throws — returns a structured result so the job can continue to
+ * the next segment on failure.
+ */
+export async function writeSegmentMembershipDeltaForSegment(
+  gameId: string,
+  segmentId: string,
+  snapshotDate: string,
+  snapshotTs: string,
+  opts: { connector?: Connector } = {},
+): Promise<SegmentDeltaWriteResult> {
+  const base = { segmentId, snapshotTs };
+  if (!TS_RE.test(snapshotTs)) {
+    return { ...base, status: 'error', error: `invalid snapshotTs: ${snapshotTs}` };
+  }
+  if (!DATE_RE.test(snapshotDate)) {
+    return { ...base, status: 'error', error: `invalid snapshotDate: ${snapshotDate}` };
+  }
+
+  const connector = opts.connector ?? lakehouseConnectorFromEnv();
+  const gameLit = toSqlLiteral(gameId);
+  const segLit = toSqlLiteral(segmentId);
+  const dateLit = `DATE '${snapshotDate}'`;
+  const tsLit = `TIMESTAMP '${snapshotTs}'`;
+
+  try {
+    // Idempotent slice delete keyed on (snapshot_ts, game, segment).
+    const deleteSql =
+      `DELETE FROM ${SEGMENT_MEMBERSHIP_DELTA} ` +
+      `WHERE game_id = ${gameLit} AND segment_id = ${segLit} AND snapshot_ts = ${tsLit}`;
+
+    // Subquery `prev_ts` resolves the immediately prior snapshot for this
+    // segment — the max snapshot_ts strictly before the current one. Joining
+    // to the previous membership at that exact ts handles cadence gaps (e.g.
+    // a segment skipped yesterday). When prev_ts is NULL the FULL OUTER JOIN
+    // on `p` naturally yields no rows, making every member of `d` 'entered'.
+    const insertSql =
+      `INSERT INTO ${SEGMENT_MEMBERSHIP_DELTA}\n` +
+      `WITH prev_ts AS (\n` +
+      `  SELECT max(snapshot_ts) AS ts\n` +
+      `  FROM ${SEGMENT_MEMBERSHIP_DAILY}\n` +
+      `  WHERE game_id = ${gameLit} AND segment_id = ${segLit}\n` +
+      `    AND snapshot_ts < ${tsLit}\n` +
+      `),\n` +
+      `d AS (\n` +
+      `  SELECT uid FROM ${SEGMENT_MEMBERSHIP_DAILY}\n` +
+      `  WHERE game_id = ${gameLit} AND segment_id = ${segLit}\n` +
+      `    AND snapshot_ts = ${tsLit}\n` +
+      `),\n` +
+      `p AS (\n` +
+      `  SELECT m.uid FROM ${SEGMENT_MEMBERSHIP_DAILY} m\n` +
+      `  CROSS JOIN prev_ts\n` +
+      `  WHERE m.game_id = ${gameLit} AND m.segment_id = ${segLit}\n` +
+      `    AND prev_ts.ts IS NOT NULL\n` +
+      `    AND m.snapshot_ts = prev_ts.ts\n` +
+      `)\n` +
+      `SELECT ${dateLit} AS snapshot_date,\n` +
+      `       ${tsLit} AS snapshot_ts,\n` +
+      `       ${gameLit} AS game_id,\n` +
+      `       ${segLit} AS segment_id,\n` +
+      `       COALESCE(d.uid, p.uid) AS uid,\n` +
+      `       CASE WHEN p.uid IS NULL THEN 'entered' ELSE 'exited' END AS change\n` +
+      `FROM d FULL OUTER JOIN p ON d.uid = p.uid\n` +
+      `WHERE d.uid IS NULL OR p.uid IS NULL`;
+
+    await runQuery(connector, LAKEHOUSE_SCHEMA, deleteSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
+    await runQuery(connector, LAKEHOUSE_SCHEMA, insertSql, LAKEHOUSE_STATEMENT_TIMEOUT_MS);
+
+    const countRes = await runQuery(
+      connector,
+      LAKEHOUSE_SCHEMA,
+      `SELECT count(*) FROM ${SEGMENT_MEMBERSHIP_DELTA} WHERE game_id = ${gameLit} AND segment_id = ${segLit} AND snapshot_ts = ${tsLit}`,
+      LAKEHOUSE_STATEMENT_TIMEOUT_MS,
+    );
+    return { ...base, status: 'written', rowCount: Number(countRes.rows[0]?.[0] ?? 0) };
+  } catch (err) {
+    return { ...base, status: 'error', error: (err as Error).message };
+  }
+}
+
+/**
+ * Legacy date-level delta: diff all segments on date D against D-1.
+ * Retained for backward compatibility — new per-cadence job uses
+ * writeSegmentMembershipDeltaForSegment instead.
  */
 export async function writeSegmentMembershipDelta(
   snapshotDate: string,

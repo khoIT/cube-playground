@@ -8,7 +8,7 @@ Surfaces:
 - **Playground** — meta-driven query builder, results table, recharts bar/line, compiled-SQL preview, JSON preview, deep-linkable query state. Alias + icon picker for cubes/views (client-side, localStorage-persisted).
 - **Data Model & Catalog** — browse cubes/views/concepts, register business metrics, monitor metric↔cube coverage.
 - **Data (onboarding)** — connect a warehouse, introspect raw schemas, and stage draft Cube models (bootstrap → reconcile → repair lifecycle).
-- **Segments** — build and persist audience segments; identity-map management.
+- **Segments** — build and persist audience segments; identity-map management. Sub-daily/daily snapshots of per-user canonical state + KPI time-series; movement analytics (kpi-trend, state-distribution, entry/exit series) via tokenless read API.
 - **Dashboards & LiveOps** — saved dashboards, KPI hero strip, cohort retention grid, anomaly inbox.
 - **Drift Center** — triage schema/member drift against the live model.
 - **Settings** — Cube workspace, token status, remembered chat defaults.

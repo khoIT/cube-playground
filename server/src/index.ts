@@ -23,6 +23,7 @@ import segmentTrajectoryRoutes from './routes/segment-trajectory.js';
 import segmentCsCareRoutes from './routes/segment-cs-care.js';
 import segmentCsTicketsRoutes from './routes/segment-cs-tickets.js';
 import segmentMetricSeriesRoutes from './routes/segment-metric-series.js';
+import segmentMovementRoutes from './routes/segment-movement.js';
 import analysesRoutes from './routes/analyses.js';
 import identityMapRoutes from './routes/identity-map.js';
 import presetsRoutes from './routes/presets.js';
@@ -119,6 +120,7 @@ export async function buildApp() {
   await app.register(segmentCsCareRoutes);
   await app.register(segmentCsTicketsRoutes);
   await app.register(segmentMetricSeriesRoutes);
+  await app.register(segmentMovementRoutes);
   await app.register(analysesRoutes);
   await app.register(identityMapRoutes);
   await app.register(presetsRoutes);
