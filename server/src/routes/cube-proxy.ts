@@ -21,6 +21,7 @@ import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-f
 import { recordActivity, projectQueryShape } from '../services/activity-store.js';
 import { recordQueryPerf, shouldCapture } from '../services/query-perf-store.js';
 import { admitLoad, admissionSnapshot, LoadAdmissionRejected } from './cube-load-admission.js';
+import { getCachedLoad, putCachedLoad, isRealtimeQuery } from './cube-load-result-cache.js';
 
 // Per-upstream-fetch ceiling. Cube emits `{error:"Continue wait"}` (HTTP 200)
 // once it has held a query for its continue-wait window (25s), so a single
@@ -273,13 +274,29 @@ async function handleLoad(
   body: unknown,
   queryForTelemetry: unknown,
 ): Promise<FastifyReply> {
+  // Cache key == dedup key (workspace|game|method|query). Realtime cubes and
+  // unparseable queries are never cached (served fresh every time).
+  const cacheKey = loadDedupKey(req, method, queryForTelemetry);
+  const cacheable = queryForTelemetry != null && !isRealtimeQuery(queryForTelemetry);
+
+  // Cache hit: serve from memory without touching admission control, Cube, or
+  // Trino. Still record the activity (the user DID run a query) but skip perf
+  // telemetry — there is no warehouse latency or pre-agg to attribute.
+  if (cacheable) {
+    const cached = getCachedLoad(cacheKey);
+    if (cached) {
+      emitQueryRun(req, cached.status, queryForTelemetry);
+      return reply.header('x-cube-cache', 'hit').status(cached.status).send(cached.body);
+    }
+  }
+
   const ac = clientAbortController(req);
   const started = performance.now();
   let result: { status: number; body: unknown };
   try {
     result = await admitLoad({
       ownerId: req.principal?.sub ?? 'anon',
-      dedupKey: loadDedupKey(req, method, queryForTelemetry),
+      dedupKey: cacheKey,
       clientSignal: ac.signal,
       run: (sig) => forwardLoadWithContinueWait(req.cubeCtx, method, search, body, sig),
     });
@@ -297,9 +314,14 @@ async function handleLoad(
     throw err;
   }
   const latencyMs = performance.now() - started;
+  // Store only complete, successful, non-empty results (putCachedLoad gates).
+  if (cacheable) putCachedLoad(cacheKey, result);
   emitQueryRun(req, result.status, queryForTelemetry);
   emitQueryPerf(req, method, result.status, latencyMs, queryForTelemetry, result.body);
-  return reply.status(result.status).send(result.body);
+  return reply
+    .header('x-cube-cache', cacheable ? 'miss' : 'bypass')
+    .status(result.status)
+    .send(result.body);
 }
 
 export default async function cubeProxyRoutes(app: FastifyInstance): Promise<void> {

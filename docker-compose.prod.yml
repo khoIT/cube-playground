@@ -85,6 +85,16 @@ services:
       #     count, so this only bites on genuine cross-surface pile-up.
       CUBE_LOAD_MAX_INFLIGHT_GLOBAL: ${CUBE_LOAD_MAX_INFLIGHT_GLOBAL:-24}
       CUBE_LOAD_MAX_INFLIGHT_PER_OWNER: ${CUBE_LOAD_MAX_INFLIGHT_PER_OWNER:-8}
+      # Short-lived result cache for completed /load queries, keyed by
+      # workspace|game|method|query (game-scoped, NOT per-user). Lets staggered
+      # users hitting the same query on /build, /segments, /ops reuse one
+      # warehouse round-trip — the main lever for "many users, same query". Data
+      # is daily-grained so 10 min staleness is safe; realtime cubes bypass and
+      # only non-empty 200s are cached. The key has NO ownerId: disable (or add
+      # ownerId) before enabling per-user row scoping.
+      CUBE_LOAD_RESULT_CACHE_ENABLED: ${CUBE_LOAD_RESULT_CACHE_ENABLED:-true}
+      CUBE_LOAD_RESULT_CACHE_TTL_MS: ${CUBE_LOAD_RESULT_CACHE_TTL_MS:-600000}
+      CUBE_LOAD_RESULT_CACHE_MAX_ENTRIES: ${CUBE_LOAD_RESULT_CACHE_MAX_ENTRIES:-500}
     volumes:
       - server-data:/data
       # Docker Engine socket for the pre-agg collector (log reads) and build
