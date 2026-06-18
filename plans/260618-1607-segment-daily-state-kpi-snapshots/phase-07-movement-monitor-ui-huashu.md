@@ -1,11 +1,35 @@
 ---
 phase: 7
 title: "Movement monitor UI (huashu)"
-status: pending
+status: completed
 priority: P2
 effort: "2d"
 dependencies: [6]
 ---
+
+## Build outcome (2026-06-18)
+
+Shipped variant **A** (stacked, shared time axis) as an **additive BETA `Movement`
+tab** next to `Monitor` (Monitor untouched), gated to predicate+game segments.
+Three sections — KPI trends, membership movement, state-distribution trend — each
+rendered via the shared `AssistantChartSection` (non-embedded), whose built-in view
+menu **is** the requested line↔bar toggle (series data → grouped/stacked-bar;
+single metric → bar/horizontal-bar). A whole-view **granularity toggle** clamps to
+the `effectiveGranularity` reported by the read API (never finer than captured), and
+re-clamps the active selection when the first response narrows it. Freshness /
+stale / cadence-change / carry-forward annotated per section (GMT+7).
+
+Files: `src/api/segment-movement-client.ts`; `src/pages/Segments/detail/tabs/movement-tab.tsx`
++ `tabs/movement/*` (builders, sections, toggle, loader hook, meta-strip);
+registry/render wiring in `use-active-tab.ts` + `detail-view.tsx`; i18n labels.
+Tests: `tabs/movement/__tests__/build-movement-chart.test.ts` (6). tsc/lint/tests clean.
+
+**Deferred (scope guard, not built): the capture-cadence WRITE control.** Setting a
+segment's `snapshot_cadence` needs a backend CRUD change (it is absent from the
+`Segment` type, `SegmentPatch`, and the PATCH zod/SQL allow-list in
+`server/src/routes/segments.ts`) and is the contentious open question below
+(capture-cadence vs the existing `refresh_cadence_min` control). The shipped tab is
+read/visualization only. Revisit when promoting Movement out of beta.
 
 # Phase 7: Movement monitor UI (huashu)
 
@@ -16,6 +40,27 @@ intraday): KPI trend lines, membership churn-in/out, and per-user state distribu
 shifts — with a **view-time granularity toggle** (`15m|1h|3h|6h|12h|daily`). Design the
 surface with **huashu-design** (hi-fi HTML variants first → user picks/mixes → React),
 per the project standard for important UI. Strictly follow `docs/design-guidelines.md`.
+
+## Design-step outcome (2026-06-18) + user requirements
+
+huashu variants produced in `./visuals/` (variant-a-stacked, b-hero-tabbed,
+c-small-multiples). Designer recommendation: **A (stacked, shared time axis) +
+B's click-a-KPI-tile-to-focus interaction**. **Final direction still open** —
+revisit at build time (user reviewed but did not lock a letter).
+
+**User requirements to honor in the React build (locked 2026-06-18):**
+1. **Chart-type toggle (line ↔ bar)** per chart where it makes sense — let the
+   user flip a trend between line and bar on demand.
+2. **Movement tab is BETA and ADDITIVE — do NOT replace the existing monitor
+   tab.** Add Movement as a new tab alongside the current monitor surface; the
+   shipped monitor stays untouched until Movement graduates out of beta.
+
+**Open questions to resolve at build time (from the design step):**
+- `effective_granularity` clamp scope: per-metric or whole-view? (mockups assume
+  one whole-view toggle.)
+- `snapshot_cadence` (capture) vs the existing `monitor/cadence-control.tsx`
+  `refresh_cadence_min` (refresh) — distinct concepts; avoid two competing cadence
+  controls on the same surface. Verify before adding the capture-cadence control.
 
 ## Requirements
 

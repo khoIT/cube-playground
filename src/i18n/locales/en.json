@@ -206,6 +206,7 @@
       },
       "tabs": {
         "monitor": "Monitor",
+        "movement": "Movement",
         "insights": "Insights",
         "members": "Members",
         "definition": "Definition",
