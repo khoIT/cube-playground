@@ -112,4 +112,55 @@ describe('get_time_coverage tool', () => {
     expect(out.error).toMatch(/dimension/);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it('attaches an additive measure + day granularity to route the probe to a rollup', async () => {
+    // A retention-shaped cube exposing a sum measure — the cold-scan case.
+    const RETENTION_META = {
+      cubes: [
+        {
+          name: 'retention',
+          // Mirror Cube /meta: result type in `type`, aggregation in `aggType`.
+          measures: [{ name: 'retention.cohort_size', type: 'number', aggType: 'sum' }],
+          dimensions: [{ name: 'retention.install_date', type: 'time', title: 'Install date' }],
+        },
+      ],
+    };
+    const metaCache = await import('../../src/core/cube-meta-cache.js');
+    vi.mocked(metaCache.getMeta).mockResolvedValueOnce(RETENTION_META);
+
+    const fetchSpy = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ data: [{ 'retention.install_date': '2026-06-17T00:00:00.000' }] }),
+    } as unknown as Response));
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const out = (await handler({ member: 'retention.install_date' }, ctx)) as {
+      found: boolean; latestDate: string;
+    };
+    expect(out.found).toBe(true);
+    expect(out.latestDate).toBe('2026-06-17');
+    const body = JSON.parse((fetchSpy.mock.calls[0] as unknown as [string, { body: string }])[1].body);
+    expect(body.query.measures).toEqual(['retention.cohort_size']);
+    expect(body.query.timeDimensions[0].granularity).toBe('day');
+    expect(body.query.dimensions).toBeUndefined();
+  });
+
+  it('bails with timedOut on an aborted (cold-backend) probe instead of walking every window', async () => {
+    const fetchSpy = vi.fn(async () => {
+      const err = new Error('aborted');
+      err.name = 'AbortError';
+      throw err;
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    const out = (await handler({ member: MEMBER, maxWindows: 6 }, ctx)) as {
+      found: boolean; timedOut?: boolean; probedWindows: number; note?: string;
+    };
+    expect(out.found).toBe(false);
+    expect(out.timedOut).toBe(true);
+    expect(out.probedWindows).toBe(1);
+    expect(out.note).toMatch(/timed out/i);
+    // Critically: it did NOT chain all 6 cold probes into the turn budget.
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
 });
