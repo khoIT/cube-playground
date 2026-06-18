@@ -25,7 +25,7 @@ import {
   buildChartArtifact,
   MAX_ROWS,
 } from '../services/chart-spec.js';
-import { loadCubeRows } from '../services/load-cube-rows.js';
+import { loadCubeRowsCovered } from '../services/load-cube-rows.js';
 import { deriveChartSpec } from '../services/derive-chart-spec.js';
 import type { ToolContext, QueryArtifact } from '../types.js';
 
@@ -148,15 +148,19 @@ export async function handler(
   // so the playground URL carries explicit dates. Cube's parser would
   // otherwise resolve these to calendar-aligned windows that drop the
   // current period — surprising for chat-driven analytics. Day-unit ranges
-  // and custom tuples pass through unchanged.
-  const normalizedQuery = {
+  // and custom tuples pass through unchanged. `effectiveQuery`/`deeplink` are
+  // rebuilt below if a coverage snap rewrites an empty relative range.
+  let effectiveQuery: z.infer<typeof CubeQuerySchema> = {
     ...args.query,
     timeDimensions: normalizeCubeDateRanges(args.query.timeDimensions),
   };
 
   // 3. Build deeplink from the normalized query so the URL ?query=… carries
   // the explicit tuple instead of the ambiguous relative string.
-  const deeplink = buildChatDeeplink(normalizedQuery);
+  let deeplink = buildChatDeeplink(effectiveQuery);
+
+  // Disclosure appended to the card summary when coverage changed the picture.
+  let coverageSuffix = '';
 
   // 4. Build the embedded chart. The LLM's chart is preferred (it picks a
   // better-typed visual); when it omits one OR its spec fails to build, the
@@ -177,11 +181,22 @@ export async function handler(
 
   // Fallback: only when no LLM chart was attached (absence or build failure).
   // Keeps the extra /load off the common path where the LLM already supplied a
-  // valid chart. Reuses the cached load executor; never throws.
+  // valid chart. The covered loader snaps an empty relative range to the latest
+  // window with data so the card carries a real chart; when it does, rebuild the
+  // deeplink + query from the snapped range so card, chart, and "open in /build"
+  // all agree, and disclose the shift. Never throws.
   if (!chart) {
     try {
-      const rows = await loadCubeRows(normalizedQuery, ctx, { maxRows: MAX_ROWS });
-      const derived = deriveChartSpec(normalizedQuery, rows, meta);
+      const loaded = await loadCubeRowsCovered(args.query, ctx, { maxRows: MAX_ROWS });
+      if (loaded.snap?.applied && loaded.snap.snappedRange) {
+        effectiveQuery = loaded.query;
+        deeplink = buildChatDeeplink(effectiveQuery);
+        const [from, to] = loaded.snap.snappedRange;
+        coverageSuffix = ` (Showing ${from}–${to}; the requested range had no data — data through ${loaded.snap.latestDate}.)`;
+      } else if (loaded.snap && !loaded.snap.applied && loaded.snap.latestDate) {
+        coverageSuffix = ` (No data in the requested range; latest available is ${loaded.snap.latestDate}.)`;
+      }
+      const derived = deriveChartSpec(effectiveQuery, loaded.rows, meta);
       if (derived) {
         chart = buildChartArtifact(derived, { artifactRef: deeplink.artifactId });
         console.info('[emit_query_artifact] attached deterministic fallback chart', derived.type);
@@ -210,9 +225,9 @@ export async function handler(
   const artifact: QueryArtifact = {
     id: deeplink.artifactId,
     title: args.title,
-    summary: args.summary,
+    summary: args.summary + coverageSuffix,
     game: ctx.gameId,
-    query: normalizedQuery,
+    query: effectiveQuery,
     source: args.source,
     sourceRef: args.sourceRef,
     deeplinkUrl: deeplink.url,
@@ -229,7 +244,7 @@ export async function handler(
   // disambiguator never saw). No-op without a db handle (unit tests).
   if (ctx.db) {
     const partial: DisambigResolutions = {
-      lastQuery: { value: JSON.stringify(normalizedQuery), phrase: args.title },
+      lastQuery: { value: JSON.stringify(effectiveQuery), phrase: args.title },
     };
     // Continuity write-back (P2, flag-gated): the free-form agent path resolves
     // a metric/window by emitting an artifact, but only the deterministic
@@ -239,7 +254,7 @@ export async function handler(
     // Entity grain inference is deferred to the engine-routing phase. The
     // read-side rephrase gate guards against stale reuse.
     if (config.agentResolvedContextEnabled) {
-      Object.assign(partial, deriveResolvedSlots(normalizedQuery));
+      Object.assign(partial, deriveResolvedSlots(effectiveQuery));
     }
     mergeResolution(ctx.db, ctx.sessionId, ctx.ownerId, partial);
   }
