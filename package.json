@@ -2,6 +2,9 @@
   "name": "gds-cube",
   "private": true,
   "version": "0.1.0",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "prepare": "git config core.hooksPath scripts/git-hooks 2>/dev/null || true",
     "dev": "vite",

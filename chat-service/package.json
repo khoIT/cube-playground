@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Cube Playground chat agent microservice (Fastify + Claude Agent SDK + SSE).",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
