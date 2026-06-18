@@ -103,6 +103,10 @@ export interface PresetSpec {
    *  top/middle/bottom tiers at refresh time. Absent → no tiered sampling for
    *  segments on this preset; the FE falls back to the random sample. */
   ltvMeasure?: string;
+  /** Exact distinct-count measure used to size a cohort at refresh time — a
+   *  single COUNT(DISTINCT) pushed to Trino, far cheaper than `total: true`
+   *  over the identity projection. Logical name; absent → exact `total: true`. */
+  sizeMeasure?: string;
   headlineKpis: KpiSpec[];
   tabs: TabDef[];
   // FE-only bundle fields, carried through untyped-loosely so one YAML shape

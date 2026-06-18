@@ -28,12 +28,18 @@ import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
 
-/** Cube core caps single-page responses (default 10,000). We page through to
- *  materialize the full uid list, but never store more than MAX_UID_LIST
- *  uids — anything beyond that is a sample. `uid_count` always reflects the
- *  true total from the `total: true` size query. */
-const UID_PAGE_SIZE = 10_000;
-const MAX_UID_LIST = 100_000;
+/** We materialize only a bounded SAMPLE of the cohort's identities — never the
+ *  full membership. The Members tab renders from the ranked tiers/profiles
+ *  snapshot (not this list); the list feeds the consumers that need actual uids
+ *  — the Care tab's CS-ticket IN-list (capped at MAX_MEMBER_UIDS=5000 there),
+ *  experiment assignment, the CS-ticket membership probe, and on-demand
+ *  profiles — all of which treat it as a sample. Sized to match the Care tab's
+ *  cap so its CS coverage isn't truncated, while still fetching in a SINGLE
+ *  page (Cube's per-page limit is 10k) — collapsing the per-refresh cost of
+ *  large cohorts from ~10 serial Trino round-trips to one. `uid_count` still
+ *  reflects the full cohort size (from the size query below), not this cap. */
+const MAX_UID_LIST = 5_000;
+const UID_PAGE_SIZE = MAX_UID_LIST;
 
 interface SegmentRow {
   id: string;
@@ -164,37 +170,84 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
 
     const baseQuery = JSON.parse(cubeQueryJson);
 
-    // Two-phase fetch to avoid Cube's default 10k rowLimit truncating the
-    // cohort size. Phase 1 asks Cube for the TRUE distinct-row count via
-    // `total: true` (returned in the response annotations, separate from the
-    // capped `data` array). Phase 2 paginates `limit + offset` to materialize
-    // the uid list up to MAX_UID_LIST. Storing more than 100k uids inline
-    // would balloon the SQLite row; downstream consumers should treat the
-    // list as a sample once it exceeds the cap.
+    // Resolve the preset (+ its physical-name context and /meta member sets)
+    // up front — the size query below prefers the preset's approx-distinct
+    // count measure, and the tiers/profiles/cards stages reuse all of these.
+    // On prefix workspaces the stored cube is physical (`ballistar_mf_users`);
+    // match the preset by its logical name so the same preset serves all games.
+    // When the segment's cube has no curated preset, pivot to the IDENTITY
+    // ANCHOR cube's preset (the cube the resolved identity field lives on —
+    // e.g. `mf_users` for join-inherited etl_* identities).
+    const prefix = resolveGamePrefixForWorkspace(row.workspace, row.game_id);
+    const anchorCube = identityField.includes('.') ? identityField.split('.')[0] : null;
+    const preset = pickPresetForSegment(
+      logicalCube(row.cube, prefix),
+      anchorCube ? logicalCube(anchorCube, prefix) : null,
+    );
+    const metaSets = await getMetaMemberSets(row.game_id);
+
+    // The preset's exact distinct-count measure, when the model exposes it. A
+    // COUNT(DISTINCT) measure pushes a single aggregate to Trino, whereas the
+    // `total: true` fallback below makes Cube project the identity dimension,
+    // group every row, then count the groups — a much heavier plan (~10x
+    // slower on whole-game cohorts, flirting with the per-query timeout). The
+    // _approx HLL variant is NOT used: it is pre-aggregation-backed and
+    // undercounts badly when those rollups are only partially sealed. Validate
+    // against /meta so an absent/renamed measure can't 400 the refresh.
+    const sizeMeasure =
+      preset?.sizeMeasure &&
+      metaSets?.measures.has(physicalMember(preset.sizeMeasure, prefix))
+        ? physicalMember(preset.sizeMeasure, prefix)
+        : null;
+
+    // Identity-only projection (one row per user) used for the uid SAMPLE page.
     const identityOnlyBase = {
       ...baseQuery,
-      // Replace any pre-existing dimensions with just the identity dim so
-      // Cube returns one row per unique user — adding extra dims would
-      // inflate row count via cartesian expansion and hit the page cap
-      // faster.
       dimensions: [identityField],
     };
 
-    const sizeResult = await withTimeout(
-      loadWithContinueWait(
-        { ...identityOnlyBase, limit: 1, total: true },
-        token,
+    // Cohort size. Prefer the exact count measure; fall back to `total: true`
+    // when no size measure resolves (or the measure call fails — a transient
+    // error there shouldn't strand the refresh on a path `total: true` serves).
+    let totalCount = 0;
+    let sizedByMeasure = false;
+    if (sizeMeasure) {
+      try {
+        const sizeRes = (await withTimeout(
+          loadWithContinueWait(
+            { ...baseQuery, dimensions: [], measures: [sizeMeasure], limit: 1 },
+            token,
+            PER_SEGMENT_TIMEOUT_MS,
+          ),
+          PER_SEGMENT_TIMEOUT_MS,
+          `segment size ${segmentId}`,
+        )) as { data?: Array<Record<string, unknown>>; results?: Array<{ data?: Array<Record<string, unknown>> }> };
+        const mrow = (sizeRes.data ?? sizeRes.results?.[0]?.data ?? [])[0];
+        totalCount = Math.round(Number(mrow?.[sizeMeasure] ?? 0));
+        sizedByMeasure = true;
+      } catch (err) {
+        console.warn(
+          `[refresh-segment] ${segmentId} size-measure failed, falling back to total:true:`,
+          (err as Error).message,
+        );
+      }
+    }
+    if (!sizedByMeasure) {
+      const sizeResult = await withTimeout(
+        loadWithContinueWait(
+          { ...identityOnlyBase, limit: 1, total: true },
+          token,
+          PER_SEGMENT_TIMEOUT_MS,
+        ),
         PER_SEGMENT_TIMEOUT_MS,
-      ),
-      PER_SEGMENT_TIMEOUT_MS,
-      `segment size ${segmentId}`,
-    );
-    const sizeTyped = sizeResult as {
-      total?: number;
-      results?: Array<{ total?: number }>;
-    };
-    const totalCount =
-      sizeTyped.total ?? sizeTyped.results?.[0]?.total ?? 0;
+        `segment size ${segmentId}`,
+      );
+      const sizeTyped = sizeResult as {
+        total?: number;
+        results?: Array<{ total?: number }>;
+      };
+      totalCount = sizeTyped.total ?? sizeTyped.results?.[0]?.total ?? 0;
+    }
 
     const seen = new Set<string>();
     const uids: string[] = [];
@@ -273,18 +326,7 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
     // Pre-render preset cards so the FE can hydrate synchronously.
     // Failures here don't roll back the segment refresh — cards just fall
     // back to live fetch when their entry is missing from the cache.
-    // On prefix workspaces the stored cube is physical (`ballistar_mf_users`);
-    // match the preset by its logical name so the same preset serves all games.
-    // When the segment's cube has no curated preset, pivot to the IDENTITY
-    // ANCHOR cube's preset (the cube the resolved identity field lives on —
-    // e.g. `mf_users` for join-inherited etl_* identities); its card queries
-    // join back through the same path that proved the inheritance.
-    const prefix = resolveGamePrefixForWorkspace(row.workspace, row.game_id);
-    const anchorCube = identityField.includes('.') ? identityField.split('.')[0] : null;
-    const preset = pickPresetForSegment(
-      logicalCube(row.cube, prefix),
-      anchorCube ? logicalCube(anchorCube, prefix) : null,
-    );
+    // (preset / prefix / metaSets were resolved up front for the size query.)
     const segmentFilters = Array.isArray(baseQuery.filters) ? baseQuery.filters : [];
     // Cube-level segments from the same stored query — every cohort-scoped
     // query below (cards, tiers) must carry them, or it reports the
@@ -295,7 +337,6 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
     // on a measure (a "30d spend" cohort ranks by that spend), else the
     // preset's generic per-user LTV. /meta tells measures from dimensions;
     // when it's unreachable the picker falls back to the LTV measure.
-    const metaSets = await getMetaMemberSets(row.game_id);
     const rankMeasure = pickSegmentRankMeasure(
       segmentFilters as RankFilter[],
       metaSets,

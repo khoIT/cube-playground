@@ -26,6 +26,12 @@ reachableCubes: [mf_users]
 # Grouped by user_id, ltv_total_vnd aggregates to that one user's lifetime
 # value — the ranking key the refresh job uses for member tiers (server-only).
 ltvMeasure: mf_users.ltv_total_vnd
+# Exact distinct user count — the refresh job sizes cohorts with this measure
+# (a single COUNT(DISTINCT) pushed to Trino) instead of `total: true`, which
+# forced Cube to project + group every identity row (~10x slower). The _approx
+# HLL variant is pre-aggregation-backed and undercounts badly when those
+# rollups are only partially sealed, so sizing must use the exact measure.
+sizeMeasure: mf_users.user_count
 
 headlineKpis:
   - { id: size,   label: Size,         measure: mf_users.user_count,    format: compact }

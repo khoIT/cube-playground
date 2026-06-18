@@ -8,6 +8,7 @@ import { getDb, setDb, closeDb } from '../src/db/sqlite.js';
 import { refreshSegment } from '../src/jobs/refresh-segment.js';
 import * as cubeClient from '../src/services/cube-client.js';
 import * as cardRunner from '../src/services/card-runner.js';
+import { __resetMetaMemberSetsCache } from '../src/services/cube-meta-members.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../src/db/migrations');
@@ -234,10 +235,64 @@ describe('refreshSegment', () => {
     await refreshSegment(id);
     const row = getSegment(id);
     expect(row.status).toBe('fresh');
-    // True count from total:true, NOT capped at 10k.
+    // True count from total:true (no size measure in this mock's /meta, so the
+    // exact-measure path is skipped), NOT capped at the page size.
     expect(row.uid_count).toBe(12345);
-    // uid_list materialized in full because 12345 < MAX_UID_LIST (100k).
-    expect(JSON.parse(row.uid_list_json)).toHaveLength(12345);
+    // uid_list is a bounded SAMPLE: the cohort (12,345) exceeds MAX_UID_LIST so
+    // only one page of identities is materialized. uid_count still carries the
+    // full size; downstream consumers treat the list as a sample.
+    expect(JSON.parse(row.uid_list_json)).toHaveLength(5000);
+  });
+
+  it('sizes via the exact count measure (not total:true) when /meta exposes it', async () => {
+    // The /meta member sets are cached per-gameId at module scope; clear it so a
+    // sibling test's measure-less meta can't bleed in (and restore at the end).
+    __resetMetaMemberSetsCache();
+    const id = seedSegment();
+    // /meta advertises the preset's size measure → refresh should COUNT via the
+    // measure query, never paginate a total:true probe.
+    const metaPayload = {
+      cubes: [
+        {
+          name: 'mf_users',
+          dimensions: [{ name: 'mf_users.user_id' }],
+          measures: [{ name: 'mf_users.user_count' }],
+        },
+      ],
+    };
+    vi.spyOn(cubeClient, 'getMeta').mockResolvedValue(metaPayload as never);
+    vi.spyOn(cubeClient, 'getMetaWithCtx').mockResolvedValue(metaPayload as never);
+
+    let sawTotalProbe = false;
+    const loadMock = vi.spyOn(cubeClient, 'load');
+    loadMock.mockImplementation(async (query: unknown) => {
+      const q = query as {
+        total?: boolean;
+        measures?: string[];
+        offset?: number;
+        limit?: number;
+      };
+      if (q.total) {
+        sawTotalProbe = true;
+        return { total: 999999, data: [] } as never;
+      }
+      if (q.measures?.includes('mf_users.user_count')) {
+        return { data: [{ 'mf_users.user_count': 4242 }] } as never;
+      }
+      // identity sample page
+      const offset = q.offset ?? 0;
+      const take = Math.min(q.limit ?? 0, Math.max(0, 4242 - offset));
+      return {
+        data: Array.from({ length: take }, (_, i) => ({ 'mf_users.user_id': `u${offset + i}` })),
+      } as never;
+    });
+
+    await refreshSegment(id);
+    const row = getSegment(id);
+    expect(row.status).toBe('fresh');
+    expect(row.uid_count).toBe(4242); // from the measure, not the total probe
+    expect(sawTotalProbe).toBe(false); // exact-measure path used; no total:true
+    __resetMetaMemberSetsCache(); // don't leak the measure-bearing meta to later tests
   });
 
   it('transparently retries when Cube responds with "Continue wait" (async precompute warming)', async () => {
