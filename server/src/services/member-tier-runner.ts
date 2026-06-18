@@ -20,8 +20,9 @@ import type { MemberTiers, TierMember, TierName } from '../types/segment.js';
 /** Members per tier. 3 tiers × 50 = the 150-user sampling contract. */
 export const TIER_SIZE = 50;
 
-/** Per-tier-query Cube timeout — same ceiling as a preset card load. */
-const PER_TIER_TIMEOUT_MS = 30_000;
+/** Per-tier-query Cube timeout. Sized to outlast a cold warehouse read
+ *  (several continue-wait windows). Env: MEMBER_TIER_TIMEOUT_MS. */
+const PER_TIER_TIMEOUT_MS = Number(process.env.MEMBER_TIER_TIMEOUT_MS) || 120_000;
 
 // Filters carried opaquely from the segment's stored cube_query_json — may be
 // leaves or nested and/or groups, already physical on prefix workspaces

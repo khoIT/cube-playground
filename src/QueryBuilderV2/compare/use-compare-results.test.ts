@@ -96,7 +96,7 @@ describe('runCompareLoad – prev mode', () => {
     expect(result.mergedRows[0]['Orders.count__delta']).toBe(20);
     expect(result.compLabel).toBe('Prior period');
     // Prev mode stays scoped to the active game via the x-cube-game header.
-    expect(stubFactory).toHaveBeenCalledWith('tok-active', expect.any(String), 'ballistar');
+    expect(stubFactory).toHaveBeenCalledWith('tok-active', expect.any(String), 'ballistar', undefined);
   });
 
   it('propagates error when cubejs load rejects', async () => {
@@ -158,7 +158,7 @@ describe('runCompareLoad – game mode', () => {
 
     // Factory must be called with the TARGET game id so the proxy mints a
     // token scoped to that game — not the active game.
-    expect(stubFactory).toHaveBeenCalledWith('tok-active', expect.any(String), 'cfm');
+    expect(stubFactory).toHaveBeenCalledWith('tok-active', expect.any(String), 'cfm', undefined);
 
     expect(result.compLabel).toBe('Game: cfm');
     expect(result.unavailableMeasures).toEqual([]);

@@ -50,8 +50,9 @@ export const SEGMENT_MEMBERSHIP_DELTA = qualifiedLakehouseTable('segment_members
 export const SEGMENT_DEFINITION_DAILY = qualifiedLakehouseTable('segment_definition_daily');
 
 /** Cross-catalog INSERT over a full cohort scans raw Trino tables — give it far
- *  more headroom than the 20s profiler cap. */
-export const LAKEHOUSE_STATEMENT_TIMEOUT_MS = 120_000;
+ *  more headroom than the profiler cap. Env: LAKEHOUSE_STATEMENT_TIMEOUT_MS. */
+export const LAKEHOUSE_STATEMENT_TIMEOUT_MS =
+  Number(process.env.LAKEHOUSE_STATEMENT_TIMEOUT_MS) || 120_000;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

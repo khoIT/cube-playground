@@ -29,7 +29,10 @@ import {
 } from './lakehouse-trino-connector.js';
 import type { MetricBinding } from './segment-metric-registry.js';
 
-export const METRIC_SERIES_TIMEOUT_MS = 30_000;
+// Per-statement timeout, sized to ride out a cold warehouse.
+// Env: METRIC_SERIES_TIMEOUT_MS.
+export const METRIC_SERIES_TIMEOUT_MS =
+  Number(process.env.METRIC_SERIES_TIMEOUT_MS) || 120_000;
 export const MAX_METRIC_SERIES_DAYS = 120;
 
 export type MetricLens = 'current' | 'entry' | 'stayers';

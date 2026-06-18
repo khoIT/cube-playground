@@ -45,20 +45,38 @@ export async function loadCubeRows(
   }
 
   // Route through the workspace-aware Fastify proxy — it resolves auth + base
-  // URL from the X-Cube-Workspace header server-side.
+  // URL from the X-Cube-Workspace header server-side. The proxy polls Cube's
+  // continue-wait windows up to its own budget; this abort is a safety net for
+  // a wedged connection, set just above the proxy budget so the proxy's own
+  // bounded response wins under normal warming.
   const url = `${config.serverBaseUrl}/cube-api/v1/load`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-Cube-Workspace': ctx.workspace,
-      'X-Cube-Game': ctx.gameId,
-      // Tag query telemetry with the originating chat conversation.
-      'X-Cube-Source': ctx.sessionId ? `chat:${ctx.sessionId}` : 'chat',
-    },
-    body: JSON.stringify({ query }),
-  });
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), config.cubeLoadTimeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Cube-Workspace': ctx.workspace,
+        'X-Cube-Game': ctx.gameId,
+        // Tag query telemetry with the originating chat conversation.
+        'X-Cube-Source': ctx.sessionId ? `chat:${ctx.sessionId}` : 'chat',
+      },
+      body: JSON.stringify({ query }),
+      signal: ctl.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(
+        `Cube /load timed out after ${Math.round(config.cubeLoadTimeoutMs / 1000)}s`,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
 
   if (!res.ok) {
     const body = await res.text().catch(() => '');

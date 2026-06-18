@@ -27,8 +27,9 @@ import {
 } from './member360-cache-store.js';
 import type { MemberTiers } from '../types/segment.js';
 
-/** Per-query Cube timeout — same ceiling as a preset card load. */
-const PER_QUERY_TIMEOUT_MS = 30_000;
+/** Per-query Cube timeout. Sized to outlast a cold warehouse read (several
+ *  continue-wait windows). Env: MEMBER360_QUERY_TIMEOUT_MS. */
+const PER_QUERY_TIMEOUT_MS = Number(process.env.MEMBER360_QUERY_TIMEOUT_MS) || 120_000;
 
 /** In-flight cap. 150 uids × up to 8 panels is a real fan-out against a shared
  *  dev cube-api; 3 keeps it a slow drip (lessons-learned: pace probes). */

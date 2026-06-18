@@ -237,6 +237,13 @@ export interface Config {
    * (timed-out turns persist a deterministic notice instead of empty text).
    */
   chatTimeoutSalvageMs: number;
+  /**
+   * Per-request abort ceiling (ms) for a chat tool's Cube /load fetch through
+   * the workspace proxy. The proxy itself polls Cube's continue-wait windows up
+   * to its own budget (~110s), so this sits just above that as a safety net for
+   * a wedged connection rather than the primary gate. Env: CHAT_CUBE_LOAD_TIMEOUT_MS.
+   */
+  cubeLoadTimeoutMs: number;
   /** Emit a per-turn stage-timing log line from the /agent/turn pipeline. */
   chatTurnProfilingEnabled: boolean;
   /**
@@ -369,6 +376,7 @@ export const config: Config = {
   obsParallelEmitEnabled: optional('OBS_PARALLEL_EMIT', 'false') === 'true',
   chatTurnTimeoutMs: optionalInt('CHAT_TURN_TIMEOUT_MS', 240_000),
   chatTimeoutSalvageMs: optionalInt('CHAT_TIMEOUT_SALVAGE_MS', 30_000),
+  cubeLoadTimeoutMs: optionalInt('CHAT_CUBE_LOAD_TIMEOUT_MS', 120_000),
   chatTurnProfilingEnabled: optional('CHAT_TURN_PROFILING', 'false') === 'true',
   chatEnableWebSearch: optional('CHAT_ENABLE_WEB_SEARCH', 'false') === 'true',
   chatEnableResearchMode: optional('CHAT_ENABLE_RESEARCH_MODE', 'false') === 'true',

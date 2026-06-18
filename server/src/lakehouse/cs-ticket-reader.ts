@@ -28,8 +28,9 @@ import { toSqlLiteral } from './inline-sql-params.js';
  *  the session catalog (game_integration on the profiler connector) is moot. */
 const CS = 'iceberg.cs_ticket';
 
-/** CS cold scans run 3.5–15s; give the cross-catalog join generous headroom. */
-export const CS_READ_TIMEOUT_MS = 30_000;
+/** CS cold scans run 3.5–15s; give the cross-catalog join generous headroom to
+ *  ride out a cold warehouse. Env: CS_READ_TIMEOUT_MS. */
+export const CS_READ_TIMEOUT_MS = Number(process.env.CS_READ_TIMEOUT_MS) || 120_000;
 
 /** Max uids per `IN (...)` batch — whale segments are a few hundred, so this is
  *  effectively one batch, but chunk defensively to bound statement size. */

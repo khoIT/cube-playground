@@ -67,6 +67,7 @@ export type ApiFactory = (
   token: string,
   apiUrl: string,
   gameId?: string | null,
+  signal?: AbortSignal,
 ) => MinimalCubeApi;
 
 /** Set of fully-qualified member names (measures + dimensions) a game exposes. */
@@ -152,6 +153,8 @@ export interface RunCompareLoadParams {
   _apiFactory?: ApiFactory | null;
   /** Test override for the game-meta fetcher; production uses the proxy fetch. */
   _metaFetcher?: MetaFetcher | null;
+  /** Aborts the comparison load when the effect is superseded or unmounts. */
+  signal?: AbortSignal;
 }
 
 /** Result returned by runCompareLoad — matches the resolved portion of CompareResultsState. */
@@ -171,7 +174,7 @@ export interface CompareLoadResult {
 export async function runCompareLoad(
   params: RunCompareLoadParams,
 ): Promise<CompareLoadResult> {
-  const { query, mode, apiUrl, currentToken, currentResultSet, measures, activeGameId, _apiFactory, _metaFetcher } = params;
+  const { query, mode, apiUrl, currentToken, currentResultSet, measures, activeGameId, _apiFactory, _metaFetcher, signal } = params;
 
   const compareQuery = deriveCompareQuery(query, mode);
   if (!compareQuery) {
@@ -222,7 +225,7 @@ export async function runCompareLoad(
   // Resolve factory lazily — avoids loading @cubejs-client/core at module-
   // collection time which triggers OOM in Node v24 vitest forks pool.
   const factory: ApiFactory = _apiFactory ?? (await import('./cube-api-factory')).makeCubeApi;
-  const compApi = factory(currentToken, apiUrl, scopeGameId);
+  const compApi = factory(currentToken, apiUrl, scopeGameId, signal);
 
   const compRs = await compApi.load(queryToRun);
   const compRows = extractRows(compRs as ResultSet<Record<string, string | number>>);
@@ -345,6 +348,10 @@ export function useCompareResults(
     }
 
     const runId = ++runIdRef.current;
+    // Abort the comparison query (not just ignore its result) when this effect is
+    // superseded by a new query/filter or the component unmounts — frees the
+    // Cube/Trino slot instead of leaving an orphaned query running to the budget.
+    const controller = new AbortController();
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     (async () => {
@@ -358,12 +365,14 @@ export function useCompareResults(
           measures,
           activeGameId,
           _apiFactory,
+          signal: controller.signal,
         });
 
         if (runId !== runIdRef.current) return;
         setState({ mergedRows, isLoading: false, error: null, compLabel, unavailableMeasures, noDimensionOverlap, comparisonRows });
       } catch (err: unknown) {
-        if (runId !== runIdRef.current) return;
+        // Aborted (superseded/unmounted) → not a real failure, drop silently.
+        if (controller.signal.aborted || runId !== runIdRef.current) return;
         const msg = err instanceof Error ? err.message : String(err);
         setState({
           mergedRows: null,
@@ -376,6 +385,8 @@ export function useCompareResults(
         });
       }
     })();
+
+    return () => controller.abort();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

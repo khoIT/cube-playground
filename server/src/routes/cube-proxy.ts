@@ -15,16 +15,21 @@
  * proxy can route them to Fastify instead of bypassing it).
  */
 
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { createHash } from 'node:crypto';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { gamePrefixFor, filterMetaToGamePrefix } from '../services/prefix-meta-filter.js';
 import { recordActivity, projectQueryShape } from '../services/activity-store.js';
 import { recordQueryPerf, shouldCapture } from '../services/query-perf-store.js';
+import { admitLoad, admissionSnapshot, LoadAdmissionRejected } from './cube-load-admission.js';
 
 // Per-upstream-fetch ceiling. Cube emits `{error:"Continue wait"}` (HTTP 200)
 // once it has held a query for its continue-wait window (25s), so a single
 // fetch must outlast that window to receive either the data or the warming
-// signal — 30s gives it ~5s of slack.
-const CUBE_FETCH_TIMEOUT_MS = 30_000;
+// signal. Defaults to the full wait budget so a heavy single-shot read (a
+// /meta or /sql call, or a /load Cube holds open without emitting the warming
+// signal) isn't aborted client-side before the warehouse can answer. Kept
+// just under nginx's `proxy_read_timeout 120s`. Env: CUBE_FETCH_TIMEOUT_MS.
+const CUBE_FETCH_TIMEOUT_MS = Number(process.env.CUBE_FETCH_TIMEOUT_MS) || 110_000;
 
 // Total budget for a /load that keeps warming. A cold pre-agg / raw per-user
 // read returns `Continue wait` each 25s window and needs several to materialise;
@@ -153,9 +158,18 @@ async function forward(
   upstreamPath: string,
   search: string,
   body: unknown,
+  timeoutMs: number = CUBE_FETCH_TIMEOUT_MS,
+  clientSignal?: AbortSignal,
 ): Promise<{ status: number; body: unknown }> {
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), CUBE_FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => ctl.abort(), timeoutMs);
+  // Abort the upstream fetch the moment the requesting client(s) disconnect, so
+  // an orphaned heavy query stops occupying Cube/Trino instead of running the
+  // full budget unread.
+  if (clientSignal) {
+    if (clientSignal.aborted) ctl.abort();
+    else clientSignal.addEventListener('abort', () => ctl.abort(), { once: true });
+  }
   try {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (target.token) headers.Authorization = `Bearer ${target.token}`;
@@ -184,7 +198,7 @@ async function forward(
     if (err instanceof Error && err.name === 'AbortError') {
       return {
         status: 504,
-        body: { error: `Cube request timed out after ${CUBE_FETCH_TIMEOUT_MS / 1000}s` },
+        body: { error: `Cube request timed out after ${Math.round(timeoutMs / 1000)}s` },
       };
     }
     return {
@@ -211,20 +225,91 @@ export async function forwardLoadWithContinueWait(
   method: 'GET' | 'POST',
   search: string,
   body: unknown,
+  clientSignal?: AbortSignal,
 ): Promise<{ status: number; body: unknown }> {
   const deadline = Date.now() + CUBE_LOAD_MAX_WAIT_MS;
   for (;;) {
-    const res = await forward(target, method, '/load', search, body);
+    if (clientSignal?.aborted) return { status: 499, body: { error: 'Client disconnected' } };
+    // Cap each upstream fetch at the remaining budget (not the fixed
+    // single-shot ceiling) so a heavy /load that Cube holds open without
+    // emitting "Continue wait" can run the whole budget instead of 504ing
+    // early — mirrors the batch-job loadWithContinueWait wrapper.
+    const remaining = Math.max(1, deadline - Date.now());
+    const res = await forward(target, method, '/load', search, body, remaining, clientSignal);
     if (!isContinueWait(res.status, res.body) || Date.now() >= deadline) return res;
     await new Promise((r) => setTimeout(r, Math.min(700, deadline - Date.now())));
   }
+}
+
+/** AbortController that fires when the requesting client disconnects. */
+function clientAbortController(req: FastifyRequest): AbortController {
+  const ac = new AbortController();
+  req.raw.on('close', () => ac.abort());
+  return ac;
+}
+
+/**
+ * Dedup key for an in-flight /load: identical query shape under the same
+ * workspace + game + method coalesces to one upstream call. Hashed so a huge
+ * query body stays a short map key. Order-sensitive JSON only risks a false
+ * miss (= no dedup), never a wrong-data hit.
+ */
+function loadDedupKey(req: FastifyRequest, method: string, queryShape: unknown): string {
+  const raw = `${req.workspace.id}|${gameIdOf(req) ?? ''}|${method}|${JSON.stringify(queryShape ?? null)}`;
+  return createHash('sha1').update(raw).digest('hex');
+}
+
+/**
+ * Run a /load through admission control (per-actor + global in-flight caps,
+ * in-flight dedup, disconnect-aware abort) then forward with continue-wait
+ * polling. Over a cap → 429 + Retry-After so the client backs off instead of
+ * piling more long-running queries onto the single Cube instance.
+ */
+async function handleLoad(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  method: 'GET' | 'POST',
+  search: string,
+  body: unknown,
+  queryForTelemetry: unknown,
+): Promise<FastifyReply> {
+  const ac = clientAbortController(req);
+  const started = performance.now();
+  let result: { status: number; body: unknown };
+  try {
+    result = await admitLoad({
+      ownerId: req.principal?.sub ?? 'anon',
+      dedupKey: loadDedupKey(req, method, queryForTelemetry),
+      clientSignal: ac.signal,
+      run: (sig) => forwardLoadWithContinueWait(req.cubeCtx, method, search, body, sig),
+    });
+  } catch (err) {
+    if (err instanceof LoadAdmissionRejected) {
+      return reply
+        .status(429)
+        .header('Retry-After', '2')
+        .send({
+          error: 'Too many concurrent Cube queries in flight; retry shortly.',
+          scope: err.scope,
+          ...admissionSnapshot(),
+        });
+    }
+    throw err;
+  }
+  const latencyMs = performance.now() - started;
+  emitQueryRun(req, result.status, queryForTelemetry);
+  emitQueryPerf(req, method, result.status, latencyMs, queryForTelemetry, result.body);
+  return reply.status(result.status).send(result.body);
 }
 
 export default async function cubeProxyRoutes(app: FastifyInstance): Promise<void> {
   // GET /cube-api/v1/meta(?extended=true&...)
   app.get('/cube-api/v1/meta', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
-    const { status, body } = await forward(req.cubeCtx, 'GET', '/meta', search, undefined);
+    const { status, body } = await forward(
+      req.cubeCtx, 'GET', '/meta', search, undefined,
+      undefined, clientAbortController(req).signal,
+    );
     // On prefix workspaces, Cube returns every game's cubes. Scope the response
     // to the active game's prefix so consumers (chat agent, Playground) don't
     // see the same measure name across games. No-op on game_id workspaces or
@@ -244,23 +329,12 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
   // resolved upstream.
   app.get('/cube-api/v1/load', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
-    const started = performance.now();
-    const { status, body } = await forwardLoadWithContinueWait(req.cubeCtx, 'GET', search, undefined);
-    const latencyMs = performance.now() - started;
-    const query = parseGetQuery(req);
-    emitQueryRun(req, status, query);
-    emitQueryPerf(req, 'GET', status, latencyMs, query, body);
-    return reply.status(status).send(body);
+    return handleLoad(req, reply, 'GET', search, undefined, parseGetQuery(req));
   });
 
   app.post('/cube-api/v1/load', async (req, reply) => {
-    const started = performance.now();
-    const { status, body } = await forwardLoadWithContinueWait(req.cubeCtx, 'POST', '', req.body);
-    const latencyMs = performance.now() - started;
     const query = (req.body as { query?: unknown } | undefined)?.query;
-    emitQueryRun(req, status, query);
-    emitQueryPerf(req, 'POST', status, latencyMs, query, body);
-    return reply.status(status).send(body);
+    return handleLoad(req, reply, 'POST', '', req.body, query);
   });
 
   // /dry-run validates a query without executing it — the Cube SDK in the
@@ -280,12 +354,18 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
 
   app.get('/cube-api/v1/sql', async (req, reply) => {
     const search = (req.raw.url ?? '').split('?')[1] ?? '';
-    const { status, body } = await forward(req.cubeCtx, 'GET', '/sql', search, undefined);
+    const { status, body } = await forward(
+      req.cubeCtx, 'GET', '/sql', search, undefined,
+      undefined, clientAbortController(req).signal,
+    );
     return reply.status(status).send(body);
   });
 
   app.post('/cube-api/v1/sql', async (req, reply) => {
-    const { status, body } = await forward(req.cubeCtx, 'POST', '/sql', '', req.body);
+    const { status, body } = await forward(
+      req.cubeCtx, 'POST', '/sql', '', req.body,
+      undefined, clientAbortController(req).signal,
+    );
     return reply.status(status).send(body);
   });
 
@@ -299,6 +379,8 @@ export default async function cubeProxyRoutes(app: FastifyInstance): Promise<voi
       `/load/${queryHash}`,
       '',
       req.body,
+      undefined,
+      clientAbortController(req).signal,
     );
     return reply.status(status).send(body);
   });

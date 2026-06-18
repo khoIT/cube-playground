@@ -20,7 +20,10 @@ import { type Connector, schemaForGame } from '../services/trino-profiler-config
 import { resolveCsTrinoConnector } from './cs-trino-connector.js';
 import { toSqlLiteral } from './inline-sql-params.js';
 
-export const RECHARGE_READ_TIMEOUT_MS = 30_000;
+// Per-call statement timeout, sized to ride out a cold warehouse.
+// Env: CS_RECHARGE_READ_TIMEOUT_MS.
+export const RECHARGE_READ_TIMEOUT_MS =
+  Number(process.env.CS_RECHARGE_READ_TIMEOUT_MS) || 120_000;
 
 /** Default ± window (days) around the anchor for the pre/post comparison. */
 export const DEFAULT_WINDOW_DAYS = 30;

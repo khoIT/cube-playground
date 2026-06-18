@@ -8,10 +8,11 @@
  * full module is mocked with vi.mock('@cubejs-client/core').
  */
 
-import cubejs, { HttpTransport } from '@cubejs-client/core';
+import cubejs from '@cubejs-client/core';
 import type { CubeApi } from '@cubejs-client/core';
 import { cubeProxyAuthorization } from '../../auth/auth-storage';
 import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../../api/cube-query-source';
+import { ResilientHttpTransport } from '../../api/resilient-cube-transport';
 
 function activeWorkspaceId(): string | null {
   try {
@@ -26,6 +27,9 @@ export function makeCubeApi(
   token: string,
   apiUrl: string,
   gameId?: string | null,
+  // Optional: aborts this client's in-flight queries when the caller's effect is
+  // superseded or unmounts (the compare hook wires its run controller here).
+  signal?: AbortSignal,
 ): CubeApi {
   const headers: Record<string, string> = {};
   const wsId = activeWorkspaceId();
@@ -44,6 +48,6 @@ export function makeCubeApi(
   return cubejs(token, {
     apiUrl,
     // App JWT so the proxy attributes query telemetry to the logged-in user.
-    transport: new HttpTransport({ apiUrl, authorization: cubeProxyAuthorization(token), headers }),
+    transport: new ResilientHttpTransport({ apiUrl, authorization: cubeProxyAuthorization(token), headers, signal }),
   } as Parameters<typeof cubejs>[1]);
 }

@@ -20,7 +20,9 @@ import {
 import { runQuery } from '../services/trino-rest-client.js';
 import { isSnapshotRunning } from '../jobs/snapshot-segment-membership.js';
 
-const TRINO_READ_TIMEOUT_MS = 20_000;
+// Per-statement read timeout, sized to ride out a cold warehouse.
+// Env: SEGMENT_SNAPSHOT_READ_TIMEOUT_MS.
+const TRINO_READ_TIMEOUT_MS = Number(process.env.SEGMENT_SNAPSHOT_READ_TIMEOUT_MS) || 120_000;
 const LATEST_PARTITION_TTL_MS = 10 * 60_000;
 
 export interface SnapshotRunError {

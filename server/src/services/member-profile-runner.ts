@@ -21,7 +21,9 @@ import type { MemberProfiles, MemberProfileColumn } from '../types/segment.js';
 /** Snapshot size cap — also the pull API's max useful `limit`. */
 export const MEMBER_PROFILE_LIMIT = 1000;
 
-const PROFILE_TIMEOUT_MS = 30_000;
+// Per-query Cube timeout. Sized to outlast a cold warehouse read (several
+// continue-wait windows). Env: MEMBER_PROFILE_TIMEOUT_MS.
+const PROFILE_TIMEOUT_MS = Number(process.env.MEMBER_PROFILE_TIMEOUT_MS) || 120_000;
 
 /** Preset memberColumns arrive untyped from the bundle/TS preset. */
 interface RawMemberColumn {

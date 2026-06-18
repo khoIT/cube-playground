@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
-import cubejs, { HttpTransport } from '@cubejs-client/core';
+import { useEffect, useMemo } from 'react';
+import cubejs from '@cubejs-client/core';
 
 import { useWorkspaceContext } from '../components/workspace-context';
 import { useActiveGameId } from '../components/Header/use-game-context';
 import { cubeProxyAuthorization } from '../auth/auth-storage';
 import { deriveCubeSource, CUBE_SOURCE_HEADER } from '../api/cube-query-source';
+import { ResilientHttpTransport } from '../api/resilient-cube-transport';
 
 /**
  * Cube SDK factory that forwards the active workspace + game on every request.
@@ -29,7 +30,22 @@ export function useCubejsApi(apiUrl: string | null, token: string | null, gameOv
   // Which surface owns this client — re-keys the transport on navigation so the
   // query-telemetry source reflects the page actually running the query.
   const source = deriveCubeSource();
-  return useMemo(() => {
+
+  // AbortController keyed on the IDENTITY deps only (NOT source). Its signal is
+  // wired into the transport so in-flight /load, /sql and /meta abort when this
+  // controller is torn down — but ONLY on a genuine workspace/game/token change
+  // or component unmount, never on plain navigation. That distinction matters:
+  // `source` changes on every route change, and several pages (Segments, Build,
+  // Catalog) stay MOUNTED (display:none) when you switch tabs. If the abort
+  // tracked `source`, switching to Chat would cancel a still-wanted Segments/
+  // Care query mid-flight. Keeping the controller off `source` lets those
+  // queries finish in the background so results are ready on return.
+  const controller = useMemo(
+    () => new AbortController(),
+    [apiUrl, token, workspaceId, gameId],
+  );
+
+  const api = useMemo(() => {
     if (!token || !apiUrl || token === 'undefined') {
       return null;
     }
@@ -44,12 +60,22 @@ export function useCubejsApi(apiUrl: string | null, token: string | null, gameOv
     // is the supported way to inject custom headers per request.
     return cubejs(token, {
       apiUrl,
-      transport: new HttpTransport({
+      transport: new ResilientHttpTransport({
         apiUrl,
         // App JWT so the proxy attributes query telemetry to the logged-in user.
         authorization: cubeProxyAuthorization(token),
         headers,
+        // Reused across source/navigation rebuilds; aborts only on unmount or a
+        // real workspace/game/token switch (see the controller memo + effect).
+        signal: controller.signal,
       }),
     } as Parameters<typeof cubejs>[1]);
-  }, [apiUrl, token, workspaceId, gameId, source]);
+  }, [apiUrl, token, workspaceId, gameId, source, controller]);
+
+  // Abort this client's in-flight queries when the controller is superseded by a
+  // workspace/game/token change (stale → cancel) or the component unmounts. Does
+  // NOT fire on navigation, since `controller` doesn't depend on `source`.
+  useEffect(() => () => controller.abort(), [controller]);
+
+  return api;
 }

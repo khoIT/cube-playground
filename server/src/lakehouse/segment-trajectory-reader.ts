@@ -18,8 +18,10 @@ import {
   LAKEHOUSE_SCHEMA,
 } from './lakehouse-trino-connector.js';
 
-/** Reads return ~rows-per-day, not cohorts — 20s is generous for cold Trino. */
-export const TRAJECTORY_READ_TIMEOUT_MS = 20_000;
+/** Reads return ~rows-per-day, not cohorts, but a cold warehouse can still
+ *  stall — size to outlast it. Env: SEGMENT_TRAJECTORY_TIMEOUT_MS. */
+export const TRAJECTORY_READ_TIMEOUT_MS =
+  Number(process.env.SEGMENT_TRAJECTORY_TIMEOUT_MS) || 120_000;
 
 export const MIN_TRAJECTORY_DAYS = 7;
 export const MAX_TRAJECTORY_DAYS = 180;

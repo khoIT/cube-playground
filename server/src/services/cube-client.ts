@@ -28,9 +28,11 @@ export interface WorkspaceCtx {
 // case while still sitting ABOVE Cube's continue-wait window (25s): a shorter
 // default (the old 15s) aborts before Cube emits its first `Continue wait`
 // signal, so any default-timeout caller is GUARANTEED to fail a cold read.
-// 30s lets a default caller receive at least one warming signal; batch callers
-// that need to poll several windows pass an explicit larger timeout.
-const CUBE_FETCH_TIMEOUT_MS = 30_000;
+// The default now covers the full wait budget so a default-timeout caller can
+// survive a cold read that needs several warming windows; batch callers still
+// pass an explicit per-call budget. Env: CUBE_FETCH_TIMEOUT_MS (shared with the
+// cube-proxy per-fetch ceiling); kept under nginx's `proxy_read_timeout 120s`.
+const CUBE_FETCH_TIMEOUT_MS = Number(process.env.CUBE_FETCH_TIMEOUT_MS) || 110_000;
 
 async function cubeFetch(
   url: string,
@@ -137,9 +139,10 @@ export async function getMetaWithCtx(ctx: WorkspaceCtx): Promise<unknown> {
   return cubeGet('/meta', undefined, ctx);
 }
 
-/** Execute a Cube query (/load). `timeoutMs` overrides the default 15s fetch
- *  abort for batch callers that poll Cube's continue-wait window (see
- *  loadWithContinueWait); omit it for interactive callers. */
+/** Execute a Cube query (/load). `timeoutMs` overrides the default per-fetch
+ *  abort (CUBE_FETCH_TIMEOUT_MS) for batch callers that poll Cube's
+ *  continue-wait window (see loadWithContinueWait); omit it for interactive
+ *  callers. */
 export async function load(
   query: unknown,
   tokenOverride?: string | null,
@@ -148,9 +151,10 @@ export async function load(
   return cubePost('/load', { query }, tokenOverride, undefined, timeoutMs);
 }
 
-/** Workspace-aware /load. `timeoutMs` overrides the default 15s fetch abort for
- *  callers that poll Cube's continue-wait window against a cold warehouse (see
- *  loadWithContinueWait); omit it for interactive callers. */
+/** Workspace-aware /load. `timeoutMs` overrides the default per-fetch abort
+ *  (CUBE_FETCH_TIMEOUT_MS) for callers that poll Cube's continue-wait window
+ *  against a cold warehouse (see loadWithContinueWait); omit it for interactive
+ *  callers. */
 export async function loadWithCtx(
   query: unknown,
   ctx: WorkspaceCtx,
