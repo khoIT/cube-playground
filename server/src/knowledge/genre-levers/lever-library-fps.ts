@@ -25,7 +25,7 @@ export const FPS_LEVERS: GenreLever[] = [
     lever: 'Clan social retention',
     signal: 'Clan membership shrinking or clan_left rising — social bonds breaking',
     requiredCubes: [
-      'user_gameplay_daily.clan_cur',
+      'user_gameplay_daily.clan_id',
       'user_gameplay_daily.clan_left_at',
       'user_gameplay_daily.clan_changed_at',
     ],
@@ -56,7 +56,7 @@ export const FPS_LEVERS: GenreLever[] = [
     lever: 'Competitive integrity — rank-drop spirals',
     signal: 'Players dropping a ladder tier in a short window (frustration spiral)',
     requiredCubes: [
-      'user_gameplay_daily.ladder_level_cur',
+      'user_gameplay_daily.ladder_level',
       'user_gameplay_daily.ladder_level_prev',
     ],
     benchmark: {
@@ -103,7 +103,7 @@ export const FPS_LEVERS: GenreLever[] = [
     games: [],
     lever: 'Skin / crate content cadence',
     signal: 'Gacha pull volume or premium-currency spend falling — content drought',
-    requiredCubes: ['etl_lottery_shoot.pulls', 'etl_lottery_shoot.unique_players'],
+    requiredCubes: ['etl_lottery_shoot.pulls', 'etl_lottery_shoot.distinct_players'],
     benchmark: {
       metricKey: 'gacha_participation_rate',
       internalPercentileBand: 'p50',
@@ -132,7 +132,7 @@ export const FPS_LEVERS: GenreLever[] = [
     signal: 'High-LTV players showing inactivity, rank-drop, or clan loss',
     requiredCubes: [
       'mf_users.ltv_vnd',
-      'user_gameplay_daily.ladder_level_cur',
+      'user_gameplay_daily.ladder_level',
       'user_gameplay_daily.clan_left_at',
     ],
     benchmark: {

@@ -7,6 +7,7 @@
  * honesty checks (jus never recommends clan/gacha/PvP) are regression tripwires:
  * a future edit that leaks them must fail here.
  */
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import {
   resolveLeversForGame,
@@ -94,6 +95,58 @@ describe('resolveLeversForGame — gating edges', () => {
     expect(res.levers).toHaveLength(0);
     expect(res.withheld).toHaveLength(0);
     expect(res.blindSpots).toHaveLength(0);
+  });
+});
+
+// A required-cube token names a Cube MEMBER (cube.dimension/measure), which is
+// the cube's exposed name — NOT the raw SQL column. A lever that lists a member
+// that does not exist in the live model is silently withheld forever, so the
+// advisor blames "missing data" for a lever whose data is actually present. The
+// older suite built its member set FROM requiredCubes, so it could never catch
+// that drift. This fixture is a real Cube /meta snapshot (cfm_vn + jus_vn,
+// limited to lever-referenced cubes) — regenerate it from /cube-api/v1/meta when
+// the model changes.
+const LIVE_META = JSON.parse(
+  readFileSync(new URL('./fixtures/lever-gate-meta-members.json', import.meta.url), 'utf8'),
+) as Record<string, string[]>;
+
+// Members genuinely absent from the live model — a withhold here is CORRECT, not
+// drift. Keep this list tiny and documented; every entry needs a reason.
+const KNOWN_ABSENT = new Set<string>([
+  // jus_vn (and cfm) model no guild data — the guild lever is honestly withheld.
+  'guild_membership.guild_id',
+  'guild_membership.left_at',
+  // Added to cfm/user_gameplay_daily.yml; unlocks the rank-drop lever only after
+  // the model is deployed to the live (tunnelled) Cube instance. Remove once the
+  // fixture is regenerated post-deploy.
+  'user_gameplay_daily.ladder_level_prev',
+]);
+
+describe('lever data-gate resolves against the REAL Cube member set (naming-drift tripwire)', () => {
+  for (const game of ['cfm_vn', 'jus_vn'] as const) {
+    it(`${game}: every withheld lever is withheld only for a documented-absent member`, () => {
+      const res = resolveLeversForGame(game, new Set(LIVE_META[game]));
+      for (const w of res.withheld) {
+        for (const m of w.missingCubes) {
+          expect(
+            KNOWN_ABSENT.has(m),
+            `${game}: lever "${w.id}" requires "${m}" which is not exposed in live /meta and is not a documented gap — likely a requiredCubes member-name drift (SQL column vs exposed member?)`,
+          ).toBe(true);
+        }
+      }
+    });
+  }
+
+  it('cfm_vn: the previously-misnamed FPS levers now resolve', () => {
+    const ids = resolveLeversForGame('cfm_vn', new Set(LIVE_META.cfm_vn)).levers.map((l) => l.id);
+    expect(ids).toContain('fps-clan-social-retention'); // was clan_cur → clan_id
+    expect(ids).toContain('fps-skin-crate-fomo'); // was unique_players → distinct_players
+    expect(ids).toContain('fps-whale-cause-typed-care'); // was ladder_level_cur → ladder_level
+  });
+
+  it('jus_vn: the server-health lever resolves after the ccu_by_server rename', () => {
+    const ids = resolveLeversForGame('jus_vn', new Set(LIVE_META.jus_vn)).levers.map((l) => l.id);
+    expect(ids).toContain('mmorpg-server-health-merges'); // was peak_ccu/server_id → server_peak/server
   });
 });
 

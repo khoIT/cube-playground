@@ -24,7 +24,7 @@ export const MMORPG_LEVERS: GenreLever[] = [
     games: [],
     lever: 'Server health & merges',
     signal: 'Per-server concurrency drifting below (or above) a healthy band',
-    requiredCubes: ['ccu_by_server.peak_ccu', 'ccu_by_server.server_id'],
+    requiredCubes: ['ccu_by_server.server_peak', 'ccu_by_server.server'],
     benchmark: {
       metricKey: 'server_peak_ccu',
       internalPercentileBand: 'p25',

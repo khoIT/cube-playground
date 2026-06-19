@@ -41,7 +41,7 @@ Reads (diagnose, recommend, list playbooks/cases) call directly.
 | 4 | [Rail + trust](phase-04-rail-and-trust-layer.md) | Chain diagnose→conclude→recommend one flow; citation + blind-spot guardrails | done (code); live eval pending | P2,P3 |
 | 4b | [Prescriptive door: `advise` skill](phase-04b-prescriptive-advise-skill.md) | New `advise` skill + router keyword block so prescriptive-first phrasings ("what should I do") reach the rail and auto-chain to recommend; diagnose unchanged | done (code); live eval pending | P2,P3,P4 |
 | 5 | [Outcome loop](phase-05-outcome-loop-writes.md) | DESCOPED — rail ends at cited strategy framed on segments; user actuates care/experiment themselves (data-exploration scope). `propose_action`/`action_proposal` removed | descoped | — |
-| 6 | [Tests + docs](phase-06-tests-docs-lessons.md) | TDD coverage per phase incl. routing tests (prescriptive→advise, diagnostic→diagnose, descriptive→explore); docs update, lessons-learned entry | pending | P1-P5,P4b |
+| 6 | [Tests + docs](phase-06-tests-docs-lessons.md) | Routing tests; live e2e (cfm advise + jus diagnose); lessons entries; folded-in lever data-gate naming fix (5 tokens + ladder_level_prev dim) | done | P1-P5,P4b |
 
 ## Key dependencies
 - Server endpoints all exist & verified: `/api/advisor/diagnose|recommend` (`server/src/routes/advisor.ts:92,111`, feature-gated `:89`), `/api/care/playbooks|cases|cases/sweep` (`server/src/routes/care-*.ts`), `/api/experiments*` (`server/src/index.ts`, `server/src/experiments/experiment-store.ts:57`).

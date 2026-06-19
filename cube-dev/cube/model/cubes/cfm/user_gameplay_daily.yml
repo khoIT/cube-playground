@@ -187,6 +187,11 @@ cubes:
         type: number
         description: This player's ladder tier (1-22) as of the anchor
 
+      - name: ladder_level_prev
+        sql: ladder_level_prev
+        type: number
+        description: This player's ladder tier ~48h before the anchor; pairs with ladder_level to read a rank-drop spiral
+
       # Tiers lost over ~48h (prior tier − current tier). NULL when the player
       # wasn't seen in both windows → never a false "drop". >5 = sharp demotion.
       - name: ladder_rank_drop_48h
