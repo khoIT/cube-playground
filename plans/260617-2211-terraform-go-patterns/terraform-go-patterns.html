@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reading Terraform · 10 Go patterns worth studying</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#f4f0e7;
+    --paper-2:#ece6d9;
+    --ink:#211d1a;
+    --ink-soft:#544d44;
+    --ink-faint:#8a8175;
+    --rule:#d8d0c0;
+    --brand:#7B42BC;        /* HashiCorp / Terraform purple */
+    --brand-deep:#5a2d92;
+    --brand-soft:#efe6f8;
+    /* problem (terracotta) vs solution (sage) */
+    --prob-bg:#f7e7e0;
+    --prob-ink:#9a3b22;
+    --prob-rule:#e6c3b4;
+    --sol-bg:#e4eee0;
+    --sol-ink:#3a6138;
+    --sol-rule:#c2d8ba;
+    /* code panel — deep plum-black, deliberately NOT github navy */
+    --code-bg:#211d2e;
+    --code-bg-2:#2b2640;
+    --code-line:#3a3450;
+    --c-plain:#d8d2e6;
+    --c-comment:#7d769b;
+    --c-kw:#c79bff;
+    --c-type:#7fd0c0;
+    --c-str:#e6b95c;
+    --c-func:#82b9ff;
+    --c-num:#e08aa6;
+    --c-punc:#9b93b4;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    line-height:1.65; -webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 1px 1px, rgba(123,66,188,.05) 1px, transparent 0);
+    background-size:26px 26px;
+  }
+  .wrap{max-width:980px; margin:0 auto; padding:0 28px;}
+
+  /* ---------- HERO ---------- */
+  header.hero{padding:90px 0 54px; border-bottom:1px solid var(--rule);}
+  .eyebrow{
+    font-size:12.5px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--brand-deep); font-weight:600; margin-bottom:22px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:30px; height:2px; background:var(--brand); display:inline-block;}
+  h1.title{
+    font-family:'Newsreader',Georgia,serif; font-weight:600;
+    font-size:clamp(40px,6.4vw,68px); line-height:1.04; letter-spacing:-.015em;
+    margin:0 0 24px; color:var(--ink);
+  }
+  h1.title em{font-style:italic; color:var(--brand-deep);}
+  .lede{
+    font-family:'Newsreader',Georgia,serif; font-size:clamp(19px,2.3vw,23px);
+    line-height:1.55; color:var(--ink-soft); max-width:48em; margin:0 0 30px;
+  }
+  .lede b{color:var(--ink); font-weight:600;}
+  .meta-row{display:flex; flex-wrap:wrap; gap:10px; margin-top:30px;}
+  .chip{
+    font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-soft);
+    background:var(--paper-2); border:1px solid var(--rule);
+    padding:6px 12px; border-radius:999px;
+  }
+  .chip b{color:var(--brand-deep); font-weight:700;}
+
+  /* ---------- WHY SECTION ---------- */
+  section.why{padding:56px 0; border-bottom:1px solid var(--rule);}
+  .why h2{
+    font-family:'Newsreader',serif; font-weight:600; font-size:30px;
+    margin:0 0 8px; letter-spacing:-.01em;
+  }
+  .why .sub{color:var(--ink-faint); font-size:14px; margin-bottom:28px;}
+  .why-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:18px;}
+  .why-card{
+    background:rgba(255,255,255,.45); border:1px solid var(--rule);
+    border-radius:var(--radius); padding:22px 24px;
+  }
+  .why-card h3{
+    font-size:15px; font-weight:700; margin:0 0 8px; color:var(--ink);
+    display:flex; align-items:baseline; gap:9px;
+  }
+  .why-card h3 .n{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--brand); font-weight:700;}
+  .why-card p{margin:0; font-size:14.5px; color:var(--ink-soft); line-height:1.6;}
+
+  /* ---------- TOC ---------- */
+  section.toc{padding:48px 0; border-bottom:1px solid var(--rule);}
+  .toc h2{font-family:'Newsreader',serif; font-weight:600; font-size:22px; margin:0 0 20px;}
+  .toc ol{list-style:none; counter-reset:t; margin:0; padding:0; display:grid; grid-template-columns:1fr 1fr; gap:2px 30px;}
+  .toc li{counter-increment:t; border-bottom:1px dotted var(--rule);}
+  .toc a{
+    display:flex; align-items:baseline; gap:12px; padding:11px 4px;
+    text-decoration:none; color:var(--ink); font-size:15px; transition:.15s;
+  }
+  .toc a:hover{color:var(--brand-deep); padding-left:9px;}
+  .toc a::before{
+    content:counter(t,decimal-leading-zero); font-family:'JetBrains Mono',monospace;
+    font-size:12px; color:var(--brand); font-weight:700; min-width:22px;
+  }
+  .toc .tcat{margin-left:auto; font-size:11px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace; white-space:nowrap;}
+
+  /* ---------- PATTERN ENTRY ---------- */
+  article.pat{padding:62px 0; border-bottom:1px solid var(--rule);}
+  .pat-head{display:flex; align-items:flex-start; gap:22px; margin-bottom:26px;}
+  .pat-num{
+    font-family:'Newsreader',serif; font-style:italic; font-weight:500;
+    font-size:54px; line-height:.9; color:var(--brand); opacity:.85; min-width:78px;
+  }
+  .pat-titles{flex:1;}
+  .tag{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:11px;
+    font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    padding:4px 10px; border-radius:6px; margin-bottom:11px;
+  }
+  .tag.concurrency{background:#e7e1f7; color:#5a2d92;}
+  .tag.types{background:#d9eeea; color:#27675b;}
+  .tag.generics{background:#dde8f6; color:#2d5887;}
+  .tag.errors{background:#f6ead1; color:#8a5a16;}
+  .tag.arch{background:#efe1ee; color:#7a3370;}
+  .tag.algo{background:#f4dee2; color:#8c3450;}
+  .pat-title{font-family:'Newsreader',serif; font-weight:600; font-size:clamp(26px,3.4vw,34px); line-height:1.15; margin:0 0 10px; letter-spacing:-.01em;}
+  .cite{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--ink-faint);
+    display:inline-flex; align-items:center; gap:7px;
+  }
+  .cite b{color:var(--brand-deep);}
+  .diff{margin-left:10px; padding:2px 8px; border:1px solid var(--rule); border-radius:5px; font-size:10.5px; letter-spacing:.04em; color:var(--ink-faint);}
+
+  .ps-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:26px 0;}
+  .ps{border-radius:var(--radius); padding:20px 22px; border:1px solid;}
+  .ps.problem{background:var(--prob-bg); border-color:var(--prob-rule);}
+  .ps.solution{background:var(--sol-bg); border-color:var(--sol-rule);}
+  .ps .lbl{
+    font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; margin-bottom:9px; display:flex; align-items:center; gap:7px;
+  }
+  .ps.problem .lbl{color:var(--prob-ink);}
+  .ps.solution .lbl{color:var(--sol-ink);}
+  .ps p{margin:0; font-size:14.5px; line-height:1.62; color:var(--ink);}
+  .ps.problem p{color:#5e3325;}
+  .ps.solution p{color:#2f4a2c;}
+
+  /* code */
+  .code-wrap{border-radius:var(--radius); overflow:hidden; border:1px solid var(--code-line); box-shadow:0 18px 40px -22px rgba(33,29,46,.5); margin-top:6px;}
+  .code-bar{
+    background:var(--code-bg-2); padding:10px 16px; display:flex; align-items:center; gap:8px;
+    border-bottom:1px solid var(--code-line);
+  }
+  .dot{width:11px; height:11px; border-radius:50%;}
+  .dot.r{background:#e6655f;} .dot.y{background:#e0b34a;} .dot.g{background:#5fb874;}
+  .code-bar .fname{margin-left:8px; font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--c-comment);}
+  pre{margin:0; background:var(--code-bg); padding:20px 22px; overflow-x:auto;}
+  pre code{
+    font-family:'JetBrains Mono',monospace; font-size:13px; line-height:1.7;
+    color:var(--c-plain); white-space:pre;
+  }
+  .tok-comment{color:var(--c-comment); font-style:italic;}
+  .tok-kw{color:var(--c-kw);}
+  .tok-type{color:var(--c-type);}
+  .tok-str{color:var(--c-str);}
+  .tok-func{color:var(--c-func);}
+  .tok-num{color:var(--c-num);}
+  .tok-punc{color:var(--c-punc);}
+
+  .lesson{
+    margin-top:24px; display:flex; gap:14px; align-items:flex-start;
+    background:var(--brand-soft); border-left:3px solid var(--brand);
+    border-radius:0 10px 10px 0; padding:16px 20px;
+  }
+  .lesson .key{font-size:20px; line-height:1.2;}
+  .lesson p{margin:0; font-size:14.5px; line-height:1.6; color:var(--brand-deep);}
+  .lesson p b{color:var(--brand-deep); font-weight:700;}
+
+  footer{padding:60px 0 90px; text-align:center;}
+  footer p{color:var(--ink-faint); font-size:13.5px; max-width:42em; margin:0 auto 8px; line-height:1.6;}
+  footer a{color:var(--brand-deep); text-decoration:none; border-bottom:1px solid var(--brand-soft);}
+  footer .mono{font-family:'JetBrains Mono',monospace; font-size:12px;}
+
+  @media(max-width:720px){
+    .why-grid,.ps-grid,.toc ol{grid-template-columns:1fr;}
+    .pat-head{gap:14px;} .pat-num{font-size:40px; min-width:54px;}
+    header.hero{padding:60px 0 40px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">A close reading of the source</div>
+    <h1 class="title">Why great engineers tell you to&nbsp;read <em>Terraform</em></h1>
+    <p class="lede">
+      Bruno Schaatsbergen and others point newcomers at the <b>HashiCorp Terraform</b> codebase
+      not because it's flashy, but because it's a large, mature, concurrent system written by
+      people who treat API design as a craft. It's idiomatic Go under real-world pressure:
+      a dependency engine that must be correct, parallel, and extensible.
+      Below are <b>ten patterns</b>, each pulled verbatim from the current source — the problem
+      it solves, and why the solution is elegant.
+    </p>
+    <div class="meta-row">
+      <span class="chip">repo <b>hashicorp/terraform</b></span>
+      <span class="chip">commit <b>732efd9</b> · v1.16-alpha</span>
+      <span class="chip"><b>1,958</b> Go files analyzed</span>
+      <span class="chip">every snippet <b>verified</b> against source</span>
+    </div>
+  </div>
+</header>
+
+<section class="why">
+  <div class="wrap">
+    <h2>What makes it worth your time</h2>
+    <p class="sub">Four reasons this codebase rewards a slow read, before we get to the code.</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <h3><span class="n">01</span> Real concurrency, not toy goroutines</h3>
+        <p>Terraform's core walks a graph of thousands of resources in parallel while respecting dependencies. You'll see channels, mutexes, atomics and deadlock detection used for a problem that genuinely needs them.</p>
+      </div>
+      <div class="why-card">
+        <h3><span class="n">02</span> Type safety as a discipline</h3>
+        <p>Instead of passing identifiers as bare strings, the team built a typed address system and sealed interfaces. The compiler does the policing — a lesson in designing data so wrong code won't compile.</p>
+      </div>
+      <div class="why-card">
+        <h3><span class="n">03</span> Errors that aggregate, not abort</h3>
+        <p>A config tool must report <em>all</em> problems at once. Their diagnostics system shows how to outgrow Go's fail-fast <code>error</code> without abandoning it — bridging stdlib errors into a richer model.</p>
+      </div>
+      <div class="why-card">
+        <h3><span class="n">04</span> Extensibility without coupling</h3>
+        <p>New node types, new file matchers, new providers — all added without editing the engine. Small interfaces, functional options and composition over inheritance, applied consistently at scale.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="toc">
+  <div class="wrap">
+    <h2>The ten patterns</h2>
+    <ol>
+      <li><a href="#p1">Functional options for open-ended config<span class="tcat">architecture</span></a></li>
+      <li><a href="#p2">Sealing an interface with a sigil method<span class="tcat">type safety</span></a></li>
+      <li><a href="#p3">A generic Set with a pluggable key<span class="tcat">generics</span></a></li>
+      <li><a href="#p4">The 1-element-array comparability trick<span class="tcat">generics</span></a></li>
+      <li><a href="#p5">A polymorphic error bridge<span class="tcat">errors</span></a></li>
+      <li><a href="#p6">Interface dispatch over a giant switch<span class="tcat">architecture</span></a></li>
+      <li><a href="#p7">The defer-the-result lock guard<span class="tcat">concurrency</span></a></li>
+      <li><a href="#p8">A dependency-ordered concurrent walk<span class="tcat">concurrency</span></a></li>
+      <li><a href="#p9">Lock-free deadlock detection<span class="tcat">concurrency</span></a></li>
+      <li><a href="#p10">Transitive reduction in eight lines<span class="tcat">algorithms</span></a></li>
+    </ol>
+  </div>
+</section>
+
+<div class="wrap">
+
+<!-- ============ 1 ============ -->
+<article class="pat" id="p1">
+  <div class="pat-head">
+    <div class="pat-num">1</div>
+    <div class="pat-titles">
+      <span class="tag arch">Architecture / API design</span>
+      <h2 class="pat-title">Functional options for open-ended configuration</h2>
+      <span class="cite">📍 <b>internal/configs/parser_file_matcher.go</b> : 39–72, 139–152 <span class="diff">INTERMEDIATE</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>A directory scanner needs to optionally match test files, query files, state-migration files… A constructor with one boolean per mode rots fast, and a builder object is ceremony. How do you keep one call site readable while letting features be added later without breaking callers?</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>Make configuration a <em>function</em>. <code>Option</code> is just <code>func(*parserConfig)</code>. The method takes <code>opts ...Option</code>, sets sane defaults, then lets each option mutate the config. New behaviour = a new exported constructor returning an <code>Option</code> — zero changes to existing calls.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">parser_file_matcher.go</span></div>
+<pre><code class="go">// Option is a functional option type for configuring the parser
+type Option func(*parserConfig)
+
+type parserConfig struct {
+	matchers      []FileMatcher
+	testDirectory string
+	fs            afero.Afero
+}
+
+func (p *Parser) dirFileSet(dir string, opts ...Option) (ConfigFileSet, hcl.Diagnostics) {
+	// Set up the parser configuration with defaults...
+	cfg := &amp;parserConfig{
+		matchers:      []FileMatcher{&amp;moduleFiles{}}, // we always match .tf files
+		testDirectory: DefaultTestDirectory,
+		fs:            p.fs,
+	}
+	for _, opt := range opts {
+		opt(cfg) // ...then let each option override
+	}
+	// ...
+}
+
+// Each "option" is a constructor that returns a closure over the config.
+func MatchTestFiles(dir string) Option {
+	return func(o *parserConfig) {
+		o.testDirectory = dir
+		o.matchers = append(o.matchers, &amp;testFiles{})
+	}
+}
+
+func MatchQueryFiles() Option {
+	return func(o *parserConfig) {
+		o.matchers = append(o.matchers, &amp;queryFiles{})
+	}
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> first-class functions turn configuration into composable, self-documenting verbs. <code>dirFileSet(dir, MatchTestFiles("tests"), MatchQueryFiles())</code> reads like a sentence — and the API can grow forever without a single breaking change.</p></div>
+</article>
+
+<!-- ============ 2 ============ -->
+<article class="pat" id="p2">
+  <div class="pat-head">
+    <div class="pat-num">2</div>
+    <div class="pat-titles">
+      <span class="tag types">Type safety</span>
+      <h2 class="pat-title">Sealing an interface with an unexported sigil method</h2>
+      <span class="cite">📍 <b>internal/addrs/unique_key.go</b> : 13–29 <span class="diff">INTERMEDIATE</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>Go interfaces are open: <em>any</em> type, anywhere, can satisfy one. Sometimes that's wrong — you want a closed set of implementations you fully control (here, the universe of valid map keys for addresses), so outside packages can't quietly inject their own and break invariants.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>Give the interface a single <em>unexported</em> method — <code>uniqueKeySigil()</code>. Only types in this package can implement an unexported method, so the set of implementations is sealed at compile time. It costs nothing at runtime and is never called.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">unique_key.go</span></div>
+<pre><code class="go">// UniqueKey is an interface implemented by values that serve as unique map
+// keys for particular addresses.
+//
+// All implementations of UniqueKey are comparable and can thus be used as
+// map keys. Unique keys generated from different address types are always
+// distinct.
+type UniqueKey interface {
+	uniqueKeySigil() // unexported = only THIS package can implement it
+}
+
+// UniqueKeyer is an interface implemented by types that can be represented
+// by a unique key.
+type UniqueKeyer interface {
+	UniqueKey() UniqueKey
+}
+
+func Equivalent[T, U UniqueKeyer](a T, b U) bool {
+	return a.UniqueKey() == b.UniqueKey()
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> visibility <em>is</em> an access-control tool. A zero-method unexported "sigil" turns an open Go interface into a closed, exhaustive one — the same trick the standard library uses in places like <code>ast.Node</code>. Use it when you must own every implementation.</p></div>
+</article>
+
+<!-- ============ 3 ============ -->
+<article class="pat" id="p3">
+  <div class="pat-head">
+    <div class="pat-num">3</div>
+    <div class="pat-titles">
+      <span class="tag generics">Generics</span>
+      <h2 class="pat-title">A generic Set with a pluggable key function</h2>
+      <span class="cite">📍 <b>internal/collections/set.go</b> : 16–48 <span class="diff">INTERMEDIATE</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>Go maps only accept <em>comparable</em> keys, but most domain objects (structs holding slices, addresses with nested parts) aren't comparable — yet they still have a clear notion of "the same value". You can't just do <code>map[MyType]bool</code>.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>Store a map from a comparable <em>proxy key</em> to the real value, and accept a <code>key func(T) UniqueKey[T]</code> that derives that proxy. Three constructors cover every case: self-keying types, a custom function, or plain comparable types — without duplicating the set logic.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">set.go</span></div>
+<pre><code class="go">// A caller-provided "key function" defines how to produce a comparable unique
+// key for each distinct value of type T.
+type Set[T any] struct {
+	members map[UniqueKey[T]]T
+	key     func(T) UniqueKey[T]
+}
+
+// NewSet: for element types that know how to key themselves.
+func NewSet[T UniqueKeyer[T]](elems ...T) Set[T] {
+	return NewSetFunc(T.UniqueKey, elems...)
+}
+
+// NewSetFunc: bring your own key function.
+func NewSetFunc[T any](keyFunc func(T) UniqueKey[T], elems ...T) Set[T] {
+	set := Set[T]{
+		members: make(map[UniqueKey[T]]T),
+		key:     keyFunc,
+	}
+	for _, elem := range elems {
+		set.Add(elem)
+	}
+	return set
+}
+
+// NewSetCmp: for plain comparable types, just use ==.
+func NewSetCmp[T comparable](elems ...T) Set[T] {
+	return NewSetFunc(cmpUniqueKeyFunc[T], elems...)
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> generics + a function-typed field decouple a container's <em>structure</em> from its <em>equality rule</em>. Note <code>T.UniqueKey</code> — a method expression used as a plain function value. One Set, three ergonomic entry points, no copy-paste.</p></div>
+</article>
+
+<!-- ============ 4 ============ -->
+<article class="pat" id="p4">
+  <div class="pat-head">
+    <div class="pat-num">4</div>
+    <div class="pat-titles">
+      <span class="tag generics">Generics / pragmatism</span>
+      <h2 class="pat-title">The one-element-array comparability trick</h2>
+      <span class="cite">📍 <b>internal/collections/unique_key.go</b> : 44–57 <span class="diff">ADVANCED</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>The set above wants a <code>UniqueKey[T]</code> for <em>plain comparable</em> types too. But you can't make an arbitrary <code>T</code> satisfy an interface method set without wrapping it — and a naive wrapper struct could accidentally lose the comparability you depend on.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>Wrap the value in a <code>[1]T</code> — a one-element array. Arrays in Go are comparable exactly when their element type is, so the wrapper is "exactly as comparable as T". A method makes it satisfy the interface. The honest comment even admits the cost: T is stored twice.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">unique_key.go</span></div>
+<pre><code class="go">// cmpUniqueKey is an annoying little adapter used to make arbitrary
+// comparable types usable with [Set] and [Map].
+//
+// It just wraps a single-element array of T around the value, so it
+// remains exactly as comparable as T. However, it does unfortunately
+// mean redundantly storing T twice -- both as the unique key and the
+// value -- in our collections.
+type cmpUniqueKey[T comparable] [1]T
+
+func (cmpUniqueKey[T]) IsUniqueKey(T) {}
+
+func cmpUniqueKeyFunc[T comparable](v T) UniqueKey[T] {
+	return cmpUniqueKey[T]{v}
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> when the type system fights you, a tiny adapter beats code generation. <code>[1]T</code> is a genuinely clever way to "carry comparability through" a wrapper — and the candid comment about double-storage models the right culture: <b>name your trade-offs in the code.</b></p></div>
+</article>
+
+<!-- ============ 5 ============ -->
+<article class="pat" id="p5">
+  <div class="pat-head">
+    <div class="pat-num">5</div>
+    <div class="pat-titles">
+      <span class="tag errors">Error handling</span>
+      <h2 class="pat-title">A polymorphic bridge from <code>error</code> to diagnostics</h2>
+      <span class="cite">📍 <b>internal/tfdiags/diagnostics.go</b> : 49–84 <span class="diff">INTERMEDIATE</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>A tool that validates config must surface <em>every</em> problem in one run, with source locations and severities — Go's fail-fast <code>error</code> can't carry that. But errors arrive from everywhere: stdlib <code>error</code>, HCL diagnostics, joined errors, nested diagnostics. You need one funnel that accepts them all.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>One variadic <code>Append(new ...interface{})</code> with a type switch that normalizes each input into the internal <code>Diagnostic</code> model — flattening slices, unwrapping wrappers, adapting HCL and native errors — and <code>panic</code>s loudly on anything unrecognized rather than silently dropping it.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">diagnostics.go</span></div>
+<pre><code class="go">func (diags Diagnostics) Append(new ...interface{}) Diagnostics {
+	for _, item := range new {
+		if item == nil {
+			continue
+		}
+
+		switch ti := item.(type) {
+		case Diagnostic:
+			diags = append(diags, ti)
+		case Diagnostics:
+			diags = append(diags, ti...) // flatten
+		case DiagnosticsAsError:
+			diags = diags.Append(ti.Diagnostics) // unwrap
+		case NonFatalError:
+			diags = diags.Append(ti.Diagnostics) // unwrap
+		case hcl.Diagnostics:
+			for _, hclDiag := range ti {
+				diags = append(diags, hclDiagnostic{hclDiag})
+			}
+		case *hcl.Diagnostic:
+			diags = append(diags, hclDiagnostic{ti})
+		case error:
+			diags = append(diags, diagnosticsForError(ti)...)
+		default:
+			panic(fmt.Errorf("can't construct diagnostic(s) from %T", item))
+		}
+	}
+	// empty slice normalized to nil so callers can rely on empty == nil
+	if len(diags) == 0 {
+		return nil
+	}
+	return diags
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> a type switch is how you unify <em>incompatible external APIs</em> into one internal model. The <code>default: panic</code> is the design speaking: unknown inputs are a programmer bug, surfaced immediately — not data to swallow. And normalizing empty→nil gives callers one reliable invariant.</p></div>
+</article>
+
+<!-- ============ 6 ============ -->
+<article class="pat" id="p6">
+  <div class="pat-head">
+    <div class="pat-num">6</div>
+    <div class="pat-titles">
+      <span class="tag arch">Architecture / extensibility</span>
+      <h2 class="pat-title">Interface dispatch instead of a giant switch</h2>
+      <span class="cite">📍 <b>internal/terraform/execute.go</b> : 8–11 + <b>graph.go</b> : 142 <span class="diff">INTERMEDIATE</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>The graph holds dozens of node kinds — resources, modules, outputs, checks, variables. The walker has to "run" the ones that are runnable. A <code>switch v.(type)</code> over every node type would couple the engine to all of them and grow forever, violating open/closed.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>Define a one-method capability interface, <code>GraphNodeExecutable</code>. The walker does a single comma-ok type assertion: if a node implements it, execute it; otherwise skip. New executable node types opt in by implementing the method — the walker never changes.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">execute.go + graph.go</span></div>
+<pre><code class="go">// execute.go — a tiny "capability" interface
+type GraphNodeExecutable interface {
+	Execute(EvalContext, walkOperation) tfdiags.Diagnostics
+}
+
+// graph.go — the entire dispatch, inside the concurrent walk:
+//
+//   // If the node is exec-able, then execute it.
+	if ev, ok := v.(GraphNodeExecutable); ok {
+		diags = diags.Append(walker.Execute(vertexCtx, ev))
+		if diags.HasErrors() {
+			return
+		}
+	}
+
+//   // If the node is dynamically expanded, then expand it
+	if ev, ok := v.(GraphNodeDynamicExpandable); ok {
+		// ...handle a totally separate concern, same way
+	}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> model <em>capabilities</em>, not types. Small "does this node do X?" interfaces + comma-ok assertions let independent concerns (execute, expand, reference) layer orthogonally onto the same node — extensibility without a central registry the engine must know about.</p></div>
+</article>
+
+<!-- ============ 7 ============ -->
+<article class="pat" id="p7">
+  <div class="pat-head">
+    <div class="pat-num">7</div>
+    <div class="pat-titles">
+      <span class="tag concurrency">Concurrency idiom</span>
+      <h2 class="pat-title">The "defer the result" lock guard</h2>
+      <span class="cite">📍 <b>internal/states/sync.go</b> : 572–581 (used 50+ times) <span class="diff">INTERMEDIATE</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>Shared mutable state guarded by a mutex spreads <code>lock.Lock()</code> / <code>defer lock.Unlock()</code> across dozens of methods. It's noisy, and easy to get subtly wrong — and here there's an extra rule: writing through a read-only snapshot must be a hard error, not a silent corruption.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p><code>beginWrite()</code> takes the lock, enforces the writable invariant, and <em>returns the unlock function as a closure</em>. The call site collapses to one line: <code>defer s.beginWrite()()</code> — acquire now, release on return. The double <code>()()</code> is the whole idiom.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">sync.go</span></div>
+<pre><code class="go">func (s *SyncState) beginWrite() func() {
+	s.lock.Lock()
+	if !s.writable {
+		s.lock.Unlock()
+		panic("attempt to write through non-writable SyncState")
+	}
+	return func() {
+		s.lock.Unlock()
+	}
+}
+
+// Every mutating method is then a clean one-liner:
+func (s *SyncState) RemoveModule(addr addrs.ModuleInstance) {
+	defer s.beginWrite()()   // lock now; the returned fn unlocks on return
+	s.state.RemoveModule(addr)
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> returning a cleanup closure bundles "acquire + invariant check + release" into one reusable call. <code>defer s.beginWrite()()</code> reads oddly the first time, then becomes the most boringly-safe critical section you can write — the panic guarantees misuse fails loud, not quiet.</p></div>
+</article>
+
+<!-- ============ 8 ============ -->
+<article class="pat" id="p8">
+  <div class="pat-head">
+    <div class="pat-num">8</div>
+    <div class="pat-titles">
+      <span class="tag concurrency">Concurrency</span>
+      <h2 class="pat-title">A dependency-ordered concurrent walk</h2>
+      <span class="cite">📍 <b>internal/dag/walk.go</b> : 347–392 <span class="diff">ADVANCED</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>Execute every vertex in a graph as parallel as possible, but never before its dependencies finish. Harder still: the graph can <em>change mid-walk</em> (a node expands into more nodes), so a vertex that already started waiting must be able to pick up newly-added dependencies without being torn down.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>One goroutine per vertex. It <code>select</code>s on a deps channel, a cancel channel, and an <em>update</em> channel. Seeding a pre-closed channel makes a zero-dependency vertex fall straight through. When deps change, it re-reads <code>DepsCh</code> under a lock and loops — so synchronization is dynamic, not fixed at spawn time.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">walk.go</span></div>
+<pre><code class="go">func (w *Walker) walkVertex(v Vertex, info *walkerVertex) {
+	defer w.wait.Done()        // lower the waitgroup when finished
+	defer close(info.DoneCh)   // always signal completion
+
+	// Start with a [closed] deps channel so a vertex with no deps
+	// immediately falls through to run.
+	var depsSuccess DependencyResult
+	var depsUpdateCh chan struct{}
+	depsCh := make(chan DependencyResult, 1)
+	depsCh &lt;- DependencyResultSuccess
+	close(depsCh)
+	for {
+		select {
+		case &lt;-info.CancelCh:
+			return
+		case depsSuccess = &lt;-depsCh:
+			depsCh = nil               // deps done — trigger completion
+		case &lt;-depsUpdateCh:
+			// new deps arrived; fall through and re-read them
+		}
+
+		// Pick up dependencies that changed while we were waiting.
+		info.DepsLock.Lock()
+		if info.DepsCh != nil {
+			depsCh = info.DepsCh
+			info.DepsCh = nil
+		}
+		if info.DepsUpdateCh != nil {
+			depsUpdateCh = info.DepsUpdateCh
+		}
+		info.DepsLock.Unlock()
+
+		if depsCh == nil {
+			break // no more deps to wait on — done
+		}
+	}
+	// ...then run w.Callback(v) only if dependencies succeeded.
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> a <code>select</code> loop with a separate "update" channel turns a static wait into a <em>re-negotiable</em> one. The pre-closed-channel seed is a lovely micro-trick: it removes the special case for zero-dependency nodes entirely.</p></div>
+</article>
+
+<!-- ============ 9 ============ -->
+<article class="pat" id="p9">
+  <div class="pat-head">
+    <div class="pat-num">9</div>
+    <div class="pat-titles">
+      <span class="tag concurrency">Concurrency</span>
+      <h2 class="pat-title">Lock-free deadlock detection before you block</h2>
+      <span class="cite">📍 <b>internal/promising/promise.go</b> : 126–146 <span class="diff">ADVANCED</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>Tasks await promises; promises are resolved by tasks. If task A waits on a promise whose resolution depends — transitively — on A, everyone blocks forever. And you can't detect the cycle <em>after</em> blocking, because a blocked goroutine can't run the check.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>Before parking, walk the <code>awaiting → responsible</code> chain using only <code>atomic.Load</code> — no locks taken during traversal. If the chain loops back to the requesting task, it's a self-dependency; the code then fails all promises on the cycle with a descriptive error instead of hanging.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">promise.go</span></div>
+<pre><code class="go">// We'll first test whether waiting for this promise is possible
+// without creating a deadlock, by following the awaiting->responsible
+// chain.
+checkP := p
+checkT := p.responsible.Load()
+steps := 1
+for checkT != reqT {
+	steps++
+	if checkT == nil {
+		break
+	}
+	nextCheckP := checkT.awaiting.Load()
+	if nextCheckP == nil {
+		break
+	}
+	if checkP.responsible.Load() != checkT {
+		break
+	}
+	checkP = nextCheckP
+	checkT = checkP.responsible.Load()
+}
+if checkT == reqT {
+	// We've found a self-dependency. Repeat the walk, this time
+	// collecting every promise on the cycle so we can fail them
+	// with a useful ErrSelfDependent instead of deadlocking.
+	// ...
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> some correctness checks must run <em>before</em> the blocking operation, by construction. Following a linked chain of <code>atomic.Load</code>s — no locks, no allocation — is how you safely inspect concurrent state on the hot path. Turning a hang into a clear error is a gift to whoever debugs it next.</p></div>
+</article>
+
+<!-- ============ 10 ============ -->
+<article class="pat" id="p10">
+  <div class="pat-head">
+    <div class="pat-num">10</div>
+    <div class="pat-titles">
+      <span class="tag algo">Algorithms</span>
+      <h2 class="pat-title">Transitive reduction in eight lines</h2>
+      <span class="cite">📍 <b>internal/dag/dag.go</b> : 208–224 <span class="diff">ADVANCED</span></span>
+    </div>
+  </div>
+  <div class="ps-grid">
+    <div class="ps problem">
+      <div class="lbl">✕ The problem</div>
+      <p>Dependency graphs accumulate redundant edges: if A→B→C and also A→C, the direct A→C is implied and just clutters the graph (and slows the walk). Removing <em>only</em> the truly-redundant edges sounds like a fiddly all-pairs-paths problem.</p>
+    </div>
+    <div class="ps solution">
+      <div class="lbl">✓ The elegant solution</div>
+      <p>For each vertex <code>u</code>, DFS from its direct children. For any visited node <code>v</code>, the <em>intersection</em> of "u's direct targets" with "v's direct targets" is exactly the set of edges from u that are already reachable through v — so delete them. Set intersection turns a graph problem into local set math.</p>
+    </div>
+  </div>
+  <div class="code-wrap">
+    <div class="code-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">dag.go</span></div>
+<pre><code class="go">// TransitiveReduction performs the transitive reduction of graph g in place.
+// If A => B => C and A connects to both B and C, the A => C edge is redundant.
+func (g *AcyclicGraph) TransitiveReduction() {
+	// For each vertex u, DFS from each direct child v.
+	// For each v-prime reachable from v, remove the edge (u, v-prime).
+	for _, u := range g.Vertices() {
+		uTargets := g.downEdgesNoCopy(u)
+
+		g.DepthFirstWalk(g.downEdgesNoCopy(u), func(v Vertex, d int) error {
+			shared := uTargets.Intersection(g.downEdgesNoCopy(v))
+			for _, vPrime := range shared {
+				g.RemoveEdge(BasicEdge(u, vPrime))
+			}
+			return nil
+		})
+	}
+}</code></pre>
+  </div>
+  <div class="lesson"><span class="key">🔑</span><p><b>The lesson:</b> the right data structure dissolves the algorithm. Because edges are stored as <em>sets</em>, a classically intimidating operation (transitive reduction) becomes a DFS plus one <code>Intersection</code> call. When code reads this cleanly, the cleverness lives in the representation, not the loop.</p></div>
+</article>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Every snippet above was read and verified against <span class="mono">hashicorp/terraform</span> at commit <span class="mono">732efd9</span> (v1.16.0-alpha, June 2026). Code is trimmed for focus — comments marked <span class="mono">// ...</span> elide unchanged lines; line numbers point to the real source.</p>
+    <p>Read the source yourself: <a href="https://github.com/hashicorp/terraform/tree/main/internal">github.com/hashicorp/terraform/internal</a> — the <span class="mono">dag</span>, <span class="mono">addrs</span>, <span class="mono">collections</span>, <span class="mono">tfdiags</span> and <span class="mono">promising</span> packages are the densest seams of craft.</p>
+  </div>
+</footer>
+
+<script>
+// ---- Minimal, self-contained Go syntax highlighter (no CDN) ----
+// Tokenizes comments, strings, keywords, builtin types, numbers, funcs.
+(function () {
+  const KEYWORDS = new Set("break case chan const continue default defer else fallthrough for func go goto if import interface map package range return select struct switch type var".split(" "));
+  const TYPES = new Set("bool byte rune string error int int8 int16 int32 int64 uint uint8 uint16 uint32 uint64 uintptr float32 float64 complex64 complex128 any comparable nil true false iota make append len cap close panic delete".split(" "));
+
+  function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+  function highlight(src) {
+    let out = "";
+    let i = 0;
+    const n = src.length;
+    while (i < n) {
+      const c = src[i];
+      // line comment
+      if (c === "/" && src[i+1] === "/") {
+        let j = src.indexOf("\n", i); if (j === -1) j = n;
+        out += '<span class="tok-comment">' + esc(src.slice(i, j)) + '</span>';
+        i = j; continue;
+      }
+      // string (double or raw backtick)
+      if (c === '"' || c === '`') {
+        const q = c; let j = i + 1;
+        while (j < n && src[j] !== q) { if (q === '"' && src[j] === '\\') j++; j++; }
+        j++;
+        out += '<span class="tok-str">' + esc(src.slice(i, Math.min(j, n))) + '</span>';
+        i = Math.min(j, n); continue;
+      }
+      // char literal
+      if (c === "'") {
+        let j = i + 1;
+        while (j < n && src[j] !== "'") { if (src[j] === '\\') j++; j++; }
+        j++;
+        out += '<span class="tok-str">' + esc(src.slice(i, Math.min(j, n))) + '</span>';
+        i = Math.min(j, n); continue;
+      }
+      // identifier / keyword / type
+      if (/[A-Za-z_]/.test(c)) {
+        let j = i + 1;
+        while (j < n && /[A-Za-z0-9_]/.test(src[j])) j++;
+        const word = src.slice(i, j);
+        const after = src[j];
+        if (KEYWORDS.has(word)) out += '<span class="tok-kw">' + word + '</span>';
+        else if (TYPES.has(word)) out += '<span class="tok-type">' + word + '</span>';
+        else if (after === "(") out += '<span class="tok-func">' + word + '</span>';
+        else if (/^[A-Z]/.test(word)) out += '<span class="tok-type">' + esc(word) + '</span>';
+        else out += esc(word);
+        i = j; continue;
+      }
+      // number
+      if (/[0-9]/.test(c)) {
+        let j = i + 1;
+        while (j < n && /[0-9xXa-fA-F._]/.test(src[j])) j++;
+        out += '<span class="tok-num">' + src.slice(i, j) + '</span>';
+        i = j; continue;
+      }
+      // punctuation
+      if (/[{}()\[\].,;:=+\-*\/%<>!&|^]/.test(c)) {
+        out += '<span class="tok-punc">' + esc(c) + '</span>';
+        i++; continue;
+      }
+      out += esc(c); i++;
+    }
+    return out;
+  }
+
+  document.querySelectorAll("pre code.go").forEach(function (el) {
+    el.innerHTML = highlight(el.textContent);
+  });
+})();
+</script>
+</body>
+</html>
