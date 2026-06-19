@@ -13,7 +13,7 @@
 
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { message } from 'antd';
-import { Copy, AlertTriangle, KeyRound, Shield } from 'lucide-react';
+import { Copy, AlertTriangle, KeyRound, Shield, Terminal } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import {
@@ -48,6 +48,16 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Trino SQL is generated on demand — it triggers a Cube /sql compile that can
+  // be slow on a cold warehouse, so we don't fetch it until the user asks.
+  const [trinoSql, setTrinoSql] = useState<{
+    loading: boolean;
+    sql: string | null;
+    catalog?: string;
+    schema?: string | null;
+    error: string | null;
+  }>({ loading: false, sql: null, error: null });
+
   // Fetch the first page on mount / segment change — gives counts + truncation
   // + the initial member preview in one call.
   useEffect(() => {
@@ -80,6 +90,20 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
     }
   }, [cursor, segment.id]);
 
+  const generateTrinoSql = useCallback(async () => {
+    setTrinoSql({ loading: true, sql: null, error: null });
+    try {
+      const r = await segmentsClient.membershipSql(segment.id);
+      setTrinoSql({ loading: false, sql: r.sql, catalog: r.catalog, schema: r.schema, error: null });
+    } catch (e) {
+      setTrinoSql({
+        loading: false,
+        sql: null,
+        error: e instanceof Error ? e.message : 'Failed to generate SQL',
+      });
+    }
+  }, [segment.id]);
+
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const membersUrl = `${origin}/api/segments/${segment.id}/members?limit=1000`;
   const copy = (text: string) => {
@@ -88,6 +112,9 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   };
 
   const isFresh = segment.status === 'fresh';
+  // Trino SQL reproduces membership from the segment's predicate — only live
+  // (predicate) segments have a generating query; manual lists are frozen.
+  const canGenerateSql = segment.type === 'predicate';
 
   return (
     <section style={{ paddingTop: 0 }}>
@@ -277,6 +304,121 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
           </button>
         </div>
       </div>
+
+      {/* Trino SQL — run the membership query directly against the warehouse */}
+      {canGenerateSql && (
+        <div
+          style={{
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-card)',
+            borderRadius: 'var(--radius-xl)',
+            padding: '18px 20px',
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <Terminal size={13} aria-hidden /> {t('segments.detail.pullApi.trinoSql', { defaultValue: 'Trino SQL' })}
+            </h3>
+            {trinoSql.sql && (
+              <button
+                type="button"
+                onClick={() => copy(trinoSql.sql ?? '')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: 'var(--brand)',
+                  background: 'transparent',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '5px 11px',
+                  cursor: 'pointer',
+                }}
+              >
+                <Copy size={11} aria-hidden /> {t('common.copy', { defaultValue: 'Copy' })}
+              </button>
+            )}
+          </div>
+          <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
+            {t('segments.detail.pullApi.trinoSqlHint', {
+              defaultValue:
+                'Run this cohort directly against Trino instead of pulling. Reproduces membership from the segment predicate; params inlined, full cohort (no row cap).',
+            })}
+          </p>
+
+          {!trinoSql.sql && !trinoSql.error && (
+            <button
+              type="button"
+              onClick={generateTrinoSql}
+              disabled={trinoSql.loading}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: 'var(--text-on-brand)',
+                background: 'var(--brand)',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                padding: '8px 16px',
+                cursor: trinoSql.loading ? 'default' : 'pointer',
+                opacity: trinoSql.loading ? 0.7 : 1,
+              }}
+            >
+              {trinoSql.loading
+                ? t('common.loading', { defaultValue: 'Loading…' })
+                : t('segments.detail.pullApi.generateSql', { defaultValue: 'Generate SQL' })}
+            </button>
+          )}
+
+          {trinoSql.error && (
+            <div style={{ color: 'var(--destructive-ink)', fontSize: 12.5, marginBottom: 10 }}>
+              {trinoSql.error}{' '}
+              <button
+                type="button"
+                onClick={generateTrinoSql}
+                style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0 }}
+              >
+                {t('common.retry', { defaultValue: 'Retry' })}
+              </button>
+            </div>
+          )}
+
+          {trinoSql.sql && (
+            <>
+              {trinoSql.schema && (
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 8 }}>
+                  {t('segments.detail.pullApi.trinoSqlSchema', {
+                    defaultValue:
+                      'Tables are referenced unqualified — set catalog {{catalog}}, schema {{schema}} in your Trino session.',
+                    catalog: trinoSql.catalog ?? 'game_integration',
+                    schema: trinoSql.schema,
+                  })}
+                </div>
+              )}
+              <pre
+                style={{
+                  margin: 0,
+                  background: 'var(--surface-inverse)',
+                  color: 'var(--text-on-brand)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '12px 14px',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11.5,
+                  lineHeight: 1.5,
+                  maxHeight: 320,
+                  overflow: 'auto',
+                  whiteSpace: 'pre',
+                }}
+              >
+                <code>{trinoSql.sql}</code>
+              </pre>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Live member preview */}
       <div

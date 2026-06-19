@@ -191,6 +191,17 @@ export const segmentsClient = {
     return apiFetch<{ filter: string }>(`/api/segments/${encodeURIComponent(id)}/sql-filter`);
   },
 
+  // Runnable Trino SELECT reproducing the segment's membership (for the Pull API
+  // tab). Live (predicate) segments only; identity-projection of the predicate.
+  membershipSql(id: string): Promise<{
+    sql: string;
+    identity: string;
+    catalog: string;
+    schema: string | null;
+  }> {
+    return apiFetch(`/api/segments/${encodeURIComponent(id)}/membership-sql`);
+  },
+
   // Bare member-ID pull: keyset-paginated identity values for a downstream app.
   members(
     id: string,

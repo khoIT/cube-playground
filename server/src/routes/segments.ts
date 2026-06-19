@@ -13,6 +13,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.js';
 import { treeToCubeFilters } from '../services/translator.js';
 import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
+import { buildSegmentMembershipSql } from '../lakehouse/segment-snapshot-writer.js';
+import { schemaForGame } from '../services/trino-profiler-config.js';
 import { predicateToSql } from '../services/predicate-to-sql.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 import type { MemberProfiles } from '../types/segment.js';
@@ -1078,6 +1080,48 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     } catch (err) {
       return reply.status(400).send({
         error: { code: 'SQL_TRANSLATOR_ERROR', message: (err as Error).message },
+      });
+    }
+  });
+
+  // GET /api/segments/:id/membership-sql — runnable Trino SELECT reproducing the
+  // segment's membership (identity projection of its predicate), surfaced in the
+  // Pull API tab so a downstream team can run the cohort directly in Trino. This
+  // is the exact SELECT the lakehouse snapshot writer lands. Live (predicate)
+  // segments only — manual segments are a frozen uid list with no generating query.
+  app.get('/api/segments/:id/membership-sql', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = guardSegment(req, reply, id, 'read');
+    if (!row) return reply;
+    if (row.type !== 'predicate' || !row.cube || !row.cube_query_json || !row.game_id) {
+      return reply.status(400).send({
+        error: {
+          code: 'NOT_LIVE',
+          message: 'Trino SQL is available for live (predicate) segments only.',
+        },
+      });
+    }
+    try {
+      const built = await buildSegmentMembershipSql({
+        cube: row.cube as string,
+        gameId: row.game_id as string,
+        workspace: row.workspace as string,
+        cubeQueryJson: row.cube_query_json as string,
+      });
+      if (!built) {
+        return reply.status(422).send({
+          error: { code: 'NO_IDENTITY', message: `No identity-field mapping for ${row.cube}` },
+        });
+      }
+      return {
+        sql: built.sql,
+        identity: built.identity,
+        catalog: process.env.CUBEJS_DB_PRESTO_CATALOG ?? 'game_integration',
+        schema: schemaForGame(row.game_id as string),
+      };
+    } catch (err) {
+      return reply.status(502).send({
+        error: { code: 'SQL_COMPILE_ERROR', message: (err as Error).message },
       });
     }
   });

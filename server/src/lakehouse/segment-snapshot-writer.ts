@@ -92,6 +92,45 @@ function extractCompiledSql(resp: unknown): CompiledSql {
   return { text: pair[0], params: Array.isArray(pair[1]) ? pair[1] : [] };
 }
 
+export interface MembershipSql {
+  /** Runnable Trino SELECT (params inlined, default rowLimit stripped). */
+  sql: string;
+  /** Identity dimension projected as the single membership column. */
+  identity: string;
+}
+
+/**
+ * Compile a segment's membership query to a runnable Trino SELECT: an
+ * identity-only projection (one row per distinct user) of the segment's stored
+ * predicate, with `?` params inlined and Cube's default rowLimit stripped so it
+ * returns the FULL cohort. This is the exact SELECT the snapshot writer lands
+ * into the lakehouse — extracted so the Pull API surface can show a downstream
+ * team the query to run the cohort directly in Trino.
+ *
+ * Returns null when the segment's cube has no identity-field mapping.
+ */
+export async function buildSegmentMembershipSql(
+  input: Pick<SegmentSnapshotInput, 'cube' | 'gameId' | 'workspace' | 'cubeQueryJson'>,
+  opts: { token?: string } = {},
+): Promise<MembershipSql | null> {
+  const identity = await resolveIdentityField(input.cube, input.gameId, {
+    workspaceId: input.workspace,
+  });
+  if (!identity) return null;
+
+  const token = opts.token ?? resolveCubeTokenForGame(input.gameId) ?? undefined;
+  const baseQuery = JSON.parse(input.cubeQueryJson) as Record<string, unknown>;
+  // Identity-only projection → one column, one row per distinct user (Cube
+  // emits GROUP BY on the dimension). Drop measures so the SELECT is a single
+  // column the INSERT (or a downstream reader) maps positionally to `uid`.
+  const query = { ...baseQuery, dimensions: [identity], measures: [] };
+  const compiled = extractCompiledSql(await cubeSql(query, token));
+  return {
+    sql: stripTrailingLimit(inlineSqlParams(compiled.text, compiled.params)),
+    identity,
+  };
+}
+
 /**
  * Compile + write one segment's full membership for `snapshotDate` (YYYY-MM-DD).
  * Returns a structured result for the job log rather than throwing on a single
@@ -118,22 +157,11 @@ export async function writeSegmentSnapshot(
   }
 
   try {
-    const identity = await resolveIdentityField(input.cube, input.gameId, {
-      workspaceId: input.workspace,
-    });
-    if (!identity) {
+    const built = await buildSegmentMembershipSql(input, { token: opts.token });
+    if (!built) {
       return { ...base, status: 'skipped', reason: `no identity-field mapping for ${input.cube}` };
     }
-
-    const token = opts.token ?? resolveCubeTokenForGame(input.gameId) ?? undefined;
-    const baseQuery = JSON.parse(input.cubeQueryJson) as Record<string, unknown>;
-    // Identity-only projection → one column, one row per distinct user (Cube
-    // emits GROUP BY on the dimension). Drop measures so the subquery is a
-    // single column the INSERT can map positionally to `uid`.
-    const query = { ...baseQuery, dimensions: [identity], measures: [] };
-
-    const compiled = extractCompiledSql(await cubeSql(query, token));
-    const selectSql = stripTrailingLimit(inlineSqlParams(compiled.text, compiled.params));
+    const selectSql = built.sql;
 
     const connector = opts.connector ?? lakehouseConnectorFromEnv();
     const dateLit = `DATE '${snapshotDate}'`;
