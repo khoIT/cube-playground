@@ -19,7 +19,7 @@ import type { DisambigResolutions, TimeRangeValue } from '../cache/disambig-memo
 import { config } from '../config.js';
 import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
-import { normalizeCubeDateRanges } from './normalize-cube-date-range.js';
+import { normalizeCubeDateRanges, clampAnalysisWindows } from './normalize-cube-date-range.js';
 import {
   ChartSpecSchema,
   buildChartArtifact,
@@ -155,12 +155,25 @@ export async function handler(
     timeDimensions: normalizeCubeDateRanges(args.query.timeDimensions),
   };
 
+  // Disclosure appended to the card summary when coverage changed the picture.
+  let coverageSuffix = '';
+
+  // 2b. Cap the analysis window to bound cold-Trino scan cost on heavy event
+  // cubes. A query whose span exceeds the cap is clamped to the most recent N
+  // days and the truncation is disclosed on the card (config flag; 0 disables).
+  const clamp = clampAnalysisWindows(effectiveQuery.timeDimensions, config.analysisMaxWindowDays);
+  if (clamp.clamped) {
+    effectiveQuery = { ...effectiveQuery, timeDimensions: clamp.timeDimensions };
+    const range = clamp.clampedRange;
+    coverageSuffix +=
+      ` (Analysis window capped at ${config.analysisMaxWindowDays} days for performance` +
+      (range ? `; showing ${range[0]}–${range[1]}` : '') +
+      `.)`;
+  }
+
   // 3. Build deeplink from the normalized query so the URL ?query=… carries
   // the explicit tuple instead of the ambiguous relative string.
   let deeplink = buildChatDeeplink(effectiveQuery);
-
-  // Disclosure appended to the card summary when coverage changed the picture.
-  let coverageSuffix = '';
 
   // 4. Build the embedded chart. The LLM's chart is preferred (it picks a
   // better-typed visual); when it omits one OR its spec fails to build, the
@@ -187,14 +200,16 @@ export async function handler(
   // all agree, and disclose the shift. Never throws.
   if (!chart) {
     try {
-      const loaded = await loadCubeRowsCovered(args.query, ctx, { maxRows: MAX_ROWS });
+      // Load the clamped/normalized query, not the raw one, so the fallback
+      // chart respects both the coverage snap and the analysis-window cap.
+      const loaded = await loadCubeRowsCovered(effectiveQuery, ctx, { maxRows: MAX_ROWS });
       if (loaded.snap?.applied && loaded.snap.snappedRange) {
         effectiveQuery = loaded.query;
         deeplink = buildChatDeeplink(effectiveQuery);
         const [from, to] = loaded.snap.snappedRange;
-        coverageSuffix = ` (Showing ${from}–${to}; the requested range had no data — data through ${loaded.snap.latestDate}.)`;
+        coverageSuffix += ` (Showing ${from}–${to}; the requested range had no data — data through ${loaded.snap.latestDate}.)`;
       } else if (loaded.snap && !loaded.snap.applied && loaded.snap.latestDate) {
-        coverageSuffix = ` (No data in the requested range; latest available is ${loaded.snap.latestDate}.)`;
+        coverageSuffix += ` (No data in the requested range; latest available is ${loaded.snap.latestDate}.)`;
       }
       const derived = deriveChartSpec(effectiveQuery, loaded.rows, meta);
       if (derived) {

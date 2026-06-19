@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeRelativeDateRangeString,
   normalizeCubeDateRanges,
+  clampAnalysisWindows,
 } from '../../src/tools/normalize-cube-date-range.js';
 
 const NOW = new Date('2026-05-26T00:00:00Z');
@@ -140,5 +141,60 @@ describe('normalizeCubeDateRanges', () => {
     const snapshot = JSON.parse(JSON.stringify(input));
     normalizeCubeDateRanges(input, NOW);
     expect(input).toEqual(snapshot);
+  });
+});
+
+describe('clampAnalysisWindows', () => {
+  const CAP = 30;
+
+  it('clamps a tuple wider than the cap to the most recent N days', () => {
+    const out = clampAnalysisWindows(
+      [{ dimension: 'b.order_date', dateRange: ['2026-01-01', '2026-05-25'] as [string, string] }],
+      CAP,
+    );
+    expect(out.clamped).toBe(true);
+    // 30 inclusive days ending 2026-05-25 → from = 2026-04-26.
+    expect(out.timeDimensions![0].dateRange).toEqual(['2026-04-26', '2026-05-25']);
+    expect(out.clampedRange).toEqual(['2026-04-26', '2026-05-25']);
+  });
+
+  it('leaves a tuple within the cap untouched (same reference returned)', () => {
+    const input = [
+      { dimension: 'b.order_date', dateRange: ['2026-05-01', '2026-05-25'] as [string, string] },
+    ];
+    const out = clampAnalysisWindows(input, CAP);
+    expect(out.clamped).toBe(false);
+    expect(out.timeDimensions).toBe(input);
+  });
+
+  it('rewrites "last N days" beyond the cap to "last {cap} days"', () => {
+    const out = clampAnalysisWindows([{ dimension: 'b.order_date', dateRange: 'last 90 days' }], CAP);
+    expect(out.clamped).toBe(true);
+    expect(out.timeDimensions![0].dateRange).toBe('last 30 days');
+  });
+
+  it('leaves "last N days" within the cap untouched', () => {
+    const out = clampAnalysisWindows([{ dimension: 'b.order_date', dateRange: 'last 7 days' }], CAP);
+    expect(out.clamped).toBe(false);
+  });
+
+  it('passes calendar/edge strings through (only bounds what it understands)', () => {
+    const input = [{ dimension: 'b.order_date', dateRange: 'this month' }];
+    const out = clampAnalysisWindows(input, CAP);
+    expect(out.clamped).toBe(false);
+    expect(out.timeDimensions).toBe(input);
+  });
+
+  it('disables clamping when cap <= 0', () => {
+    const input = [
+      { dimension: 'b.order_date', dateRange: ['2020-01-01', '2026-05-25'] as [string, string] },
+    ];
+    const out = clampAnalysisWindows(input, 0);
+    expect(out.clamped).toBe(false);
+    expect(out.timeDimensions).toBe(input);
+  });
+
+  it('passes undefined through unchanged', () => {
+    expect(clampAnalysisWindows(undefined, CAP).timeDimensions).toBeUndefined();
   });
 });

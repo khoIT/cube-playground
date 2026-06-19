@@ -293,6 +293,14 @@ export interface Config {
    */
   agentSmartDefaultsEnabled: boolean;
   /**
+   * Max span (in days) any chat analysis query may scan. A query whose time
+   * window exceeds this is clamped to the most recent N days and the truncation
+   * is disclosed in the artifact card. Bounds cold-Trino scan cost on the heavy
+   * event cubes (billing / economy) where a long window is the slow path. Set to
+   * 0 to disable the clamp. Default 30.
+   */
+  analysisMaxWindowDays: number;
+  /**
    * Let the user-facing disambiguation toggle (targeted/aggressive) govern the
    * agent's asking posture, not just the deterministic engine gate. Default
    * false. (Wired in a later phase.)
@@ -383,6 +391,7 @@ export const config: Config = {
   agentModelDigestEnabled: optional('AGENT_MODEL_DIGEST_ENABLED', 'false') === 'true',
   agentResolvedContextEnabled: optional('AGENT_RESOLVED_CONTEXT_ENABLED', 'false') === 'true',
   agentSmartDefaultsEnabled: optional('AGENT_SMART_DEFAULTS_ENABLED', 'false') === 'true',
+  analysisMaxWindowDays: optionalInt('ANALYSIS_MAX_WINDOW_DAYS', 30),
   agentModeGovernsPosture: optional('AGENT_MODE_GOVERNS_POSTURE', 'false') === 'true',
   agentEngineRouting: optional('AGENT_ENGINE_ROUTING', 'false') === 'true',
 };

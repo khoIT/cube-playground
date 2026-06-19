@@ -90,6 +90,83 @@ interface TimeDimensionLike {
   dateRange?: string | [string, string];
 }
 
+const MS_PER_DAY = 86_400_000;
+const LAST_N_DAYS_RE = /^last\s+(\d{1,4})\s+days?$/i;
+
+function parseIso(s: string): Date | null {
+  const d = new Date(`${s}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Inclusive day span of an ISO tuple, e.g. [d, d] → 1. Null on unparseable. */
+function inclusiveSpanDays(from: string, to: string): number | null {
+  const a = parseIso(from);
+  const b = parseIso(to);
+  if (!a || !b) return null;
+  return Math.floor((b.getTime() - a.getTime()) / MS_PER_DAY) + 1;
+}
+
+export interface WindowClampResult<T> {
+  timeDimensions: T[] | undefined;
+  /** True when at least one window was shortened. */
+  clamped: boolean;
+  /** The new [from, to] of the first clamped window (for disclosure). */
+  clampedRange?: [string, string];
+}
+
+/**
+ * Cap every analysis time window to at most `capDays` (the most RECENT capDays).
+ * Bounds cold-Trino scan cost on heavy event cubes where a long window is the
+ * slow path. `capDays <= 0` disables the clamp (returns input unchanged).
+ *
+ * Operates on the post-normalization shape: ISO tuples are clamped by moving
+ * `from` forward to `to - (capDays - 1)`; a rolling `"last N days"` string is
+ * rewritten to `"last {capDays} days"` when N exceeds the cap. Calendar/edge
+ * strings (`today`, `this month`, custom phrases) and already-short windows pass
+ * through untouched. Returns a new array only when something changed.
+ */
+export function clampAnalysisWindows<T extends TimeDimensionLike>(
+  tds: T[] | undefined,
+  capDays: number,
+): WindowClampResult<T> {
+  if (!tds || capDays <= 0) return { timeDimensions: tds, clamped: false };
+
+  let clamped = false;
+  let clampedRange: [string, string] | undefined;
+
+  const next = tds.map((td) => {
+    const dr = td.dateRange;
+
+    if (Array.isArray(dr)) {
+      const span = inclusiveSpanDays(dr[0], dr[1]);
+      if (span !== null && span > capDays) {
+        const to = parseIso(dr[1])!;
+        const from = new Date(to.getTime() - (capDays - 1) * MS_PER_DAY);
+        const tuple: [string, string] = [isoDate(from), dr[1]];
+        clamped = true;
+        clampedRange ??= tuple;
+        return { ...td, dateRange: tuple };
+      }
+      return td;
+    }
+
+    if (typeof dr === 'string') {
+      const m = LAST_N_DAYS_RE.exec(dr.trim());
+      if (m) {
+        const n = parseInt(m[1], 10);
+        if (Number.isFinite(n) && n > capDays) {
+          clamped = true;
+          return { ...td, dateRange: `last ${capDays} days` };
+        }
+      }
+    }
+
+    return td;
+  });
+
+  return { timeDimensions: clamped ? next : tds, clamped, clampedRange };
+}
+
 /**
  * Walk a Cube `timeDimensions` array and rewrite calendar-aligned
  * `dateRange` strings to rolling tuples. Tuples and unknown strings are

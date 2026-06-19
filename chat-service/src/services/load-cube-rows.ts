@@ -19,7 +19,7 @@
 import { config } from '../config.js';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { getCachedLoad, putCachedLoad } from '../cache/load-cache-adapter.js';
-import { normalizeCubeDateRanges } from '../tools/normalize-cube-date-range.js';
+import { normalizeCubeDateRanges, clampAnalysisWindows } from '../tools/normalize-cube-date-range.js';
 import {
   isRelativeRange,
   rangeWidthDays,
@@ -166,7 +166,11 @@ export async function loadCubeRowsCovered(
 ): Promise<LoadCubeResult> {
   const snapOnEmpty = opts.snapOnEmpty ?? true;
   const normalizedTds = normalizeCubeDateRanges(rawQuery.timeDimensions);
-  const query = { ...rawQuery, timeDimensions: normalizedTds, limit: opts.maxRows };
+  // Cap the scan window before the /load so a long-range query can't trigger a
+  // multi-month cold scan on the heavy event cubes. Disclosure to the user lives
+  // in the caller (emit_query_artifact); here it only bounds the read.
+  const clamped = clampAnalysisWindows(normalizedTds, config.analysisMaxWindowDays);
+  const query = { ...rawQuery, timeDimensions: clamped.timeDimensions, limit: opts.maxRows };
 
   const rows = await fetchRows(query, ctx, opts.maxRows);
   if (rows.length > 0 || !snapOnEmpty) return { rows, query };
