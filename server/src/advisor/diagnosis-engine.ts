@@ -35,6 +35,7 @@ import { runLens06Funnel } from './lenses/lens-06-funnel.js';
 import { runLens07Lifecycle } from './lenses/lens-07-lifecycle.js';
 import { runLens08CrossSignal } from './lenses/lens-08-cross-signal.js';
 import { runLens09Anomaly } from './lenses/lens-09-anomaly.js';
+import { compileSegmentScopeFilters } from './segment-scope-filters.js';
 
 /** Sync lens ids — always run. */
 const SYNC_LENSES = [1, 2, 3, 4] as const;
@@ -65,7 +66,7 @@ export async function diagnose(
   const lazyToRun = [...new Set(requestedLazy)].slice(0, MAX_LENS_COUNT - SYNC_LENSES.length);
 
   // Attach compiledFilters to the scope for segment refs.
-  const scope = await attachCompiledFilters(input.scope);
+  const scope = await attachCompiledFilters(input.scope, input.asOf);
 
   // ─── Sync lenses ────────────────────────────────────────────────────────────
 
@@ -196,19 +197,27 @@ async function runLazyLens(
 
 /**
  * For SegmentRef: load the segment's predicate from DB and compile it to Cube
- * filters, attaching `compiledFilters` to the scope reference.
+ * filters, attaching `compiledFilters` to the scope reference. Lenses read this
+ * via scopeToFilters() to scope the segment query while the population query
+ * runs unfiltered — the gap is what marks a factor weak.
  *
- * On this machine Cube is unreachable, so compilation is a no-op (empty filters
- * = full game population). On a live host the engine should load the segment's
- * predicate_tree from SQLite and call treeToCubeFilters().
- *
- * TODO(live-host): load segment predicate_tree from DB + call treeToCubeFilters.
- * For now this compiles to empty filters (game-wide population query).
+ * Fails soft: a manual (predicate-less) segment, an unknown id, or a Cube/Trino
+ * error resolving percentile cutoffs falls back to empty filters (the segment
+ * reads as the full population), which the caller surfaces honestly. A GameRef
+ * needs no filters.
  */
-async function attachCompiledFilters(scope: ScopeRef): Promise<ScopeRef> {
+async function attachCompiledFilters(scope: ScopeRef, asOf: Date): Promise<ScopeRef> {
   if (scope.kind === 'game') return scope;
-  // Attach empty compiledFilters — lenses use scopeToFilters() which reads this.
-  return { ...scope, compiledFilters: [] } as ScopeRef & { compiledFilters: unknown[] };
+  let compiledFilters: unknown[] = [];
+  try {
+    compiledFilters = await compileSegmentScopeFilters(scope.segmentId, asOf);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[diagnosis] segment ${scope.segmentId} filter compilation failed; diagnosing game-wide: ${(err as Error).message}`,
+    );
+  }
+  return { ...scope, compiledFilters } as ScopeRef & { compiledFilters: unknown[] };
 }
 
 /** Extract observed/baseline values from the Decomposition lens result. */
