@@ -33,7 +33,7 @@ Visuals: `visuals/merged-monitor-full.html`, `visuals/merged-monitor-degraded.ht
 | # | Phase | Status | Notes |
 |---|-------|--------|-------|
 | 1 | [Unify recompute+capture into one Track cadence](phase-01-unify-track-cadence.md) | done | Control-plane merge: `track_cadence` source-of-truth + derive/dual-write legacy cols; +30m; migration 065 applied; control built (mounts in P2) |
-| 2 | [Single-scroll merge + retire Movement tab](phase-02-single-scroll-merge.md) | pending | Now→Over time zones; fold Movement sections; de-dupe; no activation; `?tab=movement` redirect; degrade |
+| 2 | [Single-scroll merge + retire Movement tab](phase-02-single-scroll-merge.md) | done | Now→Over time zones; folded Movement sections; de-dupe (lakehouse-primary / SQLite-fallback); dropped activation section + legacy push modal; `?tab=movement`→monitor redirect |
 | 3 | [Per-segment snapshot ledger](phase-03-snapshot-ledger.md) | pending | `readSnapshotLedger` endpoint + collapsible ledger table (ts·grain·members·kpis) |
 | 4 | [Fleet "Snapshot coverage" page](phase-04-fleet-snapshot-coverage.md) | pending | Phased follow-up: cross-segment availability endpoint + new top-level page + nav |
 

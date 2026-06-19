@@ -7,11 +7,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 
-export type DetailTabId = 'monitor' | 'movement' | 'insights' | 'members' | 'care' | 'definition' | 'activation' | 'funnel';
+export type DetailTabId = 'monitor' | 'insights' | 'members' | 'care' | 'definition' | 'activation' | 'funnel';
 
 const VALID: ReadonlySet<DetailTabId> = new Set([
   'monitor',
-  'movement',
   'insights',
   'members',
   'care',
@@ -21,6 +20,8 @@ const VALID: ReadonlySet<DetailTabId> = new Set([
 ]);
 
 const LEGACY_MAP: Record<string, { tab: DetailTabId; section?: string }> = {
+  // Movement merged into Monitor — old ?tab=movement deep-links land on Monitor.
+  movement: { tab: 'monitor' },
   overview: { tab: 'insights', section: 'overview' },
   engagement: { tab: 'insights', section: 'engagement' },
   monetization: { tab: 'insights', section: 'monetization' },

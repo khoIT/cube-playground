@@ -1722,6 +1722,26 @@
   padding-top: 0;
 }
 
+/* Zone divider for the single-scroll Monitor: "Now" (live state) → "Over time"
+ * (snapshot history). A quiet uppercase eyebrow, not a heavy heading. */
+.zoneEyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 8px 0 -4px;
+}
+
+/* The Monitor tab's own header row — holds the view-grain toggle, right-aligned. */
+.monitorTabHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+
 .monitorSection {
   background: var(--bg-card);
   border: 1px solid var(--border-card);

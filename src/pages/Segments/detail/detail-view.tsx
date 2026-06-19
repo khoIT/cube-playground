@@ -4,7 +4,7 @@ import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { Activity, Code2, GitBranch, HeartPulse, LineChart, Send, Users, Waypoints } from 'lucide-react';
+import { Activity, Code2, GitBranch, HeartPulse, LineChart, Send, Users } from 'lucide-react';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
 import { invalidateSegmentIds } from '../use-segment-ids';
@@ -12,14 +12,12 @@ import type { Segment } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import { MonitorTab } from './tabs/monitor-tab';
-import { MovementTab } from './tabs/movement-tab';
 import { InsightsTab } from './tabs/insights-tab';
 import { MembersTab } from './tabs/members-tab';
 import { CareTab } from './tabs/care-tab';
 import { DefinitionTab } from './tabs/definition-tab';
 import { PullApiTab } from './tabs/pull-api-tab';
 import { FunnelDetailTab } from './tabs/funnel-detail-tab';
-import { ActivateToCdpModal } from '../push-modal/activate-to-cdp-modal';
 import { ConfirmDestructiveModal } from '../components/confirm-destructive-modal';
 import { hasCsCoverage } from '../../../api/segment-cs-care';
 import { usePreset } from './use-preset';
@@ -39,7 +37,6 @@ const BASE_TABS: DetailTabId[] = ['members', 'insights', 'monitor', 'definition'
 
 const TAB_ICONS: Record<DetailTabId, ReactNode> = {
   monitor: <Activity size={14} aria-hidden />,
-  movement: <Waypoints size={14} aria-hidden />,
   insights: <LineChart size={14} aria-hidden />,
   members: <Users size={14} aria-hidden />,
   care: <HeartPulse size={14} aria-hidden />,
@@ -56,7 +53,6 @@ export function DetailView(): ReactElement {
   const [error, setError] = useState<string | null>(null);
   const preset = usePreset(segment);
   const { tab, section, setTab, setSection } = useActiveTab();
-  const [activateOpen, setActivateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
@@ -116,22 +112,19 @@ export function DetailView(): ReactElement {
   }
 
   // Care tab only for predicate segments of games wired to the CS warehouse —
-  // slotted next to Members (it's a member-centric CS overlay). Movement (beta)
-  // sits next to Monitor for predicate+game segments (it reads the lakehouse
-  // snapshot history). Funnel tab is appended when the segment was created via
-  // the funnel builder.
+  // slotted next to Members (it's a member-centric CS overlay). Movement was
+  // merged into Monitor (the single "Now → Over time" surface), so there is no
+  // separate Movement tab. Funnel tab is appended when the segment was created
+  // via the funnel builder.
   const showCare = segment.type === 'predicate' && hasCsCoverage(segment.game_id);
-  const showMovement = segment.type === 'predicate' && Boolean(segment.game_id);
   const baseTabs: DetailTabId[] = BASE_TABS.flatMap((tid) => {
     if (tid === 'members' && showCare) return [tid, 'care' as DetailTabId];
-    if (tid === 'monitor' && showMovement) return [tid, 'movement' as DetailTabId];
     return [tid];
   });
   const tabs: DetailTabId[] = segment.funnel_json ? [...baseTabs, 'funnel'] : baseTabs;
 
   const lastRefresh = segment.last_refreshed_at ?? segment.updated_at;
   const goActivation = () => setTab('activation');
-  const openActivateModal = () => setActivateOpen(true);
 
   const sizeTone: 'positive' | 'negative' | null = sizeDelta.percent == null
     ? null
@@ -226,36 +219,12 @@ export function DetailView(): ReactElement {
           >
             {TAB_ICONS[tid]}
             {t(`segments.detail.tabs.${tid}`, { defaultValue: tid })}
-            {tid === 'movement' && (
-              <span
-                style={{
-                  marginLeft: 4,
-                  background: 'var(--info-soft)',
-                  color: 'var(--info-ink)',
-                  borderRadius: 'var(--radius-full)',
-                  padding: '0 5px',
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  letterSpacing: '0.04em',
-                }}
-              >
-                BETA
-              </span>
-            )}
           </button>
         ))}
       </div>
       </div>
 
-      {tab === 'monitor' && (
-        <MonitorTab
-          segment={segment}
-          onActivate={openActivateModal}
-          onJumpToActivation={goActivation}
-          onCadenceChange={setSegment}
-        />
-      )}
-      {tab === 'movement' && <MovementTab segment={segment} onSegmentChange={setSegment} />}
+      {tab === 'monitor' && <MonitorTab segment={segment} onSegmentChange={setSegment} />}
       {tab === 'insights' && (
         <InsightsTab
           segment={segment}
@@ -273,17 +242,6 @@ export function DetailView(): ReactElement {
       {tab === 'activation' && (
         <PullApiTab segment={segment} identityDim={preset?.identityDim ?? null} />
       )}
-
-      <ActivateToCdpModal
-        open={activateOpen}
-        segment={segment}
-        identityField={preset?.identityDim ?? null}
-        onClose={() => setActivateOpen(false)}
-        onActivated={(updated) => {
-          setSegment(updated);
-          setTab('activation');
-        }}
-      />
 
       <ConfirmDestructiveModal
         open={deleteOpen}

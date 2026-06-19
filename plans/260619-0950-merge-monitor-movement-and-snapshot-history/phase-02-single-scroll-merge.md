@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Single-scroll merge + retire Movement tab"
-status: pending
+status: done
 priority: P1
 effort: "1d"
 dependencies: [1]
@@ -55,12 +55,22 @@ Movement tab + BETA badge, and degrade gracefully for snapshot-less segments.
 6. Update `tabs/__tests__` + any test referencing the Movement tab; build green.
 
 ## Todo List
-- [ ] MonitorTab orchestrator owns grain/eras/availability
-- [ ] NOW zone + de-dupe (lakehouse-primary / SQLite-fallback)
-- [ ] Coverage strip spine + OVER TIME sections
-- [ ] Degrade empty-state for snapshot-less segments
-- [ ] Retire Movement tab + `?tab=movement`→monitor redirect + delete file
-- [ ] Tests updated, tsc + suites green
+- [x] MonitorTab orchestrator owns grain/eras/availability
+- [x] NOW zone + de-dupe (lakehouse-primary / SQLite-fallback)
+- [x] Coverage strip spine + OVER TIME sections
+- [x] Degrade for snapshot-less segments — NOW = SizeTrendSection (SQLite size); OVER TIME =
+      empty-state card per `merged-monitor-degraded.html`. (Plan originally said reuse
+      MetricMovementCard, but that card is structurally game-bound — `isPredicateWithGame`
+      guard — so it can never render for a snapshot-less segment; the empty-state is correct.)
+- [x] Retire Movement tab + `?tab=movement`→monitor redirect + delete file
+- [x] Tests + tsc green (no test referenced the tab wiring; movement section suites pass)
+
+## Implementation note
+Dropping the Activation section orphaned `ActivateToCdpModal` (its only trigger was the
+section's "+ Activate to CDP" button). That modal is the legacy push-to-CDP flow that
+`PullApiTab` (the Activation tab) explicitly "replaces" — so the orphaned wiring + the dead
+`activation-summary-section.tsx` were removed; the Activation tab is unaffected. Reversible
+if the quick push modal is still wanted.
 
 ## Success Criteria
 - [ ] One scroll matches `merged-monitor-full.html`; degrade matches degraded mockup
