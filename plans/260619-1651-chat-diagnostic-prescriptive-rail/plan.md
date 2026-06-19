@@ -35,7 +35,7 @@ Reads (diagnose, recommend preview, list playbooks/cases) call directly.
 | # | Phase | Scope (one line) | Status | Blockers |
 |---|-------|------------------|--------|----------|
 | 1 | [Knowledge library](phase-01-genre-knowledge-library.md) | Genre-tagged lever library: cfm_vn FPS + jus_vn MMORPG; signal→cubes(data-gate)→benchmark(internal+external)→action | pending | — |
-| 2 | [Diagnostic uplift](phase-02-diagnostic-uplift.md) | `decompose_metric` tool wraps `/advisor/diagnose`; mandatory benchmark-aware narrative conclusion in diagnose skill | pending | P1 |
+| 2 | [Diagnostic uplift](phase-02-diagnostic-uplift.md) | `decompose_metric` tool wraps `/advisor/diagnose`; mandatory benchmark-aware narrative conclusion in diagnose skill | done | P1 |
 | 3 | [Prescriptive reads](phase-03-prescriptive-read-tools.md) | `recommend_actions` + `care_queue` tools through library; every output cited; 403/latency handling | pending | P1,P2 |
 | 4 | [Rail + trust](phase-04-rail-and-trust-layer.md) | Chain diagnose→conclude→recommend one flow; citation + blind-spot guardrails | pending | P2,P3 |
 | 4b | [Prescriptive door: `advise` skill](phase-04b-prescriptive-advise-skill.md) | New `advise` skill + router keyword block so prescriptive-first phrasings ("what should I do") reach the rail and auto-chain to recommend; diagnose unchanged | pending | P2,P3,P4 |

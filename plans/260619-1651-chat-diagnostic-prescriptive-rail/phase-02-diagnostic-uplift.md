@@ -10,9 +10,11 @@
 
 ## Overview
 - **Priority**: P1
-- **Status**: pending
+- **Status**: done
 - **Description**: Add `decompose_metric` chat tool wrapping `/api/advisor/diagnose` (math-tree + dimension waterfall). Uplift the diagnose skill so its conclusion is a MANDATORY benchmark-aware narrative: cites the contributing factor, its gap vs internal percentile AND external norm (from Phase 1 library), and confidence/agreeing-lenses.
 - **Blocked by**: P1.
+
+> Implemented: `decompose_metric` (thin diagnose wrap, fail-soft 403/400/5xx mapping, `deeper` opt-in for lenses 5–9) + a small `get_metric_benchmark` tool backed by a new `GET /api/knowledge/benchmark?metric=` route (resolves dual benchmark for one metric via `resolveBenchmarkForMetric`). Diagnose skill now decomposes via the engine first (manual hypothesis walk kept as fallback) with a mandatory benchmark-aware conclusion. The rich candidate↔lever citation join stays in P3. Both tools registered unconditionally (boot-guard requires it since skill YAML can't be flag-conditional).
 
 ## Key insights
 - The engine is deterministic and already returns `{goalTrees, opportunities:[{factor,gapPct,gapValue,confidence,agreeingLenses,weak}], lens evidence w/ Cube provenance}`. The tool is a thin wrapper — do NOT reimplement decomposition in chat-service.
@@ -49,10 +51,12 @@ Chat turn → skill triggers `decompose_metric` → server-client POST diagnose 
 4. Verify boot-guard (registry validates skill allowed_tools) passes with the new tool.
 
 ## Todo
-- [ ] decompose-metric tool (wrap diagnose, 403/5xx handling)
-- [ ] register in registry
-- [ ] SKILL.md: allowed_tools + mandatory benchmark-aware conclusion
-- [ ] boot-guard passes
+- [x] decompose-metric tool (wrap diagnose, 403/5xx handling)
+- [x] get_metric_benchmark tool + `GET /api/knowledge/benchmark` route + `resolveBenchmarkForMetric`
+- [x] register in registry (both, unconditional)
+- [x] SKILL.md: allowed_tools + mandatory benchmark-aware conclusion (engine-first, manual fallback)
+- [x] boot-guard passes
+- [x] tests: tool error-mapping/scope/deeper (chat-service) + single-metric benchmark resolve (server)
 
 ## Success criteria
 - Asking "why did revenue drop for cfm_vn" runs `decompose_metric`, returns engine opportunities, and the chat conclusion names the top factor with gap%, internal percentile band, external norm, and confidence — within one turn (~3-5s).

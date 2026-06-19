@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   resolveLeversForGame,
+  resolveBenchmarkForMetric,
   ALL_LEVERS,
 } from '../src/knowledge/genre-levers/lever-library-index.js';
 import {
@@ -113,6 +114,22 @@ describe('percentile helpers', () => {
     expect(b.p25).toBeLessThanOrEqual(b.p50);
     expect(b.p50).toBeLessThanOrEqual(b.p75);
     expect(b.p75).toBeLessThanOrEqual(b.p90);
+  });
+});
+
+describe('resolveBenchmarkForMetric — single-metric dual benchmark', () => {
+  it('returns the sourced external norm for a metric the library benchmarks', () => {
+    // arppu_vnd carries an authored, sourced external norm in the library.
+    const b = resolveBenchmarkForMetric('arppu_vnd');
+    expect(b.metricKey).toBe('arppu_vnd');
+    expect(b.external).toBeDefined();
+    expect(b.external?.source.trim().length).toBeGreaterThan(0);
+  });
+
+  it('resolves a never-benchmarked metric with no external norm (no throw, no fabrication)', () => {
+    const b = resolveBenchmarkForMetric('no_such_metric_xyz');
+    expect(b.metricKey).toBe('no_such_metric_xyz');
+    expect(b.external).toBeUndefined();
   });
 });
 

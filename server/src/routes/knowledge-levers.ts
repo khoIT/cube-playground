@@ -18,9 +18,32 @@
 import type { FastifyInstance } from 'fastify';
 import { getGameMembers } from '../care/availability.js';
 import { resolveGameScope } from '../care/game-scope.js';
-import { resolveLeversForGame } from '../knowledge/genre-levers/lever-library-index.js';
+import {
+  resolveLeversForGame,
+  resolveBenchmarkForMetric,
+} from '../knowledge/genre-levers/lever-library-index.js';
 
 export default async function knowledgeLeversRoutes(app: FastifyInstance): Promise<void> {
+  // ── Dual benchmark for one metric key ────────────────────────────────────
+  // GET /api/knowledge/benchmark?metric=<metricKey>
+  //   Returns the external published norm (only when fully sourced) and the
+  //   internal portfolio percentile band (from the nightly snapshot). Either
+  //   side may be null; `available` is true when at least one resolves. No game
+  //   scope — benchmarks are portfolio-wide (internal) / global (external).
+  app.get('/api/knowledge/benchmark', async (req, reply) => {
+    const metric = (req.query as { metric?: string })?.metric?.trim();
+    if (!metric) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: 'metric query param required' } });
+    }
+    const resolved = resolveBenchmarkForMetric(metric);
+    return {
+      metric,
+      available: Boolean(resolved.external || resolved.internal),
+      external: resolved.external ?? null,
+      internal: resolved.internal ?? null,
+    };
+  });
+
   app.get('/api/knowledge/levers', async (req, reply) => {
     const scope = resolveGameScope(req.workspace, (req.query as { game?: string })?.game);
     if (!scope.ok) {

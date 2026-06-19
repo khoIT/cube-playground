@@ -17,6 +17,7 @@ import type {
   ResolvedLever,
   LeverResolution,
   WithheldLever,
+  ResolvedBenchmark,
 } from './lever-types.js';
 import { FPS_LEVERS } from './lever-library-fps.js';
 import { MMORPG_LEVERS } from './lever-library-mmorpg.js';
@@ -25,6 +26,18 @@ import { resolveBenchmark } from '../benchmark-resolver.js';
 
 /** The full authored library (all genres). */
 export const ALL_LEVERS: GenreLever[] = [...FPS_LEVERS, ...MMORPG_LEVERS];
+
+/**
+ * Resolve the dual benchmark for a single metric key, independent of any one
+ * game. The external norm (when present) is sourced from the first authored
+ * lever carrying that metricKey; the internal band comes from the portfolio
+ * snapshot. A metric the library has never benchmarked still resolves — its
+ * external side is simply empty (internal may still exist from the snapshot).
+ */
+export function resolveBenchmarkForMetric(metricKey: string): ResolvedBenchmark {
+  const lever = ALL_LEVERS.find((l) => l.benchmark.metricKey === metricKey);
+  return resolveBenchmark(lever ? lever.benchmark : { metricKey });
+}
 
 /** A lever applies to a game when it is game-pinned to it, or genre-wide and
  *  the game's genre is in its tags. */

@@ -15,6 +15,8 @@ trigger_keywords:
   - giảm
   - tăng đột
 allowed_tools:
+  - decompose_metric
+  - get_metric_benchmark
   - get_cube_meta
   - get_topic_knowledge
   - list_business_metrics
@@ -33,28 +35,63 @@ enable_research_mode: true
 
 # Diagnose Skill
 
-Find the most likely cause of a metric drop or spike. Walk a hypothesis tree breadth-first; stop the moment one branch explains the bulk of the delta.
+Find the most likely cause of a metric drop or spike, and conclude with a
+benchmark-aware verdict — the contributing factor, how far it sits from where
+it should be, and how confident the evidence is.
+
+Prefer the deterministic decomposition engine over a hand-rolled walk: it
+decomposes the goal into growth-accounting factors, runs several independent
+lenses, and ranks the weakest factors with a confidence score. Fall back to a
+manual hypothesis walk only when the engine is unavailable.
 
 ## Steps
 
-1. **Intake the symptom.** Confirm: which metric, what time window (default: most recent vs prior comparable window), what counts as "the drop" (% delta).
-2. **Build the hypothesis tree.** Try branches in this order:
-   - channel / acquisition source
-   - geography
-   - product / SKU / cohort
-   - time-window anomalies (e.g. specific day spike)
-3. **For each hypothesis**, run `preview_cube_query` with the symptom metric grouped by that dimension, filtered to the affected window. Compare to a baseline window.
-4. **Stop conditions** (whichever fires first):
-   - One branch explains > 50% of the delta → that's the answer.
-   - 4 branches tried without an explainer → output "no single dimension explains > 50%; suggest a deeper drilldown via /explore".
-5. **Emit the explanatory artifact** for the winning branch (or the most-contributing one if no >50% hit). `source: 'raw'`. Summary states the contributing dimension + magnitude.
+1. **Intake the symptom.** Confirm: which metric/goal (revenue or engagement),
+   the scope (whole game, or a specific segment), and the comparison window
+   (default: most recent vs prior comparable window).
+2. **Decompose.** Call `decompose_metric` with the game, scope, and goal. Read
+   the ranked `opportunities` — each names a `factor`, its `gapPct`/`gapValue`
+   vs the population baseline, `confidence` (how many lenses agree it is weak),
+   and `agreeingLenses`. The top opportunity is the prime suspect.
+   - If the result is `ok:false reason:"advisor-disabled"` or
+     `"engine-unavailable"`, say so briefly and use the **Manual fallback**.
+   - If it returns `blocked`, report that the data could not be diagnosed (do
+     not silently probe around it).
+   - Only set `deeper:true` on an explicit "dig deeper" follow-up (adds latency).
+3. **Benchmark the suspect.** For the top opportunity's metric, call
+   `get_metric_benchmark` to fetch the internal portfolio percentile band and
+   the external published norm. Use it to say not just "this factor is weak"
+   but "weak relative to <internal band> / <external norm>".
+4. **Conclude (MANDATORY benchmark-aware narrative — before any artifact).**
+   One plain-English verdict naming, for the top opportunity:
+   - the **factor** and its **magnitude** (`gapPct` and/or `gapValue`),
+   - its standing vs the **internal percentile band** AND the **external norm**,
+   - the **confidence** (`confidence` count / `agreeingLenses`).
+   If a benchmark side is unavailable (`available:false` or null), say so
+   explicitly — never fabricate a band or norm.
+5. **Emit the explanatory artifact** for the suspect factor. `source: 'raw'`.
+   Cite the engine's provenance (the Cube sources it returned) in the summary.
+
+## Manual fallback (engine unavailable only)
+
+Walk a hypothesis tree breadth-first; stop when one branch explains the bulk of
+the delta:
+- branches in order: channel / acquisition → geography → product/SKU/cohort →
+  time-window anomalies.
+- for each, run `preview_cube_query` grouped by that dimension over the affected
+  window vs a baseline.
+- stop when one branch explains > 50% of the delta, or after 4 branches output
+  "no single dimension explains > 50%; suggest a deeper drilldown via /explore".
 
 ## Guard rails
 
-- Never invent member names. Cube /meta is the source of truth.
-- Cap at 4 hypotheses per turn. Do not loop.
-- Reasoning trace: report counts + percentages only; never raw row dumps beyond 5 values.
-- Plain-English conclusion sentence is mandatory before emitting the artifact.
+- Never invent member names, percentile bands, or external norms. The engine,
+  Cube /meta, and the benchmark tool are the sources of truth.
+- The benchmark-aware conclusion (Step 4) is mandatory and comes before the
+  artifact. State explicitly when a benchmark is missing rather than guessing.
+- Reasoning trace: report counts + percentages only; never raw row dumps beyond
+  5 values.
+- Manual fallback caps at 4 hypotheses per turn. Do not loop.
 
 ## Charts
 
