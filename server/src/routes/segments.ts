@@ -24,7 +24,12 @@ import { loadGamesConfig } from '../services/games-config-loader.js';
 import { glossaryTermsReferencingArtifact } from '../services/concept-ref-integrity.js';
 import { invalidateReverseIndex } from '../services/concept-reverse-index.js';
 import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust-mapping.js';
-import { SNAPSHOT_CADENCES } from '../services/snapshot-cadence.js';
+import {
+  SNAPSHOT_CADENCES,
+  TRACK_CADENCES,
+  trackToRefreshMinutes,
+  trackToSnapshotCadence,
+} from '../services/snapshot-cadence.js';
 import { canAccessSegment, canMutateSegment, canAdministerSegment } from '../auth/can-access-segment.js';
 import { emailForSub } from '../auth/principal.js';
 import { corePanelsForGame } from '../services/member360-panel-registry.js';
@@ -128,6 +133,10 @@ const segmentPatchSchema = z.object({
    *  which governs cohort recompute. Defaults daily; only opted-in segments go
    *  sub-daily. */
   snapshot_cadence: z.enum(SNAPSHOT_CADENCES).optional(),
+  /** Unified "Track every" cadence — the single operator knob. When set it
+   *  dual-writes the two legacy columns (refresh_cadence_min + snapshot_cadence)
+   *  so both schedulers follow one value. Supersedes setting them directly. */
+  track_cadence: z.enum(TRACK_CADENCES).optional(),
   /** Visibility setter. Owner may set personal/shared; 'org' is admin-only. */
   visibility: z.enum(VISIBILITY_VALUES).optional(),
   /**
@@ -783,10 +792,28 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       cubeSegmentsChanged;
     const nextStatus = predicateChanged ? 'refreshing' : (row.status as string);
 
+    // Cadence resolution. `track_cadence` is the single source of truth: when
+    // the operator sets it, derive + dual-write the two legacy columns so both
+    // schedulers follow one value. `Off` stops the auto recompute (null minutes)
+    // and leaves the stored capture cadence untouched (capture is gated globally
+    // by SEGMENT_SNAPSHOT_ENABLED — there is no per-segment capture-disable yet).
+    // When `track_cadence` is absent, fall back to the legacy direct setters.
+    const prevRefreshMin = (row.refresh_cadence_min as number | null | undefined) ?? null;
+    const prevSnapshotCadence = (row.snapshot_cadence as string | undefined) ?? 'daily';
+    let nextTrack: string = (row.track_cadence as string | undefined) ?? 'daily';
+    let nextRefreshMin: number | null = patch.refresh_cadence_min !== undefined ? patch.refresh_cadence_min : prevRefreshMin;
+    let nextSnapshotCadence: string = patch.snapshot_cadence !== undefined ? patch.snapshot_cadence : prevSnapshotCadence;
+    if (patch.track_cadence !== undefined) {
+      nextTrack = patch.track_cadence;
+      nextRefreshMin = trackToRefreshMinutes(patch.track_cadence);
+      const derivedSnap = trackToSnapshotCadence(patch.track_cadence);
+      if (derivedSnap !== null) nextSnapshotCadence = derivedSnap;
+    }
+
     db.prepare(`
       UPDATE segments SET
         name = ?, type = ?, cube = ?, predicate_tree_json = ?, cube_query_json = ?,
-        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, snapshot_cadence = ?, status = ?, visibility = ?, updated_at = ?
+        uid_count = ?, uid_list_json = ?, refresh_cadence_min = ?, snapshot_cadence = ?, track_cadence = ?, status = ?, visibility = ?, updated_at = ?
       WHERE id = ?
     `).run(
       patch.name ?? row.name,
@@ -796,8 +823,9 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       cubeQueryJson,
       nextUidCount,
       nextUidListJson,
-      patch.refresh_cadence_min !== undefined ? patch.refresh_cadence_min : row.refresh_cadence_min,
-      patch.snapshot_cadence !== undefined ? patch.snapshot_cadence : (row.snapshot_cadence ?? 'daily'),
+      nextRefreshMin,
+      nextSnapshotCadence,
+      nextTrack,
       nextStatus,
       patch.visibility !== undefined ? patch.visibility : (row.visibility ?? null),
       now,

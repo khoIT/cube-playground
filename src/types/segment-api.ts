@@ -104,7 +104,11 @@ export interface CardCacheEntry {
 
 /** Lakehouse snapshot capture cadence — how often the snapshot job materializes
  *  this segment. Distinct from refresh_cadence_min (cohort recompute). */
-export type SnapshotCadence = '15m' | '1h' | '3h' | '6h' | '12h' | 'daily';
+export type SnapshotCadence = '15m' | '30m' | '1h' | '3h' | '6h' | '12h' | 'daily';
+
+/** Unified "Track every" cadence — the single operator knob that drives both
+ *  the live recompute and the lakehouse capture. `Off` = on-demand only. */
+export type TrackCadence = 'Off' | SnapshotCadence;
 
 export interface Segment {
   id: string;
@@ -124,6 +128,10 @@ export interface Segment {
    *  (defaults 'daily'); optional here so test fixtures/builders predating it
    *  still satisfy the type — read it as `snapshot_cadence ?? 'daily'`. */
   snapshot_cadence?: SnapshotCadence;
+  /** Unified track cadence — single source of truth the operator sets; the
+   *  backend derives refresh_cadence_min + snapshot_cadence from it. Optional
+   *  here so fixtures predating it still type-check (read as `?? 'daily'`). */
+  track_cadence?: TrackCadence;
   last_refreshed_at: string | null;
   broken_reason: string | null;
   created_at: string;
@@ -231,6 +239,10 @@ export interface SegmentPatch {
   refresh_cadence_min?: number | null;
   /** Set the lakehouse snapshot capture cadence (15m–daily). */
   snapshot_cadence?: SnapshotCadence;
+  /** Set the unified "Track every" cadence — the single knob. The server
+   *  dual-writes refresh_cadence_min + snapshot_cadence from it. Prefer this
+   *  over setting the two legacy fields directly. */
+  track_cadence?: TrackCadence;
   /** Owner may set personal/shared; 'org' requires admin. */
   visibility?: SegmentVisibility;
   /**

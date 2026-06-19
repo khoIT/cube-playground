@@ -1241,6 +1241,17 @@
   color: var(--text-muted);
 }
 
+/* Inline guardrail when a sub-hourly track cadence meets a large cohort — the
+ * heavy snapshot write multiplies. A warning tone, not a block. */
+.cadenceCostNote {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--warning-ink);
+  background: var(--warning-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+
 /* A view-grain chip that is only PARTIALLY captured across the window: still
  * selectable, but carries a thin under-rule in the fine-capture color so the
  * user reads it as "exists for part of the range" rather than fully available. */

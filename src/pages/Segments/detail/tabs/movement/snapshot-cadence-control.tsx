@@ -20,6 +20,7 @@ const LABELS: Record<SnapshotCadence, string> = {
   '6h': '6h',
   '3h': '3h',
   '1h': '1h',
+  '30m': '30m',
   '15m': '15m',
 };
 

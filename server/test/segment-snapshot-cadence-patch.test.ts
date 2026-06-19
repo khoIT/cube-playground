@@ -117,4 +117,114 @@ describe('PATCH /api/segments/:id — snapshot_cadence', () => {
     expect(body.snapshot_cadence).toBe('6h');
     expect(body.refresh_cadence_min).toBe(120);
   });
+
+  // ── Unified track_cadence: one knob dual-writes the two legacy columns ──────
+
+  it('track_cadence dual-writes refresh_cadence_min + snapshot_cadence', async () => {
+    const id = await makeSegment();
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: '1h' },
+    });
+    expect(patch.statusCode).toBe(200);
+    const body = patch.json();
+    expect(body.track_cadence).toBe('1h');
+    expect(body.refresh_cadence_min).toBe(60); // derived bucket width in minutes
+    expect(body.snapshot_cadence).toBe('1h'); // capture cadence follows the knob
+
+    const reread = await app.inject({ method: 'GET', url: `/api/segments/${id}`, headers: ownerAuth });
+    expect(reread.json().track_cadence).toBe('1h');
+  });
+
+  it('track_cadence=30m is accepted and derives a 30-min recompute', async () => {
+    const id = await makeSegment();
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: '30m' },
+    });
+    expect(patch.statusCode).toBe(200);
+    expect(patch.json().refresh_cadence_min).toBe(30);
+  });
+
+  it('track_cadence=Off stops auto recompute (null minutes), leaves capture cadence', async () => {
+    const id = await makeSegment();
+    // seed a non-default capture cadence first
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { snapshot_cadence: '6h' },
+    });
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: 'Off' },
+    });
+    expect(patch.statusCode).toBe(200);
+    const body = patch.json();
+    expect(body.track_cadence).toBe('Off');
+    expect(body.refresh_cadence_min).toBeNull();
+    expect(body.snapshot_cadence).toBe('6h'); // capture cadence untouched by Off
+  });
+
+  it('rejects an out-of-set track_cadence value', async () => {
+    const id = await makeSegment();
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: '7m' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  // Precedence contract when the unified knob and a legacy field arrive together.
+  it('track_cadence wins over a co-sent snapshot_cadence', async () => {
+    const id = await makeSegment();
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: '1h', snapshot_cadence: '6h' },
+    });
+    expect(patch.statusCode).toBe(200);
+    const body = patch.json();
+    expect(body.track_cadence).toBe('1h');
+    expect(body.snapshot_cadence).toBe('1h'); // track derivation wins, not the co-sent 6h
+    expect(body.refresh_cadence_min).toBe(60);
+  });
+
+  it('track_cadence wins over a co-sent refresh_cadence_min', async () => {
+    const id = await makeSegment();
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: '3h', refresh_cadence_min: 999 },
+    });
+    expect(patch.statusCode).toBe(200);
+    const body = patch.json();
+    expect(body.track_cadence).toBe('3h');
+    expect(body.refresh_cadence_min).toBe(180); // derived from track, not the co-sent 999
+  });
+
+  it('Off wins on recompute but the co-sent snapshot_cadence still applies', async () => {
+    const id = await makeSegment();
+    const patch = await app.inject({
+      method: 'PATCH',
+      url: `/api/segments/${id}`,
+      headers: ownerAuth,
+      payload: { track_cadence: 'Off', snapshot_cadence: '6h' },
+    });
+    expect(patch.statusCode).toBe(200);
+    const body = patch.json();
+    expect(body.track_cadence).toBe('Off');
+    expect(body.refresh_cadence_min).toBeNull(); // Off → no auto recompute
+    expect(body.snapshot_cadence).toBe('6h'); // Off leaves capture; co-sent value applies
+  });
 });

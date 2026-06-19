@@ -10,7 +10,7 @@
 import { apiFetch } from './api-client';
 
 /** View-time / capture granularity buckets, coarse → fine. */
-export const MOVEMENT_GRANULARITIES = ['daily', '12h', '6h', '3h', '1h', '15m'] as const;
+export const MOVEMENT_GRANULARITIES = ['daily', '12h', '6h', '3h', '1h', '30m', '15m'] as const;
 export type MovementGranularity = (typeof MOVEMENT_GRANULARITIES)[number];
 
 /** Cadence change event surfaced for annotation on the time axis. */

@@ -1,4 +1,5 @@
 import type { PredicateNode } from './predicate-tree.js';
+import type { TrackCadence } from '../services/snapshot-cadence.js';
 
 export type SegmentType = 'manual' | 'predicate';
 export type SegmentStatus = 'fresh' | 'refreshing' | 'broken' | 'stale';
@@ -83,6 +84,9 @@ export interface Segment {
   uid_count: number;
   uid_list_json: string;
   refresh_cadence_min: number | null;
+  /** Unified "Track every" cadence — single source of truth the operator sets;
+   *  the backend derives refresh_cadence_min + snapshot_cadence from it. */
+  track_cadence?: TrackCadence;
   last_refreshed_at: string | null;
   broken_reason: string | null;
   created_at: string;
