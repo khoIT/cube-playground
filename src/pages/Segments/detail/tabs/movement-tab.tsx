@@ -9,19 +9,29 @@
  * Chart line↔bar/table/CSV is the AssistantChartSection view menu per chart.
  */
 
-import { ReactElement, useCallback, useState } from 'react';
+import { ReactElement, useCallback, useMemo, useState } from 'react';
 import { Waypoints } from 'lucide-react';
 import type { Segment } from '../../../../types/segment-api';
+import type { CaptureEra, MovementGranularity } from '../../../../api/segment-movement-client';
 import {
-  isGranularitySelectable,
-  type MovementGranularity,
-} from '../../../../api/segment-movement-client';
+  computeGrainAvailability,
+  isGrainSelectable,
+  finestFullGrain,
+} from './movement/grain-availability';
 import { GranularityToggle } from './movement/granularity-toggle';
+import { CadenceCoverageStrip } from './movement/cadence-coverage-strip';
 import { SnapshotCadenceControl } from './movement/snapshot-cadence-control';
 import { KpiTrendSection } from './movement/kpi-trend-section';
 import { MembershipMovementSection } from './movement/membership-movement-section';
 import { StateDistributionTrendSection } from './movement/state-distribution-trend-section';
 import styles from '../../segments.module.css';
+
+/** Meta reported up by the membership section from its movement response. */
+interface MovementMeta {
+  effective: MovementGranularity;
+  finest?: MovementGranularity;
+  captureEras?: CaptureEra[];
+}
 
 interface Props {
   segment: Segment;
@@ -31,17 +41,22 @@ interface Props {
 
 export function MovementTab({ segment, onSegmentChange }: Props): ReactElement {
   const [granularity, setGranularity] = useState<MovementGranularity>('daily');
-  // Finest grain captured in the window; until the first response says
-  // otherwise, allow all options (the membership section reports the real value).
-  const [effective, setEffective] = useState<MovementGranularity>('15m');
+  // Honest capture timeline, reported up by the membership section. Empty until
+  // the first response — availability then treats daily as the universal floor.
+  const [captureEras, setCaptureEras] = useState<CaptureEra[]>([]);
+  const [finest, setFinest] = useState<MovementGranularity>('15m');
 
-  const handleMeta = useCallback((meta: { effective: MovementGranularity }) => {
-    setEffective(meta.effective);
-    // Re-clamp the active selection: if the user picked a grain finer than what
-    // was actually captured (possible before the first response sets effective),
-    // snap down so the toggle never shows a disabled-but-active option and the
-    // sections stop requesting unattainable detail.
-    setGranularity((g) => (isGranularitySelectable(g, meta.effective) ? g : meta.effective));
+  const availability = useMemo(() => computeGrainAvailability(captureEras), [captureEras]);
+
+  const handleMeta = useCallback((meta: MovementMeta) => {
+    setCaptureEras(meta.captureEras ?? []);
+    if (meta.finest) setFinest(meta.finest);
+    // Re-clamp the active selection against the freshly reported timeline: if the
+    // current grain is no longer captured anywhere (window/segment changed), snap
+    // to the finest fully-covered grain so the toggle never sits on a disabled
+    // option and the sections stop requesting unattainable detail.
+    const avail = computeGrainAvailability(meta.captureEras ?? []);
+    setGranularity((g) => (isGrainSelectable(avail[g]) ? g : finestFullGrain(avail)));
   }, []);
 
   // Snapshots exist only for predicate segments bound to a game.
@@ -102,8 +117,10 @@ export function MovementTab({ segment, onSegmentChange }: Props): ReactElement {
         </div>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>View</span>
-        <GranularityToggle value={granularity} effective={effective} onChange={setGranularity} />
+        <GranularityToggle value={granularity} availability={availability} onChange={setGranularity} />
       </header>
+
+      <CadenceCoverageStrip eras={captureEras} finest={finest} />
 
       <SnapshotCadenceControl segment={segment} onChange={onSegmentChange} />
 

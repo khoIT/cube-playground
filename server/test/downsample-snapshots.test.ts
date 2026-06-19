@@ -15,6 +15,9 @@ import {
   downsamplePoints,
   downsample,
   coarsestCadence,
+  finestCadence,
+  computeCaptureEras,
+  finestEraCadence,
   detectCadenceChanges,
   floorTsBucket,
 } from '../src/lakehouse/downsample-snapshots.js';
@@ -87,6 +90,113 @@ describe('coarsestCadence', () => {
     // coarsestCadence = widest interval = 3h. UI should report 3h as the limit.
     const tsList = ['2026-06-18 09:00:00', '2026-06-18 09:15:00'];
     expect(coarsestCadence(tsList)).toBe('3h');
+  });
+});
+
+// ─── finestCadence ──────────────────────────────────────────────────────────
+
+describe('finestCadence', () => {
+  it('returns daily for purely daily (midnight) points', () => {
+    expect(finestCadence(['2026-06-18 00:00:00', '2026-06-19 00:00:00'])).toBe('daily');
+  });
+
+  it('returns 15m when any sub-hourly point is present in a mostly-daily window', () => {
+    // The mirror of coarsestCadence: finest picks the smallest bucket present.
+    const tsList = ['2026-06-18 00:00:00', '2026-06-19 00:00:00', '2026-06-20 09:15:00'];
+    expect(finestCadence(tsList)).toBe('15m');
+  });
+
+  it('returns 1h for purely hourly (non-3h-aligned) points', () => {
+    expect(finestCadence(['2026-06-18 01:00:00', '2026-06-18 02:00:00'])).toBe('1h');
+  });
+
+  it('defaults to daily for an empty list', () => {
+    expect(finestCadence([])).toBe('daily');
+  });
+});
+
+// ─── computeCaptureEras ──────────────────────────────────────────────────────
+
+describe('computeCaptureEras', () => {
+  it('returns a single daily era for a run of daily-only captures', () => {
+    const ts = ['2026-06-16 00:00:00', '2026-06-17 00:00:00', '2026-06-18 00:00:00'];
+    const eras = computeCaptureEras(ts);
+    expect(eras).toHaveLength(1);
+    expect(eras[0]).toEqual({
+      from: '2026-06-16 00:00:00',
+      to: '2026-06-18 00:00:00',
+      cadence: 'daily',
+    });
+  });
+
+  it('a lone non-midnight capture is daily (one snapshot is not sub-daily evidence)', () => {
+    // The real bug shape: today has a single 09:00 KPI capture. Alignment would
+    // mislabel it 3h; observed-spacing correctly calls it daily.
+    const eras = computeCaptureEras(['2026-06-19 09:00:00']);
+    expect(eras).toHaveLength(1);
+    expect(eras[0].cadence).toBe('daily');
+  });
+
+  it('splits into a daily era then a 15m era when fine capture begins mid-window', () => {
+    const ts = [
+      '2026-06-16 00:00:00', // daily
+      '2026-06-17 00:00:00', // daily
+      '2026-06-18 00:00:00', // 15m day: 15-min-spaced ticks
+      '2026-06-18 00:15:00',
+      '2026-06-18 00:30:00',
+      '2026-06-19 09:00:00', // 15m day
+      '2026-06-19 09:15:00',
+    ];
+    const eras = computeCaptureEras(ts);
+    expect(eras).toHaveLength(2);
+    expect(eras[0].cadence).toBe('daily');
+    expect(eras[0].from).toBe('2026-06-16 00:00:00');
+    expect(eras[0].to).toBe('2026-06-17 00:00:00');
+    expect(eras[1].cadence).toBe('15m');
+    expect(eras[1].from).toBe('2026-06-18 00:00:00');
+    expect(eras[1].to).toBe('2026-06-19 09:15:00');
+  });
+
+  it('classifies a day by its observed min-gap spacing', () => {
+    // Two captures 15 minutes apart → 15m era for that day.
+    const eras = computeCaptureEras(['2026-06-18 09:00:00', '2026-06-18 09:15:00']);
+    expect(eras).toHaveLength(1);
+    expect(eras[0].cadence).toBe('15m');
+  });
+
+  it('rounds an irregular gap UP to the cleaner coarser grain (no over-claim)', () => {
+    // 2h apart: not hourly-clean; conservatively labelled 3h, not 1h.
+    const eras = computeCaptureEras(['2026-06-18 09:00:00', '2026-06-18 11:00:00']);
+    expect(eras).toHaveLength(1);
+    expect(eras[0].cadence).toBe('3h');
+  });
+
+  it('tolerates unsorted input (output is date-ascending)', () => {
+    const eras = computeCaptureEras(['2026-06-19 00:00:00', '2026-06-17 00:00:00']);
+    expect(eras).toHaveLength(1);
+    expect(eras[0].from).toBe('2026-06-17 00:00:00');
+    expect(eras[0].to).toBe('2026-06-19 00:00:00');
+  });
+
+  it('returns [] for empty input', () => {
+    expect(computeCaptureEras([])).toEqual([]);
+  });
+});
+
+// ─── finestEraCadence ────────────────────────────────────────────────────────
+
+describe('finestEraCadence', () => {
+  it('returns daily for empty eras', () => {
+    expect(finestEraCadence([])).toBe('daily');
+  });
+
+  it('returns the finest (smallest-width) era cadence', () => {
+    expect(
+      finestEraCadence([
+        { from: '2026-06-16 00:00:00', to: '2026-06-17 00:00:00', cadence: 'daily' },
+        { from: '2026-06-18 00:00:00', to: '2026-06-18 00:45:00', cadence: '15m' },
+      ]),
+    ).toBe('15m');
   });
 });
 

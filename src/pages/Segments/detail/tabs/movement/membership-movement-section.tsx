@@ -5,7 +5,11 @@
  */
 
 import { ReactElement, useEffect } from 'react';
-import { segmentMovementClient, type MovementGranularity } from '../../../../../api/segment-movement-client';
+import {
+  segmentMovementClient,
+  type CaptureEra,
+  type MovementGranularity,
+} from '../../../../../api/segment-movement-client';
 import { useMovementResource } from './use-movement-resource';
 import { buildMembershipChart } from './build-movement-chart';
 import { MovementSection } from './movement-section';
@@ -14,7 +18,11 @@ interface Props {
   segmentId: string;
   granularity: MovementGranularity;
   days: number;
-  onMeta: (meta: { effective: MovementGranularity }) => void;
+  onMeta: (meta: {
+    effective: MovementGranularity;
+    finest?: MovementGranularity;
+    captureEras?: CaptureEra[];
+  }) => void;
 }
 
 export function MembershipMovementSection({ segmentId, granularity, days, onMeta }: Props): ReactElement {
@@ -25,7 +33,11 @@ export function MembershipMovementSection({ segmentId, granularity, days, onMeta
 
   useEffect(() => {
     if (data) {
-      onMeta({ effective: data.effectiveGranularity });
+      onMeta({
+        effective: data.effectiveGranularity,
+        finest: data.finestGranularity,
+        captureEras: data.captureEras,
+      });
     }
   }, [data, onMeta]);
 

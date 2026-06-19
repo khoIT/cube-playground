@@ -127,6 +127,125 @@ export function coarsestCadence(tsList: string[]): SnapshotCadence {
 }
 
 /**
+ * Finest cadence among a list of snapshot_ts strings — the one with the
+ * SMALLEST bucket width (15m < 1h < 3h < 6h < 12h < daily). This is the finest
+ * grain that was captured *anywhere* in the window, so it bounds what a
+ * per-region availability check can offer.
+ */
+export function finestCadence(tsList: string[]): SnapshotCadence {
+  let finestMs = Number.POSITIVE_INFINITY;
+  let finest: SnapshotCadence = 'daily';
+  for (const ts of tsList) {
+    const c = inferCadence(ts);
+    if (CADENCE_MS[c] < finestMs) {
+      finestMs = CADENCE_MS[c];
+      finest = c;
+    }
+  }
+  return finest;
+}
+
+/** A contiguous span of the window captured at one (observed) cadence. */
+export interface CaptureEra {
+  /** First captured snapshot_ts in the era (YYYY-MM-DD HH:MM:SS). */
+  from: string;
+  /** Last captured snapshot_ts in the era. */
+  to: string;
+  /** Observed capture cadence within the era (from real snapshot spacing). */
+  cadence: SnapshotCadence;
+}
+
+/** Parse a 'YYYY-MM-DD HH:MM:SS' string to epoch ms. Gaps are offset-invariant,
+ *  so treating the tz-naive string as UTC is fine for spacing math. */
+function tsToMs(ts: string): number {
+  return Date.parse(ts.replace(' ', 'T') + 'Z');
+}
+
+/**
+ * Classify a single day's captures by their OBSERVED spacing (not clock
+ * alignment): a day with one capture is 'daily' (a lone non-midnight ts is not
+ * evidence of sub-daily capture); a day with several is labelled with the
+ * cleanest cadence that covers its smallest gap — the finest grain at which the
+ * series renders without carry-forward. Conservative: irregular gaps round UP
+ * to the coarser grain rather than over-claiming fine detail.
+ */
+function observedDayCadence(sortedDayTs: string[]): SnapshotCadence {
+  if (sortedDayTs.length <= 1) return 'daily';
+  let minGap = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < sortedDayTs.length; i++) {
+    const gap = tsToMs(sortedDayTs[i]) - tsToMs(sortedDayTs[i - 1]);
+    if (gap > 0 && gap < minGap) minGap = gap;
+  }
+  if (!Number.isFinite(minGap)) return 'daily';
+  // Finest cadence whose bucket width is >= the smallest observed gap.
+  let best: SnapshotCadence = 'daily';
+  let bestMs = Number.POSITIVE_INFINITY;
+  for (const c of SNAPSHOT_CADENCES) {
+    const w = CADENCE_MS[c];
+    if (w >= minGap && w < bestMs) {
+      bestMs = w;
+      best = c;
+    }
+  }
+  return best;
+}
+
+/**
+ * Collapse a list of captured snapshot_ts into contiguous eras of constant
+ * observed cadence. Each calendar day is classified by its real capture
+ * spacing; consecutive days sharing a cadence merge into one era. The result is
+ * the honest "which grain was actually captured, and when" timeline that the
+ * coverage strip paints — distinct from the *configured* cadence history
+ * (cadence_changes), because a day configured 15m but only sparsely captured
+ * (machine offline) is reported at its real observed grain.
+ *
+ * PURE — no I/O. Input need not be sorted; output eras are date-ascending.
+ */
+export function computeCaptureEras(tsList: string[]): CaptureEra[] {
+  if (tsList.length === 0) return [];
+
+  const byDay = new Map<string, string[]>();
+  for (const ts of tsList) {
+    const day = ts.slice(0, 10);
+    const arr = byDay.get(day);
+    if (arr) arr.push(ts);
+    else byDay.set(day, [ts]);
+  }
+
+  const days = [...byDay.keys()].sort();
+  const eras: CaptureEra[] = [];
+  for (const day of days) {
+    const dayTs = byDay.get(day)!.slice().sort((a, b) => a.localeCompare(b));
+    const cadence = observedDayCadence(dayTs);
+    const first = dayTs[0];
+    const last = dayTs[dayTs.length - 1];
+    const prev = eras[eras.length - 1];
+    if (prev && prev.cadence === cadence) {
+      prev.to = last; // extend the open era
+    } else {
+      eras.push({ from: first, to: last, cadence });
+    }
+  }
+  return eras;
+}
+
+/** Finest (smallest-width) cadence among a set of capture eras, or 'daily' when
+ *  empty. The window's finest grain is the finest ERA grain — consistent with
+ *  what the coverage strip shows, unlike a per-ts alignment guess. */
+export function finestEraCadence(eras: CaptureEra[]): SnapshotCadence {
+  let finest: SnapshotCadence = 'daily';
+  let finestMs = Number.POSITIVE_INFINITY;
+  for (const e of eras) {
+    const w = CADENCE_MS[e.cadence];
+    if (w < finestMs) {
+      finestMs = w;
+      finest = e.cadence;
+    }
+  }
+  return finest;
+}
+
+/**
  * Detect cadence changes from a sequence of (ts, cadence) definition rows
  * ordered by ts ascending. A change is recorded when the cadence field differs
  * from the prior row. Rows with missing/unknown cadence are treated as 'daily'.

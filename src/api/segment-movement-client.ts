@@ -20,6 +20,15 @@ export interface CadenceChange {
   to: MovementGranularity;
 }
 
+/** A contiguous span of the window captured at one (finest-observed) cadence.
+ *  Drives the capture-coverage strip: it shows WHERE in the window each grain
+ *  actually lives, rather than a single window-wide enabled/greyed flag. */
+export interface CaptureEra {
+  from: string;
+  to: string;
+  cadence: MovementGranularity;
+}
+
 interface MovementEnvelope {
   segmentId: string;
   gameId: string;
@@ -27,7 +36,12 @@ interface MovementEnvelope {
   toDate: string;
   granularity: MovementGranularity | null;
   effectiveGranularity: MovementGranularity;
+  /** Finest grain captured anywhere in the window. */
+  finestGranularity?: MovementGranularity;
   cadenceChanges: CadenceChange[];
+  /** Per-era captured-cadence timeline (date-ascending). Optional for back-compat
+   *  with older payloads / test fixtures; consumers default to [] (single daily). */
+  captureEras?: CaptureEra[];
   carryForward: string[];
   asOf: string | null;
   /** Set when a stale (last-good) payload was served on upstream error. */
@@ -107,16 +121,3 @@ export const segmentMovementClient = {
     );
   },
 };
-
-/**
- * A view-time granularity is selectable only when it is no finer than what was
- * actually captured across the window. `effectiveGranularity` is the coarsest
- * cadence present in the range, so it is the finest the user may pick — coarser
- * options always work (they just collapse more points per bucket).
- */
-export function isGranularitySelectable(
-  option: MovementGranularity,
-  effective: MovementGranularity,
-): boolean {
-  return MOVEMENT_GRANULARITIES.indexOf(option) <= MOVEMENT_GRANULARITIES.indexOf(effective);
-}

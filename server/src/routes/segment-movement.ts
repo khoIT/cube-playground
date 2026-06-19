@@ -20,6 +20,7 @@ import {
   readStateDistribution,
   readStateDistributionTrend,
   readCadenceHistory,
+  readCaptureTimestamps,
   clampMovementDays,
   MAX_DAILY_DAYS,
   MAX_SUBDAILY_DAYS,
@@ -29,8 +30,11 @@ import {
 import {
   downsample,
   floorTsBucket,
+  computeCaptureEras,
+  finestEraCadence,
   type SnapshotPoint,
   type SnapshotCadence,
+  type CaptureEra,
 } from '../lakehouse/downsample-snapshots.js';
 import { STATE_VALUE_COLUMNS } from '../lakehouse/canonical-metric-set.js';
 import { isSnapshotCadence } from '../services/snapshot-cadence.js';
@@ -134,6 +138,27 @@ function parseGranularity(query: Record<string, string | undefined>): SnapshotCa
   return isSnapshotCadence(g) ? g : null;
 }
 
+/**
+ * Derive the honest capture timeline for the coverage strip: the per-era
+ * finest-observed cadence plus the finest grain captured anywhere in the
+ * window. Built from the KPI table's distinct snapshot_ts (the authoritative,
+ * full-history capture record); falls back to whatever ts the calling endpoint
+ * already has when the KPI source is empty. Independent of the requested view
+ * granularity — the strip must reflect what was captured, not how it is
+ * currently being downsampled for display.
+ */
+function captureTimeline(
+  captureTs: string[],
+  fallbackTs: string[],
+): { captureEras: CaptureEra[]; finestGranularity: SnapshotCadence } {
+  const ts = captureTs.length > 0 ? captureTs : fallbackTs;
+  const captureEras = computeCaptureEras(ts);
+  return {
+    captureEras,
+    finestGranularity: finestEraCadence(captureEras),
+  };
+}
+
 export default async function segmentMovementRoutes(app: FastifyInstance): Promise<void> {
   /**
    * GET /api/segments/:id/kpi-trend
@@ -198,6 +223,9 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         granularity ?? 'daily',
         cadenceDefs,
       );
+      // allTs comes from the KPI table already, so its distinct set IS the
+      // authoritative capture record — no extra query needed for this endpoint.
+      const { captureEras, finestGranularity } = captureTimeline([...new Set(allTs)], allTs);
 
       const payload = {
         segmentId: id,
@@ -207,7 +235,9 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         granularity,
         series,
         effectiveGranularity,
+        finestGranularity,
         cadenceChanges,
+        captureEras,
         asOf: rows.length > 0 ? rows[rows.length - 1].ts : null,
       };
       cacheSet(cacheKey, payload);
@@ -274,6 +304,14 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         effectiveGranularity = ds.effectiveGranularity;
       }
 
+      // Movement rows come from the (sparse) delta table; source the coverage
+      // timeline from the KPI table's full capture record instead.
+      const captureTs = await readCaptureTimestamps(gameId, id, fromDate, toDate);
+      const { captureEras, finestGranularity } = captureTimeline(
+        captureTs,
+        rows.map((r) => r.ts),
+      );
+
       const payload = {
         segmentId: id,
         gameId,
@@ -283,7 +321,9 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         points,
         carryForward,
         effectiveGranularity,
+        finestGranularity,
         cadenceChanges,
+        captureEras,
         asOf: points.length > 0 ? points[points.length - 1].ts : null,
       };
       cacheSet(cacheKey, payload);
@@ -409,7 +449,9 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
       const payload = {
         segmentId: id, gameId, fromDate, toDate, dimension, granularity,
         rows: [], effectiveGranularity: 'daily' as SnapshotCadence,
-        carryForward: [], cadenceChanges: [], asOf: null, redacted: true,
+        finestGranularity: 'daily' as SnapshotCadence,
+        carryForward: [], cadenceChanges: [], captureEras: [] as CaptureEra[],
+        asOf: null, redacted: true,
       };
       return payload;
     }
@@ -453,6 +495,14 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         effectiveGranularity = downsample(points, 'daily', cadenceDefs).effectiveGranularity;
       }
 
+      // State rows are absent for empty-cohort snapshots; source the coverage
+      // timeline from the KPI table's full capture record instead.
+      const captureTs = await readCaptureTimestamps(gameId, id, fromDate, toDate);
+      const { captureEras, finestGranularity } = captureTimeline(
+        captureTs,
+        rows.map((r) => r.ts),
+      );
+
       const payload = {
         segmentId: id,
         gameId,
@@ -463,7 +513,9 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         rows: points,
         carryForward,
         effectiveGranularity,
+        finestGranularity,
         cadenceChanges,
+        captureEras,
         asOf: points.length > 0 ? points[points.length - 1].ts : null,
         redacted: false,
       };

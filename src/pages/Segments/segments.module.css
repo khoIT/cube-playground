@@ -1241,6 +1241,112 @@
   color: var(--text-muted);
 }
 
+/* A view-grain chip that is only PARTIALLY captured across the window: still
+ * selectable, but carries a thin under-rule in the fine-capture color so the
+ * user reads it as "exists for part of the range" rather than fully available. */
+.cadenceSegmentPartial {
+  position: relative;
+}
+.cadenceSegmentPartial:not(.cadenceSegmentActive)::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--chart-2, #3f8dff);
+}
+
+/* ── Capture-coverage strip: a slim band, aligned under the View toggle, painted
+ *    by which cadence was actually captured per span of the window. ── */
+.coverWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 2px 0 2px;
+}
+.coverHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.coverHead .coverLbl {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.coverHead .coverSub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.coverStrip {
+  display: flex;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+}
+.coverSeg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #fff;
+  min-width: 0;
+  overflow: hidden;
+}
+.coverSegCoarse {
+  background: var(--muted-ink);
+}
+.coverSegFine {
+  background: var(--chart-2, #3f8dff);
+}
+.coverMark {
+  width: 0;
+  border-left: 2px solid var(--brand);
+  z-index: 2;
+}
+.coverTicks {
+  display: flex;
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+.coverTick {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.coverTickMark {
+  color: var(--brand);
+  font-weight: 600;
+}
+.coverLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.coverLegend .coverItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.coverSwatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+  flex: none;
+}
+
 /* ── Generic cells ───────────────────────────────────────────── */
 .sizeCell {
   font-size: 13px;

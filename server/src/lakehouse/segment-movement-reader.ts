@@ -260,6 +260,41 @@ export async function readStateDistributionTrend(
 }
 
 /**
+ * Distinct captured snapshot_ts for a segment over a window, read from the KPI
+ * table — the authoritative per-snapshot record (every snapshot writes a KPI
+ * row per metric, NULL-valued on empty cohort, so no capture is missed). This
+ * is the honest source for the capture-coverage strip's per-era timeline: it
+ * spans the full history, unlike the definition table (which only began being
+ * written when per-segment cadence shipped, so it omits older daily snapshots).
+ * Returns ts strings ordered ascending.
+ */
+export async function readCaptureTimestamps(
+  gameId: string,
+  segmentId: string,
+  fromDate: string,
+  toDate: string,
+  opts: MovementReaderOptions = {},
+): Promise<string[]> {
+  assertDateRange(fromDate, toDate, 'readCaptureTimestamps');
+  const connector = opts.connector ?? lakehouseConnectorFromEnv();
+  const gameLit = toSqlLiteral(gameId);
+  const segLit = toSqlLiteral(segmentId);
+  const fromLit = `DATE '${fromDate}'`;
+  const toLit = `DATE '${toDate}'`;
+
+  const sql =
+    `SELECT DISTINCT CAST(snapshot_ts AS VARCHAR) AS ts\n` +
+    `FROM ${SEGMENT_KPI_DAILY}\n` +
+    `WHERE game_id = ${gameLit} AND segment_id = ${segLit}\n` +
+    `  AND snapshot_date BETWEEN ${fromLit} AND ${toLit}\n` +
+    `  AND snapshot_ts IS NOT NULL\n` +
+    `ORDER BY ts`;
+
+  const res = await runQuery(connector, LAKEHOUSE_SCHEMA, sql, MOVEMENT_READ_TIMEOUT_MS);
+  return res.rows.map((r) => String(r[0]).replace('T', ' ').slice(0, 19));
+}
+
+/**
  * Fetch (snapshot_ts, snapshot_cadence) pairs from the definition table for
  * a segment over a date range. Used to derive effective_granularity and
  * cadence_changes. Returns rows ordered by ts ascending.

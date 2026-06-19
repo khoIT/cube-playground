@@ -1,17 +1,21 @@
 /**
  * View-time granularity picker for the Movement tab. Mirrors the monitor
  * cadence segmented control visually, but this changes only how the series is
- * downsampled for display — NOT the segment's capture cadence. Options finer
- * than what was captured in the window (`effective`) are disabled with a
- * tooltip, since the renderer can only carry-forward, never fabricate, detail.
+ * downsampled for display — NOT the segment's capture cadence.
+ *
+ * Three-state, driven by the capture-coverage timeline:
+ *  - full        — selectable, plain chip.
+ *  - partial     — selectable, with a fine-tone under-rule; captured for only
+ *                  part of the window, so the rest renders as carry-forward.
+ *  - unavailable — disabled; the renderer could only fabricate detail.
  */
 
 import { ReactElement } from 'react';
 import {
   MOVEMENT_GRANULARITIES,
-  isGranularitySelectable,
   type MovementGranularity,
 } from '../../../../../api/segment-movement-client';
+import { isGrainSelectable, type GrainAvailability } from './grain-availability';
 import styles from '../../../segments.module.css';
 
 const LABELS: Record<MovementGranularity, string> = {
@@ -25,16 +29,27 @@ const LABELS: Record<MovementGranularity, string> = {
 
 interface Props {
   value: MovementGranularity;
-  effective: MovementGranularity;
+  availability: Record<MovementGranularity, GrainAvailability>;
   onChange: (next: MovementGranularity) => void;
 }
 
-export function GranularityToggle({ value, effective, onChange }: Props): ReactElement {
+function chipTitle(g: MovementGranularity, a: GrainAvailability | undefined): string | undefined {
+  if (!a || a.state === 'full') return undefined;
+  if (a.state === 'partial') {
+    const pct = Math.round(a.coveredFraction * 100);
+    return `${LABELS[g]} captured for ~${pct}% of this window — selecting shows real detail where it exists; the rest holds flat between snapshots`;
+  }
+  return `No ${LABELS[g]} snapshots captured in this range`;
+}
+
+export function GranularityToggle({ value, availability, onChange }: Props): ReactElement {
   return (
     <div className={styles.cadenceSegmented} role="radiogroup" aria-label="View granularity">
       {MOVEMENT_GRANULARITIES.map((g) => {
-        const selectable = isGranularitySelectable(g, effective);
+        const a = availability[g];
+        const selectable = isGrainSelectable(a);
         const selected = g === value;
+        const partial = a?.state === 'partial';
         return (
           <button
             key={g}
@@ -42,8 +57,12 @@ export function GranularityToggle({ value, effective, onChange }: Props): ReactE
             role="radio"
             aria-checked={selected}
             disabled={!selectable}
-            title={selectable ? undefined : `Captured no finer than ${LABELS[effective]} in this range`}
-            className={[styles.cadenceSegment, selected ? styles.cadenceSegmentActive : '']
+            title={chipTitle(g, a)}
+            className={[
+              styles.cadenceSegment,
+              selected ? styles.cadenceSegmentActive : '',
+              partial ? styles.cadenceSegmentPartial : '',
+            ]
               .filter(Boolean)
               .join(' ')}
             onClick={() => selectable && !selected && onChange(g)}

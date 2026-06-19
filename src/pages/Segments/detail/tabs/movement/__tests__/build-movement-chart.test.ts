@@ -5,7 +5,6 @@ import {
   buildDistributionChart,
   prettifyKey,
 } from '../build-movement-chart';
-import { isGranularitySelectable } from '../../../../../../api/segment-movement-client';
 
 describe('prettifyKey', () => {
   it('humanises snake/camel keys', () => {
@@ -53,17 +52,5 @@ describe('buildDistributionChart', () => {
     expect(a.spec.type).toBe('stacked-bar');
     expect(a.spec.encoding).toEqual({ category: 'ts', value: 'count', series: 'bucket' });
     expect(a.spec.data).toHaveLength(2);
-  });
-});
-
-describe('isGranularitySelectable', () => {
-  it('allows coarser-or-equal than captured, blocks finer', () => {
-    // captured daily → only daily selectable
-    expect(isGranularitySelectable('daily', 'daily')).toBe(true);
-    expect(isGranularitySelectable('1h', 'daily')).toBe(false);
-    // captured 1h → 1h and coarser allowed, 15m blocked
-    expect(isGranularitySelectable('1h', '1h')).toBe(true);
-    expect(isGranularitySelectable('daily', '1h')).toBe(true);
-    expect(isGranularitySelectable('15m', '1h')).toBe(false);
   });
 });
