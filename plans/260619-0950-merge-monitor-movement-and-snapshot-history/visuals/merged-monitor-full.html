@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monitor (merged) · Whales · VN — full</title>
+<style>
+/* ──────────────────────────────────────────────────────────────────────────
+   Tokens — verbatim subset of src/theme/tokens.css (light + dark).
+   System font stack only (CSP blocks external fonts).
+   ────────────────────────────────────────────────────────────────────────── */
+:root{
+  --neutral-50:#f3e9dd;--neutral-100:#ecdfce;--neutral-200:#e1d4c2;--neutral-300:#d2c2ab;
+  --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+  --neutral-800:#262626;--neutral-900:#171717;--neutral-950:#0a0a0a;
+  --orange-600:#f05a22;--orange-700:#f54a00;
+  --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:#fff7ed;
+  --bg-app:#f8efe5;--bg-card:#f8efe5;--bg-muted:#efe3d4;
+  --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+  --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+  --success-soft:#d1fae5;--success-ink:#047857;
+  --warning-soft:#fef3c7;--warning-ink:#92400e;
+  --destructive-soft:#fee2e2;--destructive-ink:#991b1b;
+  --info-soft:#dbeafe;--info-ink:#1d4ed8;
+  --muted-soft:#efe3d4;--muted-ink:#525252;
+  --radius-xs:4px;--radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --chart-1:#f05a22;--chart-2:#3f8dff;--chart-3:#10b981;--chart-4:#a855f7;
+}
+:root[data-theme="dark"]{
+  --neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+  --bg-app:#0a0a0a;--bg-card:#171717;--bg-muted:#262626;
+  --border-card:#262626;--border-strong:#404040;
+  --text-primary:#fafafa;--text-secondary:#d4d4d4;--text-muted:#737373;
+  --brand-soft:rgba(240,90,34,.12);
+  --success-soft:rgba(16,185,129,.15);--success-ink:#6ee7b7;
+  --warning-soft:rgba(217,119,6,.18);--warning-ink:#fcd34d;
+  --info-soft:rgba(63,141,255,.18);--info-ink:#93c5fd;
+  --muted-soft:#262626;--muted-ink:#d4d4d4;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;font-family:var(--font-sans);color:var(--text-primary);background:var(--bg-app);}
+.page{padding:24px 32px;max-width:1200px;margin:0 auto;}
+
+/* ── page header ── */
+.eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;}
+.pageHead{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.pageHead .ic{width:34px;height:34px;border-radius:var(--radius-md);background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pageHead h1{font-size:20px;font-weight:700;margin:0;line-height:1.2;}
+.pageHead .meta{font-size:12px;color:var(--text-muted);margin-top:2px;}
+
+/* ── tab bar ── */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-card);margin:0 0 16px;flex-wrap:wrap;}
+.tab{font-size:13px;font-weight:500;color:var(--text-secondary);padding:8px 14px;border:none;background:none;border-bottom:2px solid transparent;cursor:pointer;}
+.tab:hover{color:var(--text-primary);}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand);font-weight:600;}
+
+/* ── sticky-feel header row ── */
+.headerRow{position:sticky;top:0;z-index:20;background:var(--bg-app);display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border-card);margin-bottom:16px;}
+.segTitle{font-size:16px;font-weight:700;}
+.spacer{flex:1;}
+
+/* freshness + health badges */
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border-radius:var(--radius-full);padding:3px 9px;white-space:nowrap;}
+.badge .dot{width:7px;height:7px;border-radius:50%;}
+.badge.healthy{background:var(--success-soft);color:var(--success-ink);}
+.badge.healthy .dot{background:#10b981;}
+.badge.fresh{background:var(--muted-soft);color:var(--muted-ink);}
+.badge.fresh .dot{background:var(--info);}
+
+/* segmented control */
+.segLabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);}
+.cadenceSegmented{display:inline-flex;background:var(--bg-muted);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:2px;gap:2px;}
+.cadenceSegment{font-size:12px;font-weight:500;color:var(--text-secondary);padding:5px 11px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);font-variant-numeric:tabular-nums;line-height:1;}
+.cadenceSegment:hover:not(.cadenceSegmentActive):not(.cadenceSegmentDisabled){color:var(--text-primary);background:var(--bg-card);}
+.cadenceSegmentActive{background:var(--brand);color:#fff;font-weight:600;}
+.cadenceSegmentDisabled{color:var(--text-muted);opacity:.5;cursor:not-allowed;}
+.cadenceSegmentPartial{color:var(--text-secondary);position:relative;}
+.cadenceSegmentPartial::after{content:'';position:absolute;left:8px;right:8px;bottom:3px;height:2px;border-radius:2px;background:var(--chart-2);}
+.rangeChip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:5px 11px;cursor:pointer;}
+
+/* ── cards & grids ── */
+.card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.cardHead{display:flex;align-items:center;gap:8px;}
+.cardHead .ctitle{font-size:13px;font-weight:600;}
+.cardHead .csub{font-size:11px;color:var(--text-muted);}
+.zoneEyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:18px 0 8px;}
+.nowGrid{display:grid;grid-template-columns:1.1fr 1.1fr 1.6fr;gap:14px;margin-bottom:14px;}
+@media(max-width:880px){.nowGrid{grid-template-columns:1fr;}}
+
+/* metric stat */
+.stat .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+.stat .v{font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:4px;}
+.delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;margin-top:6px;}
+.delta.up{color:var(--success-ink);}
+.delta.down{color:var(--destructive-ink);}
+.subline{font-size:11px;color:var(--text-muted);margin-top:6px;}
+
+/* activation */
+.actRow{display:flex;align-items:center;gap:10px;}
+.actBar{flex:1;height:8px;border-radius:var(--radius-full);background:var(--bg-muted);overflow:hidden;}
+.actBar i{display:block;height:100%;background:var(--brand);}
+.btn-brand{background:var(--brand);color:#fff;border:none;font-size:12px;font-weight:600;padding:6px 12px;border-radius:var(--radius-md);cursor:pointer;}
+.btn-secondary{background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:12px;font-weight:500;padding:5px 11px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+
+/* ── unified cadence panel (the two knobs) ── */
+.cadencePanel{display:flex;flex-direction:column;gap:12px;}
+.cadenceRow{display:flex;flex-direction:column;gap:6px;}
+.cadenceRow .clabelRow{display:flex;align-items:center;gap:8px;}
+.cadenceRow .ctag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:var(--radius-full);}
+.ctag.recompute{background:var(--info-soft);color:var(--info-ink);}
+.ctag.capture{background:var(--brand-soft);color:var(--brand);}
+.cadenceRow .cname{font-size:13px;font-weight:600;}
+.cadenceRow .chelp{font-size:11px;color:var(--text-muted);line-height:1.45;}
+.cadDivider{height:1px;background:var(--border-card);}
+
+/* slice scope band */
+.sliceBand{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);background:var(--bg-muted);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:14px;}
+.sliceBand code{font-family:var(--font-mono);font-size:11px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-xs);padding:1px 6px;}
+
+/* ── coverage strip (verbatim pattern from variant-a) ── */
+.coverWrap{display:flex;flex-direction:column;gap:6px;margin:2px 0 4px;}
+.coverHead{display:flex;align-items:baseline;gap:8px;}
+.coverHead .lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);}
+.coverHead .sub{font-size:11px;color:var(--text-muted);}
+.coverStrip{display:flex;height:14px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--border-card);position:relative;}
+.coverSeg{position:relative;display:flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:600;letter-spacing:.04em;white-space:nowrap;color:#fff;cursor:default;}
+.coverSeg.daily{background:var(--muted-ink);}
+.coverSeg.fine{background:var(--chart-2);}
+.coverSeg .segCap{opacity:.92;}
+.coverMark{width:0;border-left:2px solid var(--brand);position:relative;z-index:2;}
+.coverMark::after{content:'▾';position:absolute;top:-13px;left:-4px;font-size:9px;color:var(--brand);}
+.coverTicks{display:flex;font-size:9.5px;color:var(--text-muted);}
+.coverTicks .t{position:relative;}
+.coverTicks .markDate{color:var(--brand);font-weight:600;}
+.legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:11.5px;color:var(--text-secondary);}
+.legend .item{display:inline-flex;align-items:center;gap:6px;}
+.swatch{width:11px;height:11px;border-radius:2px;}
+
+/* ── charts ── */
+.svgChart{width:100%;display:block;font-variant-numeric:tabular-nums;}
+.axisLabel{font-size:10px;fill:var(--text-muted);}
+.gridLine{stroke:var(--border-card);stroke-width:1;}
+.metaStrip{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.metaChip{font-size:10.5px;color:var(--text-muted);background:var(--bg-muted);border:1px solid var(--border-card);border-radius:var(--radius-full);padding:2px 8px;}
+.metaChip.warn{background:var(--warning-soft);color:var(--warning-ink);border-color:transparent;}
+.viewMenu{display:inline-flex;gap:2px;background:var(--bg-muted);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:2px;}
+.viewMenu button{font-size:11px;color:var(--text-secondary);border:none;background:none;padding:3px 8px;border-radius:var(--radius-sm);cursor:pointer;}
+.viewMenu button.on{background:var(--brand);color:#fff;font-weight:600;}
+.chartLegend{display:flex;gap:14px;font-size:11px;color:var(--text-secondary);}
+.chartLegend .item{display:inline-flex;align-items:center;gap:5px;}
+/* KPI filter strip — toggle which metrics the user cares about */
+.kpiFilter{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;padding:0;overflow-x:auto;}
+.kpiFilter .flabel{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);white-space:nowrap;}
+.kpiPill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:500;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-full);padding:3px 11px 3px 9px;cursor:pointer;white-space:nowrap;transition:background .12s,border-color .12s,color .12s,opacity .12s;}
+.kpiPill .dot{width:8px;height:8px;border-radius:var(--radius-full);background:var(--kc,var(--text-muted));flex:0 0 auto;}
+.kpiPill.on{color:var(--text-primary);border-color:var(--kc,var(--brand));background:color-mix(in srgb,var(--kc,var(--brand)) 10%,var(--bg-card));}
+.kpiPill.off{opacity:.5;}
+.kpiPill.off .dot{background:var(--text-muted);}
+.kpiPill:hover{border-color:var(--kc,var(--brand));}
+.line{width:14px;height:0;border-top:2px solid;}
+
+/* ── snapshot ledger (collapsible) ── */
+.disclosure{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;}
+.disclosure .caret{transition:transform .15s;color:var(--text-muted);}
+.disclosure.open .caret{transform:rotate(90deg);}
+.tableWrap{overflow-x:auto;border:1px solid var(--border-card);border-radius:var(--radius-md);}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:560px;}
+thead th{text-align:left;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);padding:8px 12px;border-bottom:1px solid var(--border-card);white-space:nowrap;}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border-card);color:var(--text-secondary);}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr{cursor:pointer;}
+tbody tr:hover{background:var(--bg-muted);}
+tbody tr:hover .rowAction{opacity:1;}
+.dayGroup td{background:var(--bg-muted);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);padding:6px 12px;cursor:default;}
+.dayGroup:hover td{background:var(--bg-muted);}
+.num{font-variant-numeric:tabular-nums;color:var(--text-primary);font-weight:500;}
+.rowAction{opacity:0;font-size:11px;font-weight:600;color:var(--brand);transition:opacity .12s;white-space:nowrap;}
+/* grain chips */
+.grainChip{display:inline-flex;align-items:center;font-size:10.5px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:var(--radius-sm);padding:2px 7px;letter-spacing:.02em;}
+.grainChip.daily{background:var(--muted-soft);color:var(--muted-ink);}
+.grainChip.fine{background:var(--info-soft);color:var(--info-ink);}
+
+.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;}
+.tip{cursor:help;border-bottom:1px dotted var(--text-muted);}
+</style>
+</head>
+<body>
+<div class="theme-toggle">
+  <button class="btn-secondary" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Toggle theme</button>
+</div>
+
+<div class="page">
+  <!-- page header -->
+  <div class="eyebrow">Segment detail</div>
+  <div class="pageHead">
+    <div class="ic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </div>
+    <div>
+      <h1>Whales · VN</h1>
+      <div class="meta">Predicate segment · bound to <strong>CFM · VN</strong> · 812,408 members</div>
+    </div>
+  </div>
+
+  <!-- tab bar — Movement folded in, no BETA -->
+  <div class="tabs">
+    <button class="tab">Members</button>
+    <button class="tab">Insights</button>
+    <button class="tab active">Monitor</button>
+    <button class="tab">Definition</button>
+    <button class="tab">Activation</button>
+  </div>
+
+  <!-- sticky header row -->
+  <div class="headerRow">
+    <span class="segTitle">Whales · VN</span>
+    <span class="badge healthy"><span class="dot"></span> Healthy</span>
+    <span class="badge fresh"><span class="dot"></span> as of Jun 19 09:15 GMT+7</span>
+    <span class="spacer"></span>
+    <span class="segLabel" style="margin-right:2px;">View grain</span>
+    <div class="cadenceSegmented" role="radiogroup" aria-label="View grain">
+      <button class="cadenceSegment cadenceSegmentActive" aria-checked="true">Daily</button>
+      <button class="cadenceSegment cadenceSegmentDisabled" aria-disabled="true" title="No 12h snapshots captured in this window">12h</button>
+      <button class="cadenceSegment cadenceSegmentDisabled" aria-disabled="true" title="No 6h snapshots captured in this window">6h</button>
+      <button class="cadenceSegment cadenceSegmentDisabled" aria-disabled="true" title="No 3h snapshots captured in this window">3h</button>
+      <button class="cadenceSegment cadenceSegmentPartial" title="1h captured for the last 2 days only — selecting narrows to that range">1h</button>
+      <button class="cadenceSegment cadenceSegmentPartial" title="15m captured for the last 2 days only — selecting narrows to that range">15m</button>
+    </div>
+    <button class="rangeChip">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+      Last 30d
+    </button>
+  </div>
+
+  <!-- ════════════ NOW zone ════════════ -->
+  <div class="zoneEyebrow">Now</div>
+  <div class="nowGrid">
+    <!-- current size -->
+    <div class="card stat">
+      <span class="k">Current size</span>
+      <span class="v">812,408</span>
+      <span class="delta up">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        +6,204 today (+0.77%)
+      </span>
+      <span class="subline">Membership recomputed 12m ago · trailing 30d trend ↗</span>
+    </div>
+
+    <!-- unified Track cadence panel (one schedule: recompute + capture) -->
+    <div class="card cadencePanel">
+      <div class="cardHead">
+        <span class="ctitle">Track every</span>
+        <span class="csub">one schedule</span>
+      </div>
+      <div class="cadenceRow">
+        <div class="cadenceSegmented" role="radiogroup" aria-label="Track cadence">
+          <button class="cadenceSegment">Off</button>
+          <button class="cadenceSegment cadenceSegmentActive" aria-checked="true">15m</button>
+          <button class="cadenceSegment">30m</button>
+          <button class="cadenceSegment">1h</button>
+          <button class="cadenceSegment">3h</button>
+          <button class="cadenceSegment">6h</button>
+          <button class="cadenceSegment">12h</button>
+          <button class="cadenceSegment">daily</button>
+        </div>
+        <span class="chelp">Each tick recomputes the live <strong>member list</strong> and writes a <strong>state &amp; KPI snapshot</strong> to the lakehouse — the trends below update at this cadence.</span>
+        <span class="chelp" style="color:var(--warning-ink);background:var(--warning-soft);border-radius:var(--radius-sm);padding:5px 8px;">Sub-hourly tracking on a large segment is heavy — snapshot cost scales with this cadence.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- slice scope band -->
+  <div class="sliceBand">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+    <span>Slice scope — snapshots cover <code>lifecycle_stage</code>, <code>payer_tier</code>, <code>churn_risk</code>, <code>country</code>, <code>os_platform</code>. KPI set: revenue_vnd_real, dau, sessions.</span>
+  </div>
+
+  <!-- coverage strip (the spine) -->
+  <div class="card" style="gap:8px;">
+    <div class="coverWrap">
+      <div class="coverHead">
+        <span class="lbl">Capture coverage</span>
+        <span class="sub">what cadence was actually captured across this 30-day window</span>
+      </div>
+      <div class="coverStrip" aria-label="Cadence coverage timeline">
+        <div class="coverSeg daily" style="flex:0 0 92.5%;" title="Daily capture · May 20 – Jun 18 (28 days)"><span class="segCap">DAILY · 28d</span></div>
+        <div class="coverMark" title="Cadence change · Jun 18 00:00 · daily → 15m"></div>
+        <div class="coverSeg fine" style="flex:1 1 auto;" title="15-minute capture · Jun 18 – now (2 days)"><span class="segCap">15m</span></div>
+      </div>
+      <div class="coverTicks">
+        <span class="t" style="flex:0 0 92.5%;">May 20</span>
+        <span class="t markDate" style="flex:1 1 auto;">Jun 18 ·&nbsp;15m on</span>
+      </div>
+    </div>
+    <div class="legend">
+      <span class="item"><span class="swatch" style="background:var(--muted-ink)"></span> Daily-captured (coarse — finer views carry-forward as flat)</span>
+      <span class="item"><span class="swatch" style="background:var(--chart-2)"></span> 15m-captured (full intraday detail)</span>
+      <span class="item" style="margin-left:auto;"><span style="color:var(--brand);font-weight:700;">▾</span> cadence change · Jun 18 00:00</span>
+    </div>
+  </div>
+
+  <!-- ════════════ OVER TIME zone ════════════ -->
+  <div class="zoneEyebrow">Over time</div>
+
+  <!-- KPI trends -->
+  <div class="card">
+    <div class="cardHead">
+      <span class="ctitle">KPI trends</span>
+      <span class="csub">revenue · dau · sessions, indexed</span>
+      <span class="spacer"></span>
+      <div class="viewMenu" role="group" aria-label="Chart view">
+        <button class="on" title="Line">▱</button>
+        <button title="Bar">▮</button>
+        <button title="Table">≡</button>
+      </div>
+    </div>
+    <div class="kpiFilter" role="group" aria-label="Show KPIs">
+      <span class="flabel">Show</span>
+      <button class="kpiPill on" style="--kc:var(--chart-1)" aria-pressed="true"><span class="dot"></span>revenue_vnd_real</button>
+      <button class="kpiPill on" style="--kc:var(--chart-2)" aria-pressed="true"><span class="dot"></span>dau</button>
+      <button class="kpiPill off" style="--kc:var(--chart-3)" aria-pressed="false"><span class="dot"></span>sessions</button>
+      <button class="kpiPill off" style="--kc:var(--chart-4)" aria-pressed="false"><span class="dot"></span>arppu</button>
+    </div>
+    <svg viewBox="0 0 1140 170" class="svgChart" height="170" preserveAspectRatio="none">
+      <line class="gridLine" x1="0" y1="20" x2="1140" y2="20"/>
+      <line class="gridLine" x1="0" y1="75" x2="1140" y2="75"/>
+      <line class="gridLine" x1="0" y1="130" x2="1140" y2="130"/>
+      <rect x="1064" y="0" width="76" height="150" fill="var(--chart-2)" opacity="0.08"/>
+      <line x1="1064" y1="0" x2="1064" y2="150" stroke="var(--brand)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>
+      <!-- revenue (brand, stepped daily then fine) -->
+      <polyline fill="none" stroke="var(--chart-1)" stroke-width="2" points="0,118 38,118 76,114 114,116 152,108 190,110 228,102 266,98 304,100 342,92 380,94 418,86 456,88 494,80 532,82 570,74 608,76 646,68 684,70 722,62 760,64 798,56 836,58 874,52 912,54 950,48 988,50 1026,46 1064,44"/>
+      <polyline fill="none" stroke="var(--chart-1)" stroke-width="2" points="1064,44 1074,42 1084,46 1094,40 1104,43 1114,38 1124,41 1134,37 1140,39"/>
+      <!-- dau (blue) -->
+      <polyline fill="none" stroke="var(--chart-2)" stroke-width="2" points="0,98 38,100 76,96 114,99 152,94 190,96 228,92 266,93 304,90 342,91 380,88 418,89 456,86 494,87 532,84 570,85 608,82 646,83 684,80 722,81 760,78 798,79 836,77 874,78 912,75 950,76 988,73 1026,74 1064,72"/>
+      <polyline fill="none" stroke="var(--chart-2)" stroke-width="2" points="1064,72 1074,73 1084,70 1094,72 1104,69 1114,71 1124,68 1134,70 1140,69"/>
+      <text x="0" y="166" class="axisLabel">May 20</text>
+      <text x="500" y="166" class="axisLabel">Jun 3</text>
+      <text x="1000" y="166" class="axisLabel">Jun 16</text>
+      <text x="1040" y="166" class="axisLabel" fill="var(--brand)">Jun 18</text>
+    </svg>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="chartLegend">
+        <span class="item"><span class="line" style="border-color:var(--chart-1)"></span> revenue_vnd_real</span>
+        <span class="item"><span class="line" style="border-color:var(--chart-2)"></span> dau</span>
+      </div>
+      <span class="spacer"></span>
+      <div class="metaStrip">
+        <span class="metaChip">as of Jun 19 09:15 GMT+7</span>
+        <span class="metaChip">Daily view</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Membership movement -->
+  <div class="card">
+    <div class="cardHead">
+      <span class="ctitle">Membership movement</span>
+      <span class="csub">members · entered · exited</span>
+      <span class="spacer"></span>
+      <div class="viewMenu" role="group" aria-label="Chart view">
+        <button title="Line">▱</button>
+        <button class="on" title="Bar">▮</button>
+        <button title="Table">≡</button>
+      </div>
+    </div>
+    <svg viewBox="0 0 1140 160" class="svgChart" height="160" preserveAspectRatio="none">
+      <line class="gridLine" x1="0" y1="20" x2="1140" y2="20"/>
+      <line class="gridLine" x1="0" y1="70" x2="1140" y2="70"/>
+      <line class="gridLine" x1="0" y1="120" x2="1140" y2="120"/>
+      <!-- entered (green bars, above baseline 120) -->
+      <g fill="var(--success)">
+        <rect x="14" y="96" width="20" height="24"/><rect x="90" y="90" width="20" height="30"/><rect x="166" y="98" width="20" height="22"/><rect x="242" y="86" width="20" height="34"/><rect x="318" y="92" width="20" height="28"/><rect x="394" y="84" width="20" height="36"/><rect x="470" y="90" width="20" height="30"/><rect x="546" y="80" width="20" height="40"/><rect x="622" y="88" width="20" height="32"/><rect x="698" y="78" width="20" height="42"/><rect x="774" y="86" width="20" height="34"/><rect x="850" y="76" width="20" height="44"/><rect x="926" y="84" width="20" height="36"/><rect x="1002" y="74" width="20" height="46"/><rect x="1086" y="80" width="20" height="40"/>
+      </g>
+      <!-- exited (red bars, below baseline 120) -->
+      <g fill="var(--danger)" opacity="0.85">
+        <rect x="40" y="120" width="20" height="16"/><rect x="116" y="120" width="20" height="20"/><rect x="192" y="120" width="20" height="14"/><rect x="268" y="120" width="20" height="22"/><rect x="344" y="120" width="20" height="18"/><rect x="420" y="120" width="20" height="24"/><rect x="496" y="120" width="20" height="16"/><rect x="572" y="120" width="20" height="26"/><rect x="648" y="120" width="20" height="20"/><rect x="724" y="120" width="20" height="28"/><rect x="800" y="120" width="20" height="18"/><rect x="876" y="120" width="20" height="30"/><rect x="952" y="120" width="20" height="22"/><rect x="1028" y="120" width="20" height="24"/><rect x="1106" y="120" width="14" height="18"/>
+      </g>
+      <line x1="0" y1="120" x2="1140" y2="120" stroke="var(--border-strong)" stroke-width="1"/>
+      <text x="0" y="156" class="axisLabel">May 20</text>
+      <text x="500" y="156" class="axisLabel">Jun 3</text>
+      <text x="1000" y="156" class="axisLabel">Jun 16</text>
+    </svg>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="chartLegend">
+        <span class="item"><span class="swatch" style="background:var(--success)"></span> entered</span>
+        <span class="item"><span class="swatch" style="background:var(--danger)"></span> exited</span>
+      </div>
+      <span class="spacer"></span>
+      <div class="metaStrip">
+        <span class="metaChip">net +6,204 today</span>
+        <span class="metaChip warn">finer than captured — held flat before Jun 18</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- State distribution -->
+  <div class="card">
+    <div class="cardHead">
+      <span class="ctitle">State distribution</span>
+      <span class="csub">share over time</span>
+      <span class="spacer"></span>
+      <button class="rangeChip" style="padding:4px 10px;">
+        payer_tier
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+    <svg viewBox="0 0 1140 160" class="svgChart" height="160" preserveAspectRatio="none">
+      <!-- 12 stacked columns; three tiers -->
+      <g>
+        <!-- helper: each column 88px slot, 60px bar -->
+        <!-- col template repeated; tiers: bottom muted, mid blue, top brand -->
+        <g>
+          <rect x="8"  y="40" width="60" height="120" fill="var(--muted-ink)"/>
+          <rect x="8"  y="100" width="60" height="60" fill="var(--chart-2)"/>
+          <rect x="8"  y="140" width="60" height="20" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="104" y="44" width="60" height="116" fill="var(--muted-ink)"/>
+          <rect x="104" y="98" width="60" height="62" fill="var(--chart-2)"/>
+          <rect x="104" y="136" width="60" height="24" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="200" y="38" width="60" height="122" fill="var(--muted-ink)"/>
+          <rect x="200" y="96" width="60" height="64" fill="var(--chart-2)"/>
+          <rect x="200" y="134" width="60" height="26" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="296" y="42" width="60" height="118" fill="var(--muted-ink)"/>
+          <rect x="296" y="94" width="60" height="66" fill="var(--chart-2)"/>
+          <rect x="296" y="132" width="60" height="28" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="392" y="36" width="60" height="124" fill="var(--muted-ink)"/>
+          <rect x="392" y="92" width="60" height="68" fill="var(--chart-2)"/>
+          <rect x="392" y="130" width="60" height="30" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="488" y="40" width="60" height="120" fill="var(--muted-ink)"/>
+          <rect x="488" y="90" width="60" height="70" fill="var(--chart-2)"/>
+          <rect x="488" y="128" width="60" height="32" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="584" y="34" width="60" height="126" fill="var(--muted-ink)"/>
+          <rect x="584" y="88" width="60" height="72" fill="var(--chart-2)"/>
+          <rect x="584" y="126" width="60" height="34" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="680" y="38" width="60" height="122" fill="var(--muted-ink)"/>
+          <rect x="680" y="86" width="60" height="74" fill="var(--chart-2)"/>
+          <rect x="680" y="124" width="60" height="36" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="776" y="32" width="60" height="128" fill="var(--muted-ink)"/>
+          <rect x="776" y="84" width="60" height="76" fill="var(--chart-2)"/>
+          <rect x="776" y="122" width="60" height="38" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="872" y="36" width="60" height="124" fill="var(--muted-ink)"/>
+          <rect x="872" y="82" width="60" height="78" fill="var(--chart-2)"/>
+          <rect x="872" y="120" width="60" height="40" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="968" y="30" width="60" height="130" fill="var(--muted-ink)"/>
+          <rect x="968" y="80" width="60" height="80" fill="var(--chart-2)"/>
+          <rect x="968" y="118" width="60" height="42" fill="var(--chart-1)"/>
+        </g>
+        <g>
+          <rect x="1064" y="34" width="60" height="126" fill="var(--muted-ink)"/>
+          <rect x="1064" y="78" width="60" height="82" fill="var(--chart-2)"/>
+          <rect x="1064" y="116" width="60" height="44" fill="var(--chart-1)"/>
+        </g>
+      </g>
+    </svg>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div class="chartLegend">
+        <span class="item"><span class="swatch" style="background:var(--muted-ink)"></span> minnow</span>
+        <span class="item"><span class="swatch" style="background:var(--chart-2)"></span> dolphin</span>
+        <span class="item"><span class="swatch" style="background:var(--chart-1)"></span> whale</span>
+      </div>
+      <span class="spacer"></span>
+      <div class="metaStrip">
+        <span class="metaChip">as of Jun 19 09:15 GMT+7</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ Snapshot ledger ════════════ -->
+  <div class="card">
+    <div class="disclosure open" onclick="this.classList.toggle('open');var t=document.getElementById('ledger');t.style.display=t.style.display==='none'?'block':'none';">
+      <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="m9 18 6-6-6-6"/></svg>
+      <span class="ctitle" style="font-size:13px;font-weight:600;">Snapshot history</span>
+      <span class="csub">every captured snapshot for this segment · newest first</span>
+    </div>
+    <div id="ledger" class="tableWrap" style="display:block;">
+      <table>
+        <thead>
+          <tr>
+            <th>Snapshot time (GMT+7)</th>
+            <th>Grain</th>
+            <th style="text-align:right;">Members</th>
+            <th style="text-align:right;">KPIs captured</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="dayGroup"><td colspan="5">Today · Jun 19</td></tr>
+          <tr>
+            <td>09:15</td>
+            <td><span class="grainChip fine">15m</span></td>
+            <td style="text-align:right;" class="num">812,408</td>
+            <td style="text-align:right;" class="num">3</td>
+            <td style="text-align:right;"><span class="rowAction">View snapshot →</span></td>
+          </tr>
+          <tr>
+            <td>09:00</td>
+            <td><span class="grainChip fine">15m</span></td>
+            <td style="text-align:right;" class="num">811,902</td>
+            <td style="text-align:right;" class="num">3</td>
+            <td style="text-align:right;"><span class="rowAction">View snapshot →</span></td>
+          </tr>
+          <tr>
+            <td>08:45</td>
+            <td><span class="grainChip fine">15m</span></td>
+            <td style="text-align:right;" class="num">811,540</td>
+            <td style="text-align:right;" class="num">3</td>
+            <td style="text-align:right;"><span class="rowAction">View snapshot →</span></td>
+          </tr>
+          <tr class="dayGroup"><td colspan="5">Jun 18</td></tr>
+          <tr>
+            <td>00:00</td>
+            <td><span class="grainChip daily">Daily</span></td>
+            <td style="text-align:right;" class="num">806,204</td>
+            <td style="text-align:right;" class="num">3</td>
+            <td style="text-align:right;"><span class="rowAction">View snapshot →</span></td>
+          </tr>
+          <tr class="dayGroup"><td colspan="5">Jun 17</td></tr>
+          <tr>
+            <td>00:00</td>
+            <td><span class="grainChip daily">Daily</span></td>
+            <td style="text-align:right;" class="num">801,880</td>
+            <td style="text-align:right;" class="num">3</td>
+            <td style="text-align:right;"><span class="rowAction">View snapshot →</span></td>
+          </tr>
+          <tr class="dayGroup"><td colspan="5">Jun 16</td></tr>
+          <tr>
+            <td>00:00</td>
+            <td><span class="grainChip daily">Daily</span></td>
+            <td style="text-align:right;" class="num">798,402</td>
+            <td style="text-align:right;" class="num">3</td>
+            <td style="text-align:right;"><span class="rowAction">View snapshot →</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<script>
+  // KPI filter strip — toggle pills on/off (mockup interaction)
+  document.querySelectorAll('.kpiFilter .kpiPill').forEach(function (pill) {
+    pill.addEventListener('click', function () {
+      var on = pill.classList.toggle('on');
+      pill.classList.toggle('off', !on);
+      pill.setAttribute('aria-pressed', String(on));
+    });
+  });
+</script>
+</body>
+</html>

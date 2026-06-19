@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Snapshot coverage — fleet overview</title>
+<style>
+:root{
+  --neutral-50:#f3e9dd;--neutral-100:#ecdfce;--neutral-200:#e1d4c2;--neutral-300:#d2c2ab;
+  --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+  --neutral-800:#262626;--neutral-900:#171717;--neutral-950:#0a0a0a;
+  --orange-600:#f05a22;--orange-700:#f54a00;
+  --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:#fff7ed;
+  --bg-app:#f8efe5;--bg-card:#f8efe5;--bg-muted:#efe3d4;
+  --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+  --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+  --success-soft:#d1fae5;--success-ink:#047857;
+  --warning-soft:#fef3c7;--warning-ink:#92400e;
+  --destructive-soft:#fee2e2;--destructive-ink:#991b1b;
+  --info-soft:#dbeafe;--info-ink:#1d4ed8;
+  --muted-soft:#efe3d4;--muted-ink:#525252;
+  --radius-xs:4px;--radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --chart-1:#f05a22;--chart-2:#3f8dff;
+}
+:root[data-theme="dark"]{
+  --neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+  --bg-app:#0a0a0a;--bg-card:#171717;--bg-muted:#262626;
+  --border-card:#262626;--border-strong:#404040;
+  --text-primary:#fafafa;--text-secondary:#d4d4d4;--text-muted:#737373;
+  --brand-soft:rgba(240,90,34,.12);
+  --success-soft:rgba(16,185,129,.15);--success-ink:#6ee7b7;
+  --warning-soft:rgba(217,119,6,.18);--warning-ink:#fcd34d;
+  --info-soft:rgba(63,141,255,.18);--info-ink:#93c5fd;
+  --muted-soft:#262626;--muted-ink:#d4d4d4;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;font-family:var(--font-sans);color:var(--text-primary);background:var(--bg-app);}
+.page{padding:24px 32px;max-width:1200px;margin:0 auto;}
+
+/* page header */
+.eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;}
+.pageHead{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px;}
+.pageHead .ic{width:34px;height:34px;border-radius:var(--radius-md);background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pageHead h1{font-size:20px;font-weight:700;margin:0;line-height:1.2;}
+.pageHead .meta{font-size:12px;color:var(--text-muted);margin-top:2px;}
+
+/* summary band */
+.summaryBand{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:16px;}
+.summaryCard{flex:1;min-width:160px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:12px 14px;display:flex;flex-direction:column;gap:4px;}
+.summaryCard.warn{border-color:transparent;background:var(--warning-soft);}
+.summaryCard .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+.summaryCard.warn .k{color:var(--warning-ink);}
+.summaryCard .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;}
+.summaryCard.warn .v{color:var(--warning-ink);}
+.summaryCard .s{font-size:11px;color:var(--text-muted);}
+.summaryCard.warn .s{color:var(--warning-ink);opacity:.85;}
+
+/* filter pill row */
+.filterRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.filterLabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+.pillGroup{display:inline-flex;background:var(--bg-muted);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:2px;gap:2px;}
+.pillGroup button{font-size:12px;font-weight:500;color:var(--text-secondary);border:none;background:none;padding:5px 12px;border-radius:var(--radius-sm);cursor:pointer;}
+.pillGroup button.on{background:var(--brand);color:#fff;font-weight:600;}
+.pillGroup button:hover:not(.on){color:var(--text-primary);background:var(--bg-card);}
+
+/* table */
+.card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:0;overflow:hidden;}
+.tableWrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:1000px;}
+thead th{text-align:left;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);padding:10px 14px;border-bottom:1px solid var(--border-card);white-space:nowrap;background:var(--bg-card);}
+thead th.sortable{cursor:pointer;}
+thead th.sortable .arr{color:var(--brand);font-size:9px;margin-left:3px;}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--border-card);color:var(--text-secondary);vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr{cursor:pointer;}
+tbody tr:hover{background:var(--bg-muted);}
+tbody tr:hover .goArrow{opacity:1;}
+.segName{font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:8px;}
+.goArrow{opacity:0;color:var(--brand);font-weight:700;transition:opacity .12s;}
+.num{font-variant-numeric:tabular-nums;color:var(--text-primary);font-weight:500;}
+.dim{color:var(--text-muted);}
+
+/* cadence chip */
+.cadChip{display:inline-flex;align-items:center;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:var(--radius-sm);padding:2px 8px;letter-spacing:.02em;}
+.cadChip.recompute{background:var(--info-soft);color:var(--info-ink);}
+.cadChip.capture{background:var(--brand-soft);color:var(--brand);}
+.cadChip.off{background:var(--muted-soft);color:var(--muted-ink);}
+
+/* mini grain chips */
+.grains{display:inline-flex;gap:4px;}
+.grainMini{display:inline-flex;align-items:center;justify-content:center;min-width:22px;font-size:10px;font-weight:700;border-radius:var(--radius-xs);padding:2px 4px;letter-spacing:.02em;}
+.grainMini.daily{background:var(--muted-soft);color:var(--muted-ink);}
+.grainMini.fine{background:var(--info-soft);color:var(--info-ink);}
+.grainNone{font-size:11px;color:var(--text-muted);}
+
+/* last snapshot tone */
+.last{font-weight:600;font-variant-numeric:tabular-nums;}
+.last.recent{color:var(--success-ink);}
+.last.ok{color:var(--text-primary);}
+.last.stale{color:var(--warning-ink);}
+.last.none{color:var(--text-muted);font-weight:500;}
+
+/* mini coverage strip (tiny version of the spine) */
+.miniStrip{display:flex;height:9px;width:130px;border-radius:var(--radius-xs);overflow:hidden;border:1px solid var(--border-card);}
+.miniSeg{height:100%;}
+.miniSeg.daily{background:var(--muted-ink);}
+.miniSeg.fine{background:var(--chart-2);}
+.miniSeg.empty{background:repeating-linear-gradient(45deg,var(--bg-muted),var(--bg-muted) 3px,var(--border-card) 3px,var(--border-card) 4px);}
+.miniMark{width:2px;background:var(--brand);}
+
+.btn-secondary{background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:12px;font-weight:500;padding:5px 11px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;}
+
+/* legend under table */
+.fleetLegend{display:flex;flex-wrap:wrap;gap:16px;align-items:center;font-size:11.5px;color:var(--text-secondary);margin-top:12px;}
+.fleetLegend .item{display:inline-flex;align-items:center;gap:6px;}
+.swatch{width:11px;height:11px;border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="theme-toggle">
+  <button class="btn-secondary" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Toggle theme</button>
+</div>
+
+<div class="page">
+  <!-- page header -->
+  <div class="eyebrow">Segments</div>
+  <div class="pageHead">
+    <div class="ic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><rect x="7" y="13" width="3" height="5"/><rect x="12" y="9" width="3" height="9"/><rect x="17" y="5" width="3" height="13"/></svg>
+    </div>
+    <div>
+      <h1>Snapshot coverage</h1>
+      <div class="meta">Fleet view of every segment's snapshot availability, cadence, and freshness</div>
+    </div>
+  </div>
+
+  <!-- summary band -->
+  <div class="summaryBand">
+    <div class="summaryCard">
+      <span class="k">Total segments</span>
+      <span class="v">8</span>
+      <span class="s">across CFM · VN and JUS · VN</span>
+    </div>
+    <div class="summaryCard">
+      <span class="k">Capturing sub-daily</span>
+      <span class="v">4</span>
+      <span class="s">15m or 1h track cadence</span>
+    </div>
+    <div class="summaryCard warn">
+      <span class="k">Stale or no snapshots</span>
+      <span class="v">2</span>
+      <span class="s">1 no game (no capture) · 1 stale &gt; 3d</span>
+    </div>
+  </div>
+
+  <!-- filter pill row (visual only) -->
+  <div class="filterRow">
+    <span class="filterLabel">Track</span>
+    <div class="pillGroup" role="group" aria-label="Filter by track cadence">
+      <button class="on">All</button>
+      <button>Sub-daily</button>
+      <button>None</button>
+    </div>
+    <span style="flex:1;"></span>
+    <button class="btn-secondary">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+      Filter
+    </button>
+  </div>
+
+  <!-- table -->
+  <div class="card">
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th>Game</th>
+            <th>Track</th>
+            <th>Grains available</th>
+            <th class="sortable">History depth <span class="arr">▼</span></th>
+            <th class="sortable">Last snapshot <span class="arr">▲</span></th>
+            <th>Coverage</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 1 · whales — 15m, fresh -->
+          <tr>
+            <td><span class="segName">Whales · VN <span class="goArrow">→</span></span></td>
+            <td class="dim">CFM · VN</td>
+            <td><span class="cadChip capture">15m</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span><span class="grainMini fine">1h</span><span class="grainMini fine">15m</span></span></td>
+            <td class="num">31d</td>
+            <td><span class="last recent">today 09:15</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:0 0 92%"></span><span class="miniMark"></span><span class="miniSeg fine" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 2 · high-value JUS — 15m fresh -->
+          <tr>
+            <td><span class="segName">VIP spenders <span class="goArrow">→</span></span></td>
+            <td class="dim">JUS · VN</td>
+            <td><span class="cadChip capture">15m</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span><span class="grainMini fine">15m</span></span></td>
+            <td class="num">18d</td>
+            <td><span class="last recent">2m ago</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:0 0 78%"></span><span class="miniMark"></span><span class="miniSeg fine" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 3 · churn-risk — 1h fresh -->
+          <tr>
+            <td><span class="segName">Churn risk · high <span class="goArrow">→</span></span></td>
+            <td class="dim">CFM · VN</td>
+            <td><span class="cadChip capture">1h</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span><span class="grainMini fine">1h</span></span></td>
+            <td class="num">24d</td>
+            <td><span class="last recent">today 09:00</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:0 0 70%"></span><span class="miniMark"></span><span class="miniSeg fine" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 4 · new payers — 1h fresh -->
+          <tr>
+            <td><span class="segName">New payers (7d) <span class="goArrow">→</span></span></td>
+            <td class="dim">JUS · VN</td>
+            <td><span class="cadChip capture">1h</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span><span class="grainMini fine">1h</span></span></td>
+            <td class="num">12d</td>
+            <td><span class="last recent">today 08:30</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:0 0 50%"></span><span class="miniMark"></span><span class="miniSeg fine" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 5 · daily-only -->
+          <tr>
+            <td><span class="segName">All active · 30d <span class="goArrow">→</span></span></td>
+            <td class="dim">CFM · VN</td>
+            <td><span class="cadChip capture">daily</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span></span></td>
+            <td class="num">31d</td>
+            <td><span class="last ok">today 00:00</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 6 · daily-only -->
+          <tr>
+            <td><span class="segName">Returning players <span class="goArrow">→</span></span></td>
+            <td class="dim">JUS · VN</td>
+            <td><span class="cadChip capture">daily</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span></span></td>
+            <td class="num">21d</td>
+            <td><span class="last ok">today 00:00</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 7 · stale, warning -->
+          <tr>
+            <td><span class="segName">Lapsed whales <span class="goArrow">→</span></span></td>
+            <td class="dim">CFM · VN</td>
+            <td><span class="cadChip capture">daily</span></td>
+            <td><span class="grains"><span class="grainMini daily">D</span></span></td>
+            <td class="num">9d</td>
+            <td><span class="last stale">3d ago ⚠</span></td>
+            <td><div class="miniStrip"><span class="miniSeg daily" style="flex:0 0 72%"></span><span class="miniSeg empty" style="flex:1"></span></div></td>
+          </tr>
+          <!-- 8 · capture off -->
+          <tr>
+            <td><span class="segName">Beta testers (manual) <span class="goArrow">→</span></span></td>
+            <td class="dim">—</td>
+            <td><span class="cadChip capture">daily</span></td>
+            <td><span class="grainNone">—</span></td>
+            <td class="dim">—</td>
+            <td><span class="last none">—</span></td>
+            <td><div class="miniStrip"><span class="miniSeg empty" style="flex:1"></span></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- legend -->
+  <div class="fleetLegend">
+    <span class="item"><span class="swatch" style="background:var(--muted-ink)"></span> Daily-captured era</span>
+    <span class="item"><span class="swatch" style="background:var(--chart-2)"></span> Sub-daily era (15m / 1h)</span>
+    <span class="item"><span class="swatch" style="background:var(--brand)"></span> cadence change</span>
+    <span class="item"><span class="swatch" style="background:repeating-linear-gradient(45deg,var(--bg-muted),var(--bg-muted) 2px,var(--border-strong) 2px,var(--border-strong) 3px)"></span> no capture</span>
+    <span class="item" style="margin-left:auto;"><span class="cadChip capture" style="margin-right:4px;">▸</span> Track = one schedule: recompute membership + capture state &amp; KPI snapshots</span>
+  </div>
+
+</div>
+</body>
+</html>

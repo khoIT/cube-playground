@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Monitor (merged) · Beta testers (manual) — degraded</title>
+<style>
+:root{
+  --neutral-50:#f3e9dd;--neutral-100:#ecdfce;--neutral-200:#e1d4c2;--neutral-300:#d2c2ab;
+  --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+  --neutral-800:#262626;--neutral-900:#171717;--neutral-950:#0a0a0a;
+  --orange-600:#f05a22;--orange-700:#f54a00;
+  --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:#fff7ed;
+  --bg-app:#f8efe5;--bg-card:#f8efe5;--bg-muted:#efe3d4;
+  --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+  --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+  --success-soft:#d1fae5;--success-ink:#047857;
+  --warning-soft:#fef3c7;--warning-ink:#92400e;
+  --destructive-soft:#fee2e2;--destructive-ink:#991b1b;
+  --info-soft:#dbeafe;--info-ink:#1d4ed8;
+  --muted-soft:#efe3d4;--muted-ink:#525252;
+  --radius-xs:4px;--radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --chart-1:#f05a22;--chart-2:#3f8dff;
+}
+:root[data-theme="dark"]{
+  --neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+  --bg-app:#0a0a0a;--bg-card:#171717;--bg-muted:#262626;
+  --border-card:#262626;--border-strong:#404040;
+  --text-primary:#fafafa;--text-secondary:#d4d4d4;--text-muted:#737373;
+  --brand-soft:rgba(240,90,34,.12);
+  --success-soft:rgba(16,185,129,.15);--success-ink:#6ee7b7;
+  --warning-soft:rgba(217,119,6,.18);--warning-ink:#fcd34d;
+  --info-soft:rgba(63,141,255,.18);--info-ink:#93c5fd;
+  --muted-soft:#262626;--muted-ink:#d4d4d4;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;font-family:var(--font-sans);color:var(--text-primary);background:var(--bg-app);}
+.page{padding:24px 32px;max-width:1200px;margin:0 auto;}
+
+.eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:6px;}
+.pageHead{display:flex;align-items:flex-start;gap:12px;margin-bottom:14px;}
+.pageHead .ic{width:34px;height:34px;border-radius:var(--radius-md);background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pageHead h1{font-size:20px;font-weight:700;margin:0;line-height:1.2;}
+.pageHead .meta{font-size:12px;color:var(--text-muted);margin-top:2px;}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-card);margin:0 0 16px;flex-wrap:wrap;}
+.tab{font-size:13px;font-weight:500;color:var(--text-secondary);padding:8px 14px;border:none;background:none;border-bottom:2px solid transparent;cursor:pointer;}
+.tab:hover{color:var(--text-primary);}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand);font-weight:600;}
+
+.headerRow{position:sticky;top:0;z-index:20;background:var(--bg-app);display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--border-card);margin-bottom:16px;}
+.segTitle{font-size:16px;font-weight:700;}
+.spacer{flex:1;}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border-radius:var(--radius-full);padding:3px 9px;white-space:nowrap;}
+.badge .dot{width:7px;height:7px;border-radius:50%;}
+.badge.healthy{background:var(--success-soft);color:var(--success-ink);}
+.badge.healthy .dot{background:#10b981;}
+.badge.fresh{background:var(--muted-soft);color:var(--muted-ink);}
+.badge.fresh .dot{background:var(--info);}
+
+.segLabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);}
+.cadenceSegmented{display:inline-flex;background:var(--bg-muted);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:2px;gap:2px;}
+.cadenceSegment{font-size:12px;font-weight:500;color:var(--text-secondary);padding:5px 11px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);font-variant-numeric:tabular-nums;line-height:1;}
+.cadenceSegment:hover:not(.cadenceSegmentActive):not(.cadenceSegmentDisabled){color:var(--text-primary);background:var(--bg-card);}
+.cadenceSegmentActive{background:var(--brand);color:#fff;font-weight:600;}
+.cadenceSegmentDisabled{color:var(--text-muted);opacity:.5;cursor:not-allowed;}
+.rangeChip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:5px 11px;cursor:pointer;}
+.segmentedDisabled{opacity:.45;pointer-events:none;}
+
+.card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.cardHead{display:flex;align-items:center;gap:8px;}
+.cardHead .ctitle{font-size:13px;font-weight:600;}
+.cardHead .csub{font-size:11px;color:var(--text-muted);}
+.zoneEyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin:18px 0 8px;}
+.nowGrid{display:grid;grid-template-columns:1.1fr 1.1fr 1.6fr;gap:14px;margin-bottom:14px;}
+@media(max-width:880px){.nowGrid{grid-template-columns:1fr;}}
+
+.stat .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);}
+.stat .v{font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:4px;}
+.delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;margin-top:6px;}
+.delta.up{color:var(--success-ink);}
+.subline{font-size:11px;color:var(--text-muted);margin-top:6px;}
+
+.actRow{display:flex;align-items:center;gap:10px;}
+.actBar{flex:1;height:8px;border-radius:var(--radius-full);background:var(--bg-muted);overflow:hidden;}
+.actBar i{display:block;height:100%;background:var(--brand);}
+.btn-brand{background:var(--brand);color:#fff;border:none;font-size:12px;font-weight:600;padding:6px 12px;border-radius:var(--radius-md);cursor:pointer;}
+.btn-secondary{background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:12px;font-weight:500;padding:5px 11px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+
+.cadencePanel{display:flex;flex-direction:column;gap:12px;}
+.cadenceRow{display:flex;flex-direction:column;gap:6px;}
+.cadenceRow.disabled{opacity:.6;}
+.cadenceRow .clabelRow{display:flex;align-items:center;gap:8px;}
+.cadenceRow .ctag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:var(--radius-full);}
+.ctag.recompute{background:var(--info-soft);color:var(--info-ink);}
+.ctag.capture{background:var(--muted-soft);color:var(--muted-ink);}
+.cadenceRow .cname{font-size:13px;font-weight:600;}
+.cadenceRow .chelp{font-size:11px;color:var(--text-muted);line-height:1.45;}
+.cadDivider{height:1px;background:var(--border-card);}
+.lockNote{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--warning-ink);background:var(--warning-soft);border-radius:var(--radius-sm);padding:4px 9px;font-weight:600;}
+
+.sliceBand{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);background:var(--bg-muted);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:8px 12px;margin-bottom:14px;}
+
+/* empty state */
+.emptyState{align-items:center;text-align:center;gap:14px;padding:40px 24px;}
+.emptyState .icWrap{width:52px;height:52px;border-radius:var(--radius-full);background:var(--bg-muted);color:var(--text-muted);display:flex;align-items:center;justify-content:center;}
+.emptyState h3{font-size:15px;font-weight:700;margin:0;}
+.emptyState p{font-size:12.5px;color:var(--text-muted);margin:0;max-width:56ch;line-height:1.55;}
+.unlockList{display:flex;flex-direction:column;gap:8px;align-items:stretch;width:100%;max-width:440px;margin-top:4px;}
+.unlockItem{display:flex;align-items:center;gap:10px;text-align:left;font-size:12px;color:var(--text-secondary);background:var(--bg-muted);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:10px 12px;}
+.unlockItem .num{width:20px;height:20px;border-radius:var(--radius-full);background:var(--brand-soft);color:var(--brand);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+
+/* refresh-job history table */
+.tableWrap{overflow-x:auto;border:1px solid var(--border-card);border-radius:var(--radius-md);}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:520px;}
+thead th{text-align:left;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted);padding:8px 12px;border-bottom:1px solid var(--border-card);white-space:nowrap;}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--border-card);color:var(--text-secondary);}
+tbody tr:last-child td{border-bottom:none;}
+.num{font-variant-numeric:tabular-nums;color:var(--text-primary);font-weight:500;}
+.statusPill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;border-radius:var(--radius-full);padding:2px 8px;}
+.statusPill.ok{background:var(--success-soft);color:var(--success-ink);}
+.statusPill.ok .d{width:6px;height:6px;border-radius:50%;background:#10b981;}
+
+.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;}
+</style>
+</head>
+<body>
+<div class="theme-toggle">
+  <button class="btn-secondary" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Toggle theme</button>
+</div>
+
+<div class="page">
+  <div class="eyebrow">Segment detail</div>
+  <div class="pageHead">
+    <div class="ic">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div>
+      <h1>Beta testers (manual)</h1>
+      <div class="meta">Manual list segment · not bound to a game · 1,240 members</div>
+    </div>
+  </div>
+
+  <!-- same tab bar -->
+  <div class="tabs">
+    <button class="tab">Members</button>
+    <button class="tab">Insights</button>
+    <button class="tab active">Monitor</button>
+    <button class="tab">Definition</button>
+    <button class="tab">Activation</button>
+  </div>
+
+  <!-- header row — View grain control fully disabled (nothing to view at grain) -->
+  <div class="headerRow">
+    <span class="segTitle">Beta testers (manual)</span>
+    <span class="badge healthy"><span class="dot"></span> Healthy</span>
+    <span class="badge fresh"><span class="dot"></span> recomputed Jun 19 08:00 GMT+7</span>
+    <span class="spacer"></span>
+    <span class="segLabel" style="margin-right:2px;">View grain</span>
+    <div class="cadenceSegmented segmentedDisabled" role="radiogroup" aria-label="View grain (unavailable)" title="No snapshots to view at any grain for this segment">
+      <button class="cadenceSegment cadenceSegmentDisabled">Daily</button>
+      <button class="cadenceSegment cadenceSegmentDisabled">12h</button>
+      <button class="cadenceSegment cadenceSegmentDisabled">6h</button>
+      <button class="cadenceSegment cadenceSegmentDisabled">3h</button>
+      <button class="cadenceSegment cadenceSegmentDisabled">1h</button>
+      <button class="cadenceSegment cadenceSegmentDisabled">15m</button>
+    </div>
+  </div>
+
+  <!-- ════════════ NOW zone ════════════ -->
+  <div class="zoneEyebrow">Now</div>
+  <div class="nowGrid">
+    <!-- size from refresh log, not snapshots -->
+    <div class="card stat">
+      <span class="k">Current size</span>
+      <span class="v">1,240</span>
+      <span class="delta up">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17 17 7M9 7h8v8"/></svg>
+        +12 since last recompute
+      </span>
+      <span class="subline">From the most recent refresh job · no snapshot trend available</span>
+    </div>
+
+    <!-- Track cadence — recompute-only for a snapshot-less segment -->
+    <div class="card cadencePanel">
+      <div class="cardHead">
+        <span class="ctitle">Track every</span>
+        <span class="csub">recompute only</span>
+      </div>
+      <div class="cadenceRow">
+        <div class="cadenceSegmented" role="radiogroup" aria-label="Track cadence">
+          <button class="cadenceSegment">Off</button>
+          <button class="cadenceSegment">15m</button>
+          <button class="cadenceSegment">30m</button>
+          <button class="cadenceSegment">1h</button>
+          <button class="cadenceSegment">3h</button>
+          <button class="cadenceSegment">6h</button>
+          <button class="cadenceSegment">12h</button>
+          <button class="cadenceSegment cadenceSegmentActive" aria-checked="true">daily</button>
+        </div>
+        <span class="chelp">Each tick recomputes the live <strong>member list</strong>. This segment has no state &amp; KPI history.</span>
+        <span class="lockNote">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Bind to a game to also capture state &amp; KPI snapshots
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════ OVER TIME zone — empty state ════════════ -->
+  <div class="zoneEyebrow">Over time</div>
+  <div class="card emptyState">
+    <div class="icWrap">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6" stroke-dasharray="3 3"/></svg>
+    </div>
+    <h3>No snapshots for this segment</h3>
+    <p>Snapshot trends — KPI history, membership movement, and state distribution — are only captured for <strong>predicate segments bound to a game</strong>. This is a manual list segment, so there is no lakehouse state to chart over time.</p>
+    <div class="unlockList">
+      <div class="unlockItem"><span class="num">1</span> Convert this to a predicate (rule-based) segment, or</div>
+      <div class="unlockItem"><span class="num">2</span> Bind the segment to a game in <strong>Definition</strong></div>
+      <div class="unlockItem"><span class="num">3</span> Set a <strong>Capture</strong> cadence above — snapshots begin on the next run</div>
+    </div>
+    <button class="btn-secondary" style="margin-top:4px;">Open Definition →</button>
+  </div>
+
+  <!-- refresh-job history (still applies) -->
+  <div class="card">
+    <div class="cardHead">
+      <span class="ctitle">Refresh job history</span>
+      <span class="csub">membership recompute runs · newest first</span>
+    </div>
+    <div class="tableWrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Run time (GMT+7)</th>
+            <th>Trigger</th>
+            <th style="text-align:right;">Members</th>
+            <th style="text-align:right;">Δ</th>
+            <th style="text-align:right;">Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Jun 19 08:00</td><td>Scheduled · daily</td>
+            <td style="text-align:right;" class="num">1,240</td>
+            <td style="text-align:right;" class="num">+12</td>
+            <td style="text-align:right;" class="num">2.4s</td>
+            <td><span class="statusPill ok"><span class="d"></span> OK</span></td>
+          </tr>
+          <tr>
+            <td>Jun 18 08:00</td><td>Scheduled · daily</td>
+            <td style="text-align:right;" class="num">1,228</td>
+            <td style="text-align:right;" class="num">+5</td>
+            <td style="text-align:right;" class="num">2.1s</td>
+            <td><span class="statusPill ok"><span class="d"></span> OK</span></td>
+          </tr>
+          <tr>
+            <td>Jun 17 14:32</td><td>Manual · edit</td>
+            <td style="text-align:right;" class="num">1,223</td>
+            <td style="text-align:right;" class="num">+40</td>
+            <td style="text-align:right;" class="num">2.6s</td>
+            <td><span class="statusPill ok"><span class="d"></span> OK</span></td>
+          </tr>
+          <tr>
+            <td>Jun 17 08:00</td><td>Scheduled · daily</td>
+            <td style="text-align:right;" class="num">1,183</td>
+            <td style="text-align:right;" class="num">+0</td>
+            <td style="text-align:right;" class="num">2.0s</td>
+            <td><span class="statusPill ok"><span class="d"></span> OK</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

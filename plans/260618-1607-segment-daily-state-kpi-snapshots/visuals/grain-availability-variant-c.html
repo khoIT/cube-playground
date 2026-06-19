@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grain availability · Variant C — Finest-available caption + zoom</title>
+<style>
+:root{
+  --neutral-50:#f3e9dd;--neutral-100:#ecdfce;--neutral-200:#e1d4c2;--neutral-300:#d2c2ab;
+  --neutral-400:#a3a3a3;--neutral-500:#737373;--neutral-600:#525252;--neutral-700:#404040;
+  --neutral-800:#262626;--neutral-900:#171717;--neutral-950:#0a0a0a;
+  --orange-600:#f05a22;--orange-700:#f54a00;
+  --brand:var(--orange-600);--brand-hover:var(--orange-700);--brand-soft:#fff7ed;
+  --bg-app:#f8efe5;--bg-card:#f8efe5;--bg-muted:#efe3d4;
+  --border-card:var(--neutral-200);--border-strong:var(--neutral-300);
+  --text-primary:var(--neutral-900);--text-secondary:var(--neutral-700);--text-muted:var(--neutral-500);
+  --success:#059669;--warning:#f59e0b;--danger:#ef4444;--info:#3f8dff;
+  --success-soft:#d1fae5;--success-ink:#047857;
+  --warning-soft:#fef3c7;--warning-ink:#92400e;
+  --destructive-soft:#fee2e2;--destructive-ink:#991b1b;
+  --info-soft:#dbeafe;--info-ink:#1d4ed8;
+  --muted-soft:#efe3d4;--muted-ink:#525252;
+  --radius-xs:4px;--radius-sm:6px;--radius-md:8px;--radius-lg:10px;--radius-xl:12px;--radius-full:9999px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --font-mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --chart-1:#f05a22;--chart-2:#3f8dff;
+}
+:root[data-theme="dark"]{
+  --neutral-200:#e5e5e5;--neutral-300:#d4d4d4;
+  --bg-app:#0a0a0a;--bg-card:#171717;--bg-muted:#262626;
+  --border-card:#262626;--border-strong:#404040;
+  --text-primary:#fafafa;--text-secondary:#d4d4d4;--text-muted:#737373;
+  --brand-soft:rgba(240,90,34,.12);
+  --success-soft:rgba(16,185,129,.15);--success-ink:#6ee7b7;
+  --warning-soft:rgba(217,119,6,.18);--warning-ink:#fcd34d;
+  --info-soft:rgba(63,141,255,.18);--info-ink:#93c5fd;
+  --muted-soft:#262626;--muted-ink:#d4d4d4;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+html,body{margin:0;font-family:var(--font-sans);color:var(--text-primary);background:var(--bg-app);}
+.page{padding:24px 32px;max-width:1200px;margin:0 auto;}
+.variantTag{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--brand);margin-bottom:4px;}
+.variantDesc{font-size:12px;color:var(--text-muted);margin:0 0 18px;max-width:70ch;}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border-card);margin:0 0 18px;}
+.tab{font-size:13px;font-weight:500;color:var(--text-secondary);padding:8px 14px;border:none;background:none;border-bottom:2px solid transparent;cursor:pointer;}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand);font-weight:600;}
+
+.controlBar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.segLabel{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);}
+.spacer{flex:1;}
+
+.cadenceSegmented{display:inline-flex;background:var(--bg-muted);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:2px;gap:2px;}
+.cadenceSegment{font-size:12px;font-weight:500;color:var(--text-secondary);padding:5px 11px;border:none;background:none;cursor:pointer;border-radius:var(--radius-sm);font-variant-numeric:tabular-nums;line-height:1;}
+.cadenceSegment:hover:not(.cadenceSegmentActive):not(.isUnavail){color:var(--text-primary);background:var(--bg-card);}
+.cadenceSegmentActive{background:var(--brand);color:#fff;font-weight:600;}
+.isUnavail{color:var(--text-muted);opacity:.45;cursor:not-allowed;}
+/* 15m is reachable-by-zoom: dotted brand outline hints it unlocks on zoom */
+.isZoomable{color:var(--info-ink);box-shadow:inset 0 0 0 1px var(--info-border,#93c5fd);}
+.isZoomable:hover{background:var(--info-soft);}
+
+/* ── THE FEATURE: finest-available caption row + zoom CTA ── */
+.finestRow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);}
+.finestRow .icon{display:inline-flex;color:var(--text-muted);}
+.finestRow strong{color:var(--text-primary);font-weight:600;}
+.grainPip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;border-radius:var(--radius-full);padding:2px 9px;}
+.grainPip.coarse{background:var(--muted-soft);color:var(--muted-ink);}
+.grainPip.fine{background:var(--info-soft);color:var(--info-ink);}
+.grainPip .pd{width:6px;height:6px;border-radius:50%;}
+.grainPip.coarse .pd{background:var(--muted-ink);}
+.grainPip.fine .pd{background:var(--chart-2);}
+.zoomBtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:var(--brand);border:none;border-radius:var(--radius-md);padding:5px 12px;cursor:pointer;}
+.zoomBtn:hover{background:var(--brand-hover);}
+.zoomBtn svg{stroke:#fff;}
+
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;border-radius:var(--radius-full);padding:3px 9px;white-space:nowrap;}
+.badge .dot{width:7px;height:7px;border-radius:50%;}
+.badge.live{background:var(--success-soft);color:var(--success-ink);}
+.badge.live .dot{background:#10b981;}
+.btn-secondary{background:var(--bg-card);border:1px solid var(--border-card);color:var(--text-secondary);font-size:12px;font-weight:500;padding:5px 11px;border-radius:var(--radius-md);cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+
+.card{background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.svgChart{width:100%;display:block;}
+.axisLabel{font-size:10px;fill:var(--text-muted);}
+.gridLine{stroke:var(--border-card);stroke-width:1;}
+/* zoom-target shaded region overlay on chart */
+.zoomHint{fill:var(--chart-2);opacity:.10;}
+.notice{font-size:12px;border-radius:var(--radius-md);padding:8px 12px;display:flex;gap:8px;align-items:center;}
+.notice.info{background:var(--info-soft);color:var(--info-ink);}
+.theme-toggle{position:fixed;top:14px;right:16px;z-index:50;}
+.tip{cursor:help;border-bottom:1px dotted var(--text-muted);}
+</style>
+</head>
+<body>
+<div class="theme-toggle">
+  <button class="btn-secondary" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Toggle theme</button>
+</div>
+
+<div class="page">
+  <div class="variantTag">Variant C · Finest-available caption + zoom affordance</div>
+  <p class="variantDesc">A one-line caption states the truth in words — "Finest in this range: Daily · 15m since Jun 18" — and offers a single <strong>Zoom to 15m range</strong> button that narrows the window to where the finer grain exists, so the toggle naturally unlocks it. The greyed chips keep their position; 15m wears a dotted blue outline signalling "reachable by zoom". Minimal chrome, maximally action-oriented.</p>
+
+  <div class="tabs">
+    <button class="tab">Insights</button>
+    <button class="tab">Members</button>
+    <button class="tab">Definition</button>
+    <button class="tab active">Movement</button>
+    <button class="tab">Care</button>
+  </div>
+
+  <!-- ── small reference trend chart with zoom-target region shaded ── -->
+  <div class="card">
+    <svg viewBox="0 0 1140 150" class="svgChart" height="150" preserveAspectRatio="none">
+      <line class="gridLine" x1="0" y1="20" x2="1140" y2="20"/>
+      <line class="gridLine" x1="0" y1="65" x2="1140" y2="65"/>
+      <line class="gridLine" x1="0" y1="110" x2="1140" y2="110"/>
+      <!-- zoom-target region = the 15m era -->
+      <rect class="zoomHint" x="1064" y="0" width="76" height="130"/>
+      <line x1="1064" y1="0" x2="1064" y2="130" stroke="var(--brand)" stroke-width="1" stroke-dasharray="3 3" opacity="0.7"/>
+      <text x="1066" y="14" class="axisLabel" fill="var(--info-ink)">zoom target</text>
+      <polyline fill="none" stroke="var(--chart-1)" stroke-width="2"
+        points="0,108 38,108 38,104 76,104 76,106 114,106 114,100 152,100 152,98 190,98 190,101 228,101 228,95 266,95 266,92 304,92 304,94 342,94 342,88 380,88 380,90 418,90 418,84 456,84 456,86 494,86 494,80 532,80 532,82 570,82 570,76 608,76 608,78 646,78 646,72 684,72 684,74 722,74 722,68 760,68 760,70 798,70 798,64 836,64 836,66 874,66 874,60 912,60 912,62 950,62 950,57 988,57 988,59 1026,59 1026,54 1064,54"/>
+      <g fill="var(--chart-1)"><circle cx="190" cy="98" r="2"/><circle cx="456" cy="84" r="2"/><circle cx="722" cy="68" r="2"/><circle cx="988" cy="57" r="2"/></g>
+      <polyline fill="none" stroke="var(--chart-1)" stroke-width="2"
+        points="1064,54 1074,52 1084,55 1094,50 1104,53 1114,48 1124,51 1134,46 1140,49"/>
+      <text x="0" y="146" class="axisLabel">May 20</text>
+      <text x="500" y="146" class="axisLabel">Jun 3</text>
+      <text x="1000" y="146" class="axisLabel">Jun 16</text>
+      <text x="1040" y="146" class="axisLabel" fill="var(--brand)">Jun 18</text>
+    </svg>
+  </div>
+
+  <!-- ── control bar + finest caption + zoom ── -->
+  <div class="card" style="gap:12px;">
+    <div class="controlBar">
+      <span class="segLabel">View</span>
+      <div class="cadenceSegmented" role="radiogroup" aria-label="View granularity">
+        <button class="cadenceSegment cadenceSegmentActive" aria-checked="true">Daily</button>
+        <button class="cadenceSegment isUnavail" aria-disabled="true">12h</button>
+        <button class="cadenceSegment isUnavail" aria-disabled="true">6h</button>
+        <button class="cadenceSegment isUnavail" aria-disabled="true">3h</button>
+        <button class="cadenceSegment isUnavail" aria-disabled="true">1h</button>
+        <button class="cadenceSegment isZoomable" title="15m exists only Jun 18 → now. Zoom to that range to view it.">15m</button>
+      </div>
+      <span class="spacer"></span>
+      <span class="badge live"><span class="dot"></span> As of Jun 19, 23:00 GMT+7</span>
+    </div>
+
+    <!-- finest-available caption -->
+    <div class="finestRow">
+      <span class="icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+      <span>Finest in this range:</span>
+      <span class="grainPip coarse"><span class="pd"></span>Daily · whole window</span>
+      <span class="grainPip fine"><span class="pd"></span>15m · since Jun 18</span>
+      <button class="zoomBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3M11 8v6M8 11h6"/></svg>
+        Zoom to 15m range
+      </button>
+    </div>
+  </div>
+
+  <div class="notice info" style="margin-bottom:8px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    Over this 30-day window the coarsest capture is daily, so finer grains stay clamped. 15m only exists from <strong>Jun 18</strong> — zooming there narrows the window so 15m unlocks naturally, instead of showing the older days as <span class="tip" title="No intraday snapshots exist before Jun 18; the line is carried forward, never interpolated.">flat carry-forward</span>.
+  </div>
+</div>
+</body>
+</html>
