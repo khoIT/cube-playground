@@ -65,6 +65,7 @@ export function migrate(db: Database.Database): void {
        ON chat_sessions(visibility, game_id, workspace, last_turn_at DESC);`,
   );
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN charts_json TEXT;');
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN proposals_json TEXT;');
 
   // Observability columns added to chat_turns for per-turn metadata capture.
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN system_prompt_text TEXT;');

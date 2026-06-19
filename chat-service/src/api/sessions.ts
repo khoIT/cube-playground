@@ -15,6 +15,7 @@ import { canAccessOwnedResource } from './debug-shared.js';
 import { writeChatSnapshot } from '../db/snapshot-store.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import type { ChatTurnRow, QueryArtifact, ChartArtifact, DisambigOptionsData } from '../types.js';
+import type { SegmentProposal } from '../tools/propose-segment.js';
 
 // ---------------------------------------------------------------------------
 // Row → FE-DTO transform
@@ -45,6 +46,8 @@ interface TurnDto {
   originalTurnId?: string | null;
   /** Choice-chip set this turn offered, re-rendered on reload. Null when none. */
   disambig?: DisambigOptionsData | null;
+  /** Segment proposals emitted during this turn; re-rendered on reload. */
+  proposals?: SegmentProposal[];
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -78,6 +81,10 @@ function rowToTurn(row: ChatTurnRow): TurnDto {
       row.role === 'assistant'
         ? safeParseJson<DisambigOptionsData | null>(row.disambig_json ?? null, null)
         : null,
+    proposals:
+      row.role === 'assistant'
+        ? safeParseJson<SegmentProposal[]>(row.proposals_json ?? null, [])
+        : [],
   };
 }
 

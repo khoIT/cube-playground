@@ -22,6 +22,7 @@ import {
   putCachedTurnDetail,
 } from '../cache/turn-detail-cache-adapter.js';
 import type { ChatSessionRow, ChatTurnRow, QueryArtifact, ChartArtifact, PermissionDecisionRow } from '../types.js';
+import type { SegmentProposal } from '../tools/propose-segment.js';
 // Shared owner-guard helpers — imported and re-exported for sub-plugins.
 import { extractOwnerId, getTurnOwnerId, canAccessOwnedResource, isAdminAuditRequest, VERIFIER_OWNER_ID } from './debug-shared.js';
 export { extractOwnerId, getTurnOwnerId } from './debug-shared.js';
@@ -75,6 +76,8 @@ interface DebugTurnDto {
   originalTurnId: string | null;
   /** Phase-06: session id of the original cached turn (for cross-session navigation). */
   originalSessionId: string | null;
+  /** Segment proposals emitted during this turn; re-rendered on reload. */
+  proposals: SegmentProposal[];
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -114,6 +117,7 @@ function rowToDebugTurn(
     toolCalls: safeParseJson(row.tool_calls_json, []),
     artifacts: safeParseJson(row.artifacts_json, []),
     charts: safeParseJson(row.charts_json, []),
+    proposals: safeParseJson<SegmentProposal[]>(row.proposals_json ?? null, []),
     legacy,
     llmCallCount,
     toolInvocationCount,

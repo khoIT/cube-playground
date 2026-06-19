@@ -11,6 +11,7 @@ import type {
   QueryArtifact,
   ChartArtifact,
 } from '../types.js';
+import type { SegmentProposal } from '../tools/propose-segment.js';
 
 // ---------------------------------------------------------------------------
 // Sessions
@@ -304,6 +305,9 @@ export interface AppendTurnParams {
   toolCallsJson?: string;
   artifacts?: QueryArtifact[];
   charts?: ChartArtifact[];
+  /** Segment proposals emitted by propose_segment in this turn; persisted so the
+   *  card re-renders on session reload (predicate_tree is self-contained). */
+  proposals?: SegmentProposal[];
   inputTokens?: number;
   outputTokens?: number;
   costUsd?: number;
@@ -353,18 +357,19 @@ export function appendTurn(
   const id = params.id ?? uuidv4();
   const artifactsJson = params.artifacts ? JSON.stringify(params.artifacts) : null;
   const chartsJson = params.charts ? JSON.stringify(params.charts) : null;
+  const proposalsJson = params.proposals?.length ? JSON.stringify(params.proposals) : null;
 
   db.prepare(
     `INSERT INTO chat_turns
        (id, session_id, turn_index, role, user_text, assistant_text,
-        reasoning_json, tool_calls_json, artifacts_json, charts_json,
+        reasoning_json, tool_calls_json, artifacts_json, charts_json, proposals_json,
         input_tokens, output_tokens, cost_usd,
         cache_creation_tokens, cache_read_tokens,
         cache_hit, original_turn_id, cache_freshness,
         skill, system_prompt_text, model,
         stop_reason, llm_auth_label, disambig_json,
         started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -376,6 +381,7 @@ export function appendTurn(
     params.toolCallsJson ?? null,
     artifactsJson,
     chartsJson,
+    proposalsJson,
     params.inputTokens ?? null,
     params.outputTokens ?? null,
     params.costUsd ?? null,

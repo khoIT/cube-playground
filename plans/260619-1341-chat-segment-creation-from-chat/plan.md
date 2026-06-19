@@ -32,12 +32,14 @@ measure threshold (`revenue > 1000`), top-N (`top 100 spenders`), percentile (`t
 | 2 | [Measure→dimension catalog (window-annotated)](phase-02-measure-dimension-catalog.md) | done (cfm_vn + jus_vn blessed) | — |
 | 3 | [chat-service: translator + guardrails + propose_segment tool](phase-03-chat-service-propose-segment.md) | done (threshold / percentile / top-N / explored-query kinds) | 1, 2 |
 | 4 | [Frontend: segment proposal confirm card](phase-04-frontend-segment-proposal-card.md) | done | 3 |
-| 5 | [Tests, docs, lessons-learned](phase-05-tests-docs-lessons.md) | partial — unit tests done per phase; docs + lessons + e2e pending | 1–4 |
+| 5 | [Tests, docs, lessons-learned](phase-05-tests-docs-lessons.md) | done — unit tests per phase; docs + lessons + memory updated | 1–4 |
 
-<!-- Build status (uncommitted): P1–P4 implemented + reviewed (ship verdict). Review SHOULD-FIX
-S1 (create-path allowlist) + S2 (wire query→predicate translator) both applied. Stopped before
-commit per request. Pending: P5 docs/lessons/memory + e2e; a live Trino run to confirm the jus
-merge hits the measured ~10,065 cohort; rebuild better-sqlite3 to run server DB-route tests. -->
+<!-- Status: P1–P5 shipped. Commit 01832349 (P1–P4 + review fixes S1/S2). Follow-up commit:
+P5 docs/lessons, propose-segment split into 4 modules, and segment_proposal reload-persistence
+(proposals_json mirrors charts_json end-to-end). Live-verified vs Trino: cfm_vn top-25%
+~757k₫/~58,451; jus_vn ~6.9M₫/~10,251 (merge path). Remaining: full conversational e2e was
+exercised manually by the user (proposal renders + persists); server DB-route tests still blocked
+locally by a pre-existing better-sqlite3 NODE_MODULE_VERSION mismatch (rebuild to run them). -->
 
 
 ## Key references

@@ -80,6 +80,11 @@ export function sessionTurnsToMessages(
       if (embeddedChartIds.has(ch.id)) continue;
       sections.push({ type: 'chart', artifact: ch });
     }
+    // Segment proposals persisted on the turn row — re-render the confirm card
+    // so the user can still create the segment after reloading the thread.
+    for (const p of t.proposals ?? []) {
+      sections.push({ type: 'segment_proposal', proposal: p });
+    }
     // The persisted choice-chip set, plus which option (if any) was already
     // picked — inferred from the following user turn whose text equals an
     // option's pinText (a chip click sends pinText verbatim as the next turn).

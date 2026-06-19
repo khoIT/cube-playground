@@ -329,6 +329,7 @@ export interface ChatTurnRow {
   tool_calls_json: string | null;
   artifacts_json: string | null;
   charts_json: string | null;
+  proposals_json: string | null;
   input_tokens: number | null;
   output_tokens: number | null;
   cost_usd: number | null;

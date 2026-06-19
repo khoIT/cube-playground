@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useReducer } from 'react';
 import type { ChartArtifact } from '../../../api/chat-sse-client';
 import type { DisambigOptionsPayload } from '../../../stores/chat-stream-store-actions';
+import type { SegmentProposalPayload } from '../../../api/segment-proposal';
 import { chatHeaders } from '../../../api/chat-auth-headers';
 import { onChatSessionChanged } from '../../../shell/chat-overlay/chat-session-events';
 
@@ -52,6 +53,8 @@ export interface ChatTurn {
   /** Choice-chip set this turn offered (offer_choices / disambiguate_query),
    *  persisted server-side so the chips re-render on reload. Null when none. */
   disambig?: DisambigOptionsPayload | null;
+  /** Segment proposals emitted during this turn; re-rendered as confirm cards on reload. */
+  proposals?: SegmentProposalPayload[];
 }
 
 export interface ChatSession {

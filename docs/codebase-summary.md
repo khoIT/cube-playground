@@ -268,6 +268,32 @@ The data-analyst onboarding flow bootstraps draft Cube models from raw warehouse
 
 ---
 
+## Chat-Driven Segment Creation (Measure-Threshold / Top-N / Percentile)
+
+### Services (server-side)
+
+- **Segmentable measures catalog** — `server/src/services/segmentable-measures-catalog.ts`. Loads static allowlist `data/segmentable-measures.json` (cfm_vn + jus_vn measures + over-population specs). `isCatalogTarget(game, measure)` gates `/api/segments/segmentable-measures` + `/api/segments/resolve-cutoff`.
+- **Segment cutoff resolver** — `server/src/services/segment-cutoff-resolver.ts`. Compiles a measure + population scope + percentile into a per-user cutoff via percentile-cutoff-resolver. Handles jus dual-identity merge: `split_part(user_id,'@',1) + max() + GROUP BY`. Returns cutoff value, population count, estimated matching member count.
+- **Cutoff generator script** — `server/src/scripts/derive-segmentable-measures.mjs`. Derives `segmentable-measures.json` from game configs + Cube `/meta`. Probes each candidate measure against cfm_vn/jus_vn to populate currency, population, over-dimension, and calibrate thresholds. Manual-run script (not automated).
+
+### Routes (server-side)
+
+- **`GET /api/segments/segmentable-measures?game=<id>`** — Returns `{ measures: [{concept, label, dimension, window, currency, over}] }` from the allowlist, scoped to game. No auth requirement (read-only product info).
+- **`POST /api/segments/resolve-cutoff`** body `{game_id, p, gte, over}` — Returns `{cutoff, populationCount, estCount}` (numeric preview at propose time, no segment written). Used by chat propose-card to show "est. 10,251 members" before FE posts create.
+
+### Chat service bridge
+
+- **`tools/propose-segment.ts`** — Emits `segment_proposal` SSE event. Calls `/api/segments/resolve-cutoff` to preview count. Payload: measure, percentile (or top-N→percentile), estimated count, predicate leaf (gte/lte).
+- **`tools/get-segmentable-measures.ts`** — Calls `GET /api/segments/segmentable-measures?game=<id>` to populate the measure picker in chat UI.
+- **`utils/cube-query-to-predicate-tree.ts`** — Translates Cube query + measure spec into a PopulationRef (filter + identityMerge) for the predicate tree. Reused by both segment proposal and general query-to-predicate pathways.
+
+### Frontend
+
+- **`src/pages/Chat/components/segment-proposal-card.tsx`** — Renders chat's `segment_proposal` SSE event. Shows measure + percentile + "est. N members" + action buttons (Create / Decline). POSTs `/api/segments` on Create. Integrates with segment detail deep-link on success.
+- **`src/api/segment-proposal.ts`** — HTTP client: `POST /api/segments` with proposal payload → new segment.
+
+---
+
 ## Segment Revamp (LTV Tiers, Member-360, Sharing, AI Brief)
 
 ### Services (server-side)

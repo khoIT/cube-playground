@@ -36,6 +36,7 @@ import { config } from '../config.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import { RegistryOverflowError } from '../core/stream-registry.js';
 import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
+import type { SegmentProposal } from '../tools/propose-segment.js';
 import { diffRecordings } from '../observability/parallel-emit-shim.js';
 import { appendParallelEmitDiff } from '../observability/parallel-emit-log.js';
 import { createTurnTimer } from '../observability/turn-timing.js';
@@ -414,6 +415,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
     const sseEmitter = new EventEmitter();
     const collectedArtifacts: QueryArtifact[] = [];
     const collectedCharts: ChartArtifact[] = [];
+    const collectedProposals: SegmentProposal[] = [];
     sseEmitter.on('query_artifact', (artifact: QueryArtifact) => {
       collectedArtifacts.push(artifact);
       emit({ type: 'query_artifact', data: artifact });
@@ -422,11 +424,11 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       collectedCharts.push(chart);
       emit({ type: 'chart', data: chart });
     });
-    // Segment proposals are emitted by propose_segment and forwarded directly
-    // to the client. The tool never writes — the FE writes on confirm. No
-    // server-side collection needed; the event is live-only (not persisted on
-    // the turn row) because the segment doesn't exist yet.
+    // Segment proposals are forwarded live AND persisted on the turn row so the
+    // card re-renders when the session reloads. The segment itself is still only
+    // created on FE confirm (POST /api/segments) — chat proposes, FE writes.
     sseEmitter.on('segment_proposal', (data: Extract<SseEvent, { type: 'segment_proposal' }>['data']) => {
+      collectedProposals.push(data as SegmentProposal);
       emit({ type: 'segment_proposal', data });
     });
     let clarifyEmitted = false;
@@ -697,6 +699,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         reasoningJson: reasoningText || undefined,
         artifacts: collectedArtifacts,
         charts: collectedCharts,
+        proposals: collectedProposals,
         inputTokens,
         outputTokens,
         costUsd,

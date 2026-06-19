@@ -139,6 +139,7 @@ export function hydrateChatFromSnapshot(db: Database.Database): {
     for (const t of snap.chat_turns) {
       turnsInserted += insertTurn.run({
         charts_json: null,
+        proposals_json: null,
         ...t,
       }).changes;
     }

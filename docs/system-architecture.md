@@ -627,6 +627,33 @@ Browser                          Gateway server                    Chat service
 
 ---
 
+## Chat-Driven Segment Creation (Measure-Threshold / Top-N / Percentile)
+
+Chat detects "create a segment" intent and proposes a draft predicate via SSE `segment_proposal` event; FE confirms and POSTs `/api/segments` (chat proposes, FE writes — chat never writes). All three proposal types—spend percentile, spending top-N %, days-active percentile—reduce to: resolve a measure to a per-user cutoff over a scoped population, then emit a plain predicate leaf (`gte` / `lte`). The system reuses the existing percentile cutoff engine (`server/src/services/percentile-cutoff-resolver.ts`).
+
+### Key mechanics
+
+**Rolling cutoff:** resolved at segment create AND every refresh (`server/src/jobs/refresh-segment.ts`), so a "top quartile spenders" cohort tracks the live distribution.
+
+**Population scoping (correctness invariant):** a spend percentile MUST be scoped to payers (`recharge > 0`). An unscoped percentile of recharge = 0 (free users dominate the median) and selects everyone. The cutoff query and membership query share the same population scope.
+
+**jus identity merge:** jus's `mf_users` mart has two rows per user (dual identity namespace). The cutoff query collapses them per-user via `split_part(user_id,'@',1) + max() + GROUP BY` (server-owned enum transform — not raw SQL) to match the cube's grain, else the cutoff double-counts.
+
+**Top-N → percentile at propose time:** `p = 100*(1 − N/population)`, reusing the percentile engine. Stored as a rolling percentile (count drifts).
+
+**Catalog allowlist:** `server/src/data/segmentable-measures.json` (cfm_vn + jus_vn × spend/spend_30d/spend_usd/active_days) is the source of truth for valid cutoff targets. `isCatalogTarget` gates both create and `/resolve-cutoff` endpoint.
+
+### New server endpoints
+
+- `GET /api/segments/segmentable-measures?game=<id>` → `{ measures: [{concept,label,dimension,window,currency,over}] }`
+- `POST /api/segments/resolve-cutoff` body `{game_id, p, gte, over}` → `{cutoff, populationCount, estCount}` (propose-time preview, no write)
+
+### New files
+
+**Server:** `services/segment-cutoff-resolver.ts`, `services/segmentable-measures-catalog.ts`, `scripts/derive-segmentable-measures.mjs`, `data/segmentable-measures.json`; edits to `percentile-cutoff-resolver.ts`, `predicate-to-sql.ts`, `routes/segments.ts`, `jobs/refresh-segment.ts`, `types/predicate-tree.ts` (PopulationRef.filter + identityMerge). **Chat-service:** `tools/propose-segment.ts`, `tools/get-segmentable-measures.ts`, `utils/cube-query-to-predicate-tree.ts`. **FE:** `pages/Chat/components/segment-proposal-card.tsx` (+ parts), `api/segment-proposal.ts`.
+
+---
+
 ## Segment Revamp: LTV Tiers, Member-360 Precompute, Sharing, & AI Brief
 
 Four coordinated subsystems added to the Segments workspace (June 2026):

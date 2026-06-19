@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS chat_turns (
   tool_calls_json TEXT,
   artifacts_json TEXT,
   charts_json TEXT,
+  proposals_json TEXT,
   input_tokens INTEGER,
   output_tokens INTEGER,
   cost_usd REAL,
