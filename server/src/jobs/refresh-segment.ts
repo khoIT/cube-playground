@@ -25,6 +25,9 @@ import { logicalCube, physicalMember } from '../services/cube-member-resolver.js
 import { resolveIdentityDetailed } from '../services/resolve-identity-field.js';
 import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
+import { treeToCubeFilters } from '../services/translator.js';
+import { collectPercentileLeaves, resolveSegmentCutoffs } from '../services/segment-cutoff-resolver.js';
+import type { PredicateNode } from '../types/predicate-tree.js';
 
 const PER_SEGMENT_TIMEOUT_MS = 60_000;
 
@@ -169,6 +172,28 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
     }
 
     const baseQuery = JSON.parse(cubeQueryJson);
+
+    // Rolling percentile cutoff: a "top quartile spenders" cohort must track the
+    // live distribution, so re-resolve the cutoff every refresh and rebuild the
+    // Cube filters from the predicate tree rather than reusing the scalar baked
+    // in at create. No-op (no Trino round-trip) for the common case of a segment
+    // with no percentile leaf. The re-translation re-uses the stored predicate
+    // tree's members verbatim (schema-drift rehydration already cannot express a
+    // percentile segment, so the stored query is authoritative for these). A
+    // cutoff failure propagates to the outer catch, which fails soft on
+    // transient Trino trouble (→ stale, retried) and only marks broken on a
+    // structural error.
+    if (row.predicate_tree_json) {
+      const tree = JSON.parse(row.predicate_tree_json) as PredicateNode;
+      if (collectPercentileLeaves(tree).length > 0) {
+        const resolvedPercentiles = await withTimeout(
+          resolveSegmentCutoffs(tree),
+          PER_SEGMENT_TIMEOUT_MS,
+          `segment cutoff ${segmentId}`,
+        );
+        baseQuery.filters = treeToCubeFilters(tree, { resolvedPercentiles });
+      }
+    }
 
     // Resolve the preset (+ its physical-name context and /meta member sets)
     // up front — the size query below prefers the preset's approx-distinct

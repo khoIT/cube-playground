@@ -209,6 +209,30 @@ export type SseEvent =
   | {
       type: 'focus_reset';
       data: { sessionId: string };
+    }
+  /**
+   * Emitted by propose_segment when the LLM has built a valid draft predicate.
+   * The frontend renders a confirmation card; writing the segment only happens
+   * after the user confirms (POST /api/segments from the FE — never from chat).
+   */
+  | {
+      type: 'segment_proposal';
+      data: {
+        type: 'segment_proposal';
+        name: string;
+        game_id: string;
+        /** Logical cube, e.g. "mf_users". */
+        cube: string;
+        predicate_tree: unknown;
+        resolved: {
+          cutoff?: number;
+          estCount: number;
+          populationCount?: number;
+          population: string;
+        };
+        disclosures: string[];
+        suggestedVisibility: 'personal' | 'shared' | 'org';
+      };
     };
 
 /**

@@ -1,0 +1,187 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "game": "cfm_vn",
+      "concept": "spend",
+      "label": "Total spend (lifetime, VND)",
+      "cube": "mf_users",
+      "dimension": "mf_users.ltv_vnd",
+      "window": "lifetime",
+      "currency": "vnd",
+      "physicalTable": "game_integration.cfm_vn.mf_users",
+      "physicalColumn": "ingame_total_recharge_value_vnd",
+      "defaultPopulation": {
+        "kind": "leaf",
+        "id": "pop",
+        "member": "ingame_total_recharge_value_vnd",
+        "type": "number",
+        "op": "gt",
+        "values": [
+          0
+        ]
+      },
+      "identityMerge": null,
+      "confidence": 1
+    },
+    {
+      "game": "cfm_vn",
+      "concept": "spend_30d",
+      "label": "Spend, last 30 days (VND)",
+      "cube": "mf_users",
+      "dimension": "mf_users.ltv_30d_vnd",
+      "window": "30d",
+      "currency": "vnd",
+      "physicalTable": "game_integration.cfm_vn.mf_users",
+      "physicalColumn": "ingame_total_recharge_value_vnd_30d",
+      "defaultPopulation": {
+        "kind": "leaf",
+        "id": "pop",
+        "member": "ingame_total_recharge_value_vnd_30d",
+        "type": "number",
+        "op": "gt",
+        "values": [
+          0
+        ]
+      },
+      "identityMerge": null,
+      "confidence": 1
+    },
+    {
+      "game": "cfm_vn",
+      "concept": "spend_usd",
+      "label": "Total spend (lifetime, USD)",
+      "cube": "mf_users",
+      "dimension": "mf_users.ltv_usd",
+      "window": "lifetime",
+      "currency": "usd",
+      "physicalTable": "game_integration.cfm_vn.mf_users",
+      "physicalColumn": "ingame_total_recharged_value_usd",
+      "defaultPopulation": {
+        "kind": "leaf",
+        "id": "pop",
+        "member": "ingame_total_recharged_value_usd",
+        "type": "number",
+        "op": "gt",
+        "values": [
+          0
+        ]
+      },
+      "identityMerge": null,
+      "confidence": 1
+    },
+    {
+      "game": "cfm_vn",
+      "concept": "active_days",
+      "label": "Total active days (lifetime)",
+      "cube": "mf_users",
+      "dimension": "mf_users.total_active_days",
+      "window": "lifetime",
+      "currency": null,
+      "physicalTable": "game_integration.cfm_vn.mf_users",
+      "physicalColumn": "ingame_total_active_days",
+      "defaultPopulation": null,
+      "identityMerge": null,
+      "confidence": 1
+    },
+    {
+      "game": "jus_vn",
+      "concept": "spend",
+      "label": "Total spend (lifetime, VND)",
+      "cube": "mf_users",
+      "dimension": "mf_users.ltv_vnd",
+      "window": "lifetime",
+      "currency": "vnd",
+      "physicalTable": "game_integration.jus_vn.mf_users",
+      "physicalColumn": "ingame_total_recharge_value_vnd",
+      "defaultPopulation": {
+        "kind": "leaf",
+        "id": "pop",
+        "member": "ingame_total_recharge_value_vnd",
+        "type": "number",
+        "op": "gt",
+        "values": [
+          0
+        ]
+      },
+      "identityMerge": {
+        "idColumn": "user_id",
+        "transform": "split_part_at",
+        "agg": "max"
+      },
+      "confidence": 1
+    },
+    {
+      "game": "jus_vn",
+      "concept": "spend_30d",
+      "label": "Spend, last 30 days (VND)",
+      "cube": "mf_users",
+      "dimension": "mf_users.ltv_30d_vnd",
+      "window": "30d",
+      "currency": "vnd",
+      "physicalTable": "game_integration.jus_vn.mf_users",
+      "physicalColumn": "ingame_total_recharge_value_vnd_30d",
+      "defaultPopulation": {
+        "kind": "leaf",
+        "id": "pop",
+        "member": "ingame_total_recharge_value_vnd_30d",
+        "type": "number",
+        "op": "gt",
+        "values": [
+          0
+        ]
+      },
+      "identityMerge": {
+        "idColumn": "user_id",
+        "transform": "split_part_at",
+        "agg": "max"
+      },
+      "confidence": 1
+    },
+    {
+      "game": "jus_vn",
+      "concept": "spend_usd",
+      "label": "Total spend (lifetime, USD)",
+      "cube": "mf_users",
+      "dimension": "mf_users.ltv_usd",
+      "window": "lifetime",
+      "currency": "usd",
+      "physicalTable": "game_integration.jus_vn.mf_users",
+      "physicalColumn": "ingame_total_recharged_value_usd",
+      "defaultPopulation": {
+        "kind": "leaf",
+        "id": "pop",
+        "member": "ingame_total_recharged_value_usd",
+        "type": "number",
+        "op": "gt",
+        "values": [
+          0
+        ]
+      },
+      "identityMerge": {
+        "idColumn": "user_id",
+        "transform": "split_part_at",
+        "agg": "max"
+      },
+      "confidence": 1
+    },
+    {
+      "game": "jus_vn",
+      "concept": "active_days",
+      "label": "Total active days (lifetime)",
+      "cube": "mf_users",
+      "dimension": "mf_users.total_active_days",
+      "window": "lifetime",
+      "currency": null,
+      "physicalTable": "game_integration.jus_vn.mf_users",
+      "physicalColumn": "ingame_total_active_days",
+      "defaultPopulation": null,
+      "identityMerge": {
+        "idColumn": "user_id",
+        "transform": "split_part_at",
+        "agg": "max"
+      },
+      "confidence": 1
+    }
+  ]
+}

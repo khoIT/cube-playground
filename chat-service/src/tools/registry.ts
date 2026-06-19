@@ -25,6 +25,8 @@ import * as updateBusinessMetricTrust from './update-business-metric-trust.js';
 import * as parseDateRange from './parse-date-range.js';
 import * as getBusinessMetricHistory from './get-business-metric-history.js';
 import * as getTopicKnowledge from './get-topic-knowledge.js';
+import * as getSegmentableMeasures from './get-segmentable-measures.js';
+import * as proposeSegment from './propose-segment.js';
 import { config } from '../config.js';
 
 // ---------------------------------------------------------------------------
@@ -160,6 +162,20 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: getTopicKnowledge.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: getTopicKnowledge.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: getSegmentableMeasures.name,
+    description: getSegmentableMeasures.description,
+    inputSchema: getSegmentableMeasures.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: getSegmentableMeasures.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: proposeSegment.name,
+    description: proposeSegment.description,
+    inputSchema: proposeSegment.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: proposeSegment.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
 

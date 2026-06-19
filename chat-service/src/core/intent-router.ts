@@ -21,6 +21,7 @@ const SLASH_ALIASES: Record<string, string> = {
   '/metric_explain': 'metric_explain',
   '/compare': 'compare',
   '/diagnose': 'diagnose',
+  '/segment': 'segment',
 };
 
 // Keywords per skill. Multi-word phrases score higher due to length weighting.
@@ -47,6 +48,18 @@ const KEYWORDS: Record<string, string[]> = {
     'fell', 'rose', 'surge',
     'tại sao', 'giảm', 'tăng đột',
     'nguyên nhân', 'vì sao', 'vì lý do gì', 'sụt giảm', 'tăng vọt',
+  ],
+  segment: [
+    // EN — explicit segment / audience / cohort creation intent
+    'create segment', 'save segment', 'build segment',
+    'create audience', 'build audience', 'save audience',
+    'create cohort', 'build cohort', 'save cohort',
+    'save as segment', 'save that as segment', 'save this as segment',
+    'turn into segment', 'make a segment',
+    // VN — tạo / lưu + phân khúc / nhóm / đối tượng
+    'tạo phân khúc', 'lưu phân khúc',
+    'tạo nhóm', 'lưu nhóm',
+    'tạo đối tượng', 'lưu đối tượng',
   ],
 };
 

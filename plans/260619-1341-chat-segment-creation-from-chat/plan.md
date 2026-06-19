@@ -28,11 +28,17 @@ measure threshold (`revenue > 1000`), top-N (`top 100 spenders`), percentile (`t
 ## Phases
 | # | Phase | Status | Depends |
 |---|-------|--------|---------|
-| 1 | [Server: rolling cutoff two-pass + preview endpoint](phase-01-server-rolling-cutoff-two-pass.md) | pending | — |
-| 2 | [Measure→dimension catalog (window-annotated)](phase-02-measure-dimension-catalog.md) | pending | — |
-| 3 | [chat-service: translator + guardrails + propose_segment tool](phase-03-chat-service-propose-segment.md) | pending | 1, 2 |
-| 4 | [Frontend: segment proposal confirm card](phase-04-frontend-segment-proposal-card.md) | pending | 3 |
-| 5 | [Tests, docs, lessons-learned](phase-05-tests-docs-lessons.md) | pending | 1–4 |
+| 1 | [Server: rolling cutoff two-pass + preview endpoint](phase-01-server-rolling-cutoff-two-pass.md) | done (incl. jus identity-merge wrapper) | — |
+| 2 | [Measure→dimension catalog (window-annotated)](phase-02-measure-dimension-catalog.md) | done (cfm_vn + jus_vn blessed) | — |
+| 3 | [chat-service: translator + guardrails + propose_segment tool](phase-03-chat-service-propose-segment.md) | done (threshold / percentile / top-N / explored-query kinds) | 1, 2 |
+| 4 | [Frontend: segment proposal confirm card](phase-04-frontend-segment-proposal-card.md) | done | 3 |
+| 5 | [Tests, docs, lessons-learned](phase-05-tests-docs-lessons.md) | partial — unit tests done per phase; docs + lessons + e2e pending | 1–4 |
+
+<!-- Build status (uncommitted): P1–P4 implemented + reviewed (ship verdict). Review SHOULD-FIX
+S1 (create-path allowlist) + S2 (wire query→predicate translator) both applied. Stopped before
+commit per request. Pending: P5 docs/lessons/memory + e2e; a live Trino run to confirm the jus
+merge hits the measured ~10,065 cohort; rebuild better-sqlite3 to run server DB-route tests. -->
+
 
 ## Key references
 - Research: `plans/reports/` (this session) — percentile timing + correctness finding.

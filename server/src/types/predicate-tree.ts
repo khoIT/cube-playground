@@ -53,10 +53,35 @@ export interface PopulationRef {
   table?: string;
   /** Column the percentile is taken over; defaults to the leaf member. */
   column?: string;
-  // NOTE: no free-text SQL gate here on purpose. A restricted population (e.g.
-  // "top quartile *among payers*") must be expressed as a structured sub-predicate
-  // compiled through predicateToSql, never a raw fragment — otherwise the cutoff
-  // query is an injection surface for the user-controlled predicate tree.
+  /**
+   * Restricts the reference population the cutoff is computed over (e.g. "top
+   * quartile *among payers*" → `{ recharge_col > 0 }`). REQUIRED for spend-like
+   * distributions where free users dominate: an unscoped percentile of recharge
+   * is 0 (the median row spent nothing), so the cutoff selects everyone. This is
+   * a structured sub-predicate compiled through predicateToSql into the cutoff
+   * query's WHERE — never a raw fragment, so the user-controlled predicate tree
+   * is not an injection surface (the same posture as the rest of this module).
+   */
+  filter?: PredicateNode;
+  /**
+   * For sources whose physical table carries MORE THAN ONE row per real user
+   * (e.g. jus's dual identity-namespace mart), the percentile must be taken over
+   * the merged per-user grain — matching the cube's own `split_part(id,'@',1) …
+   * GROUP BY` collapse — or it double-counts and the cutoff drifts off-cohort.
+   * The transform is a server-owned enum (NOT raw SQL), so this stays
+   * injection-free. Omit for clean one-row-per-user tables (the common case).
+   */
+  identityMerge?: IdentityMerge;
+}
+
+/** Server-owned per-user collapse for multi-row identity marts. */
+export interface IdentityMerge {
+  /** Raw identity column to normalize + group by (validated identifier). */
+  idColumn: string;
+  /** Known normalization applied before grouping. `split_part_at` → split_part(id,'@',1). */
+  transform: 'split_part_at';
+  /** Per-user aggregate for the value/filter columns. Default 'max' (mirrors the cube). */
+  agg?: 'max' | 'sum';
 }
 
 /** Value carried by `percentileGte` / `percentileLte`. */

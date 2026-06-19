@@ -38,6 +38,8 @@ allowed_tools:
   - emit_query_artifact
   - emit_chart
   - get_business_metric_history
+  - get_segmentable_measures
+  - propose_segment
 enable_web_search: true
 enable_research_mode: false
 ---

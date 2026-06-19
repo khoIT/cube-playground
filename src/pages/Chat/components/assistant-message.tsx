@@ -33,6 +33,8 @@ import { DisambigChips } from './disambig-chips';
 import type { DisambigOptionsPayload } from '../../../stores/chat-stream-store-actions';
 import { suggestFollowups, type FollowupChip } from '../services/followup-suggester';
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
+import type { SegmentProposalPayload } from '../../../api/segment-proposal';
+import { SegmentProposalCard } from './segment-proposal-card';
 
 // Short local-time formatter for the assistant header timestamp.
 // Mirrors user-message styling (HH:MM 24h, no seconds).
@@ -416,13 +418,19 @@ export interface ChartSection {
   artifact: ChartArtifact;
 }
 
+export interface SegmentProposalSection {
+  type: 'segment_proposal';
+  proposal: SegmentProposalPayload;
+}
+
 export type AssistantSection =
   | TextSection
   | ReasoningSection
   | ToolCallSection
   | ToolResultSection
   | QueryArtifactSection
-  | ChartSection;
+  | ChartSection
+  | SegmentProposalSection;
 
 // ---------------------------------------------------------------------------
 // Component
@@ -780,6 +788,9 @@ function SectionRenderer({ section }: { section: AssistantSection }) {
 
     case 'chart':
       return <AssistantChartSection artifact={section.artifact} />;
+
+    case 'segment_proposal':
+      return <SegmentProposalCard proposal={section.proposal} />;
 
     default:
       return null;

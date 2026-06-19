@@ -422,6 +422,13 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       collectedCharts.push(chart);
       emit({ type: 'chart', data: chart });
     });
+    // Segment proposals are emitted by propose_segment and forwarded directly
+    // to the client. The tool never writes — the FE writes on confirm. No
+    // server-side collection needed; the event is live-only (not persisted on
+    // the turn row) because the segment doesn't exist yet.
+    sseEmitter.on('segment_proposal', (data: Extract<SseEvent, { type: 'segment_proposal' }>['data']) => {
+      emit({ type: 'segment_proposal', data });
+    });
     let clarifyEmitted = false;
     // Last disambig_options frame the turn emitted, kept so it can be persisted
     // on the assistant row and re-rendered as choice chips when the session

@@ -168,7 +168,7 @@ export function ChatThreadPage() {
 
   const {
     status, sessionId: streamSessionId, turnId: streamTurnId,
-    currentText, currentReasoning, currentArtifacts, currentCharts, currentToolCalls,
+    currentText, currentReasoning, currentArtifacts, currentCharts, currentProposals, currentToolCalls,
     cacheHit: streamCacheHit, cacheFreshness: streamCacheFreshness,
     disambigOptions: streamDisambigOptions,
     lastCompactWarning, retryAfterMs,
@@ -223,6 +223,8 @@ export function ChatThreadPage() {
       if (embeddedChartIds.has(ch.id)) continue;
       sections.push({ type: 'chart', artifact: ch });
     }
+    // Segment proposals rendered after charts — they are action cards, not data.
+    for (const p of currentProposals) sections.push({ type: 'segment_proposal', proposal: p });
     return sections;
   };
 

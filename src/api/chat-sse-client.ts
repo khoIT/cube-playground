@@ -234,6 +234,17 @@ export interface SseFocusReset extends SseEventBase {
   data: { sessionId: string };
 }
 
+/**
+ * Emitted when the agent decides the user's query maps to a segment that can
+ * be materialized. The FE renders a confirm card; on confirm it POSTs to
+ * /api/segments (chat proposes, FE writes — the only write surface).
+ * Shape mirrors chat-service SegmentProposalEvent.
+ */
+export interface SseSegmentProposal extends SseEventBase {
+  type: 'segment_proposal';
+  data: import('./segment-proposal').SegmentProposalPayload;
+}
+
 export type SseEvent =
   | SseSessionCreated
   | SseLoading
@@ -252,7 +263,8 @@ export type SseEvent =
   | SseTurnStarted
   | SseTurnAborted
   | SseFocusUpdated
-  | SseFocusReset;
+  | SseFocusReset
+  | SseSegmentProposal;
 
 // ---------------------------------------------------------------------------
 // Owner ID helper — re-exported for tests; sourced from shared module so

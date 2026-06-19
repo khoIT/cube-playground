@@ -16,6 +16,18 @@ import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segm
 import { buildSegmentMembershipSql } from '../lakehouse/segment-snapshot-writer.js';
 import { schemaForGame } from '../services/trino-profiler-config.js';
 import { predicateToSql } from '../services/predicate-to-sql.js';
+import {
+  resolveSegmentCutoffs,
+  resolveCutoffPreview,
+  collectPercentileLeaves,
+  PopulationScopeRequiredError,
+  CutoffConnectorUnavailableError,
+} from '../services/segment-cutoff-resolver.js';
+import {
+  getSegmentableMeasures,
+  percentileOverFor,
+  isCatalogTarget,
+} from '../services/segmentable-measures-catalog.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
 import type { MemberProfiles } from '../types/segment.js';
 import { ensureManualMemberProfiles } from '../services/member-profile-on-demand.js';
@@ -435,11 +447,39 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     let cubeQueryJson: string | null = null;
     if (data.predicate_tree) {
       try {
-        const filters = treeToCubeFilters(data.predicate_tree as PredicateNode);
+        const tree = data.predicate_tree as PredicateNode;
+        // Allowlist guard: a percentile cutoff may only target a catalogued
+        // (table, column) for this game — the same gate as /resolve-cutoff,
+        // enforced here so a hand-crafted body can't point approx_percentile at
+        // an arbitrary table or bypass the catalog's payer scoping.
+        const game = data.game_id ?? loadGamesConfig().defaultGameId;
+        for (const leaf of collectPercentileLeaves(tree)) {
+          const over = (leaf.values[0] as { over?: { table?: string; column?: string } } | undefined)?.over;
+          if (!over?.table || !over?.column || !isCatalogTarget(game, over.table, over.column)) {
+            return reply.status(400).send({
+              error: {
+                code: 'NOT_SEGMENTABLE',
+                message: `percentile target ${over?.table ?? '?'}.${over?.column ?? '?'} is not a segmentable measure for ${game}`,
+              },
+            });
+          }
+        }
+        // Resolve any percentile leaves to absolute cutoffs first (no-op + no
+        // Trino call when the tree has none). Cube REST can't subquery, so the
+        // cutoff must be a scalar before translation. Refresh re-resolves every
+        // run (rolling), so this stored query is just the initial materialization.
+        const resolvedPercentiles = await resolveSegmentCutoffs(tree);
+        const filters = treeToCubeFilters(tree, { resolvedPercentiles });
         cubeQueryJson = JSON.stringify(withCubeSegments({ filters }, data.cube_segments));
       } catch (err) {
+        const code =
+          err instanceof PopulationScopeRequiredError
+            ? 'POPULATION_SCOPE_REQUIRED'
+            : err instanceof CutoffConnectorUnavailableError
+              ? 'CUTOFF_CONNECTOR_UNAVAILABLE'
+              : 'TRANSLATOR_ERROR';
         return reply.status(400).send({
-          error: { code: 'TRANSLATOR_ERROR', message: (err as Error).message },
+          error: { code, message: (err as Error).message },
         });
       }
     }
@@ -500,6 +540,85 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
     emitSegmentOp(req, 'create', id);
     return reply.status(201).send(hydrateSegment(row, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }));
+  });
+
+  // GET /api/segments/segmentable-measures?game=<id>
+  // The catalog of measure concepts (spend / spend_usd / active days) a game can
+  // segment on by threshold / top-N / percentile, each with a ready-to-use `over`
+  // spec (physical table+column, payer population, identity merge). The chat
+  // propose flow reads this so it never fabricates physical member names.
+  app.get('/api/segments/segmentable-measures', async (req) => {
+    const game = (req.query as { game?: string }).game ?? '';
+    const measures = getSegmentableMeasures(game).map((m) => ({
+      concept: m.concept,
+      label: m.label,
+      dimension: m.dimension,
+      window: m.window,
+      currency: m.currency,
+      over: percentileOverFor(m),
+    }));
+    return { measures };
+  });
+
+  // POST /api/segments/resolve-cutoff
+  // Propose-time preview: resolve a percentile/top-N cutoff over a scoped
+  // population and estimate the cohort it selects, WITHOUT creating a segment.
+  // The chat propose card calls this to show the cutoff + est. size before the
+  // user confirms. Identifiers (table/column) and the population filter are
+  // validated/escaped downstream (escapeIdent + predicateToSql), so no raw SQL
+  // reaches Trino; callers should pass catalog-validated members.
+  const resolveCutoffSchema = z.object({
+    game_id: z.string().min(1),
+    p: z.number().gt(0).lt(100),
+    gte: z.boolean().default(true),
+    over: z.object({
+      table: z.string().min(1),
+      column: z.string().min(1),
+      // Structured population scope (e.g. payers `recharge > 0`). Optional here,
+      // but spend-like distributions degenerate to a 0 cutoff without it.
+      filter: z.unknown().optional(),
+      // Per-user collapse for multi-row identity marts (jus). Server-owned enum.
+      identityMerge: z
+        .object({
+          idColumn: z.string().min(1),
+          transform: z.literal('split_part_at'),
+          agg: z.enum(['max', 'sum']).optional(),
+        })
+        .optional(),
+    }),
+  });
+
+  app.post('/api/segments/resolve-cutoff', async (req, reply) => {
+    const parsed = resolveCutoffSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const { game_id, p, gte, over } = parsed.data;
+    // Allowlist guard: the percentile may only target a catalogued (table,
+    // column) for this game — defense-in-depth over the identifier validation.
+    if (!isCatalogTarget(game_id, over.table, over.column)) {
+      return reply.status(400).send({
+        error: {
+          code: 'NOT_SEGMENTABLE',
+          message: `${over.table}.${over.column} is not a segmentable measure for ${game_id}`,
+        },
+      });
+    }
+    try {
+      const preview = await resolveCutoffPreview({
+        table: over.table,
+        column: over.column,
+        p,
+        gte,
+        filter: over.filter as PredicateNode | undefined,
+        identityMerge: over.identityMerge,
+      });
+      return preview;
+    } catch (err) {
+      const code =
+        err instanceof CutoffConnectorUnavailableError ? 'CUTOFF_CONNECTOR_UNAVAILABLE' : 'CUTOFF_FAILED';
+      return reply.status(400).send({ error: { code, message: (err as Error).message } });
+    }
   });
 
   // GET /api/segments/:id — includes prerendered card_cache for one-shot hydration

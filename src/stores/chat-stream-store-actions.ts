@@ -12,6 +12,7 @@ import type {
   ChartArtifact,
   SseDisambigOptions,
 } from '../api/chat-sse-client';
+import type { SegmentProposalPayload } from '../api/segment-proposal';
 import type { SessionFocusClient } from '../api/chat-session-focus-client';
 
 export type DisambigOptionsPayload = SseDisambigOptions['data'];
@@ -58,6 +59,8 @@ export interface StreamEntry {
   currentReasoning: string;
   currentArtifacts: QueryArtifact[];
   currentCharts: ChartArtifact[];
+  /** Segment proposals emitted during this turn — rendered as confirm cards. */
+  currentProposals: SegmentProposalPayload[];
   currentToolCalls: ToolCallState[];
   error: string | null;
   /** Classifier headline + actionable hint, set alongside `error` (server-classified). */
@@ -97,6 +100,7 @@ export function makeIdleEntry(sessionId: string | null): StreamEntry {
     currentReasoning: '',
     currentArtifacts: [],
     currentCharts: [],
+    currentProposals: [],
     currentToolCalls: [],
     error: null,
     errorTitle: null,
@@ -200,6 +204,12 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
     case 'chart':
       return { ...entry, currentCharts: [...entry.currentCharts, event.data] };
 
+    case 'segment_proposal':
+      return {
+        ...entry,
+        currentProposals: [...entry.currentProposals, event.data],
+      };
+
     case 'disambig_options':
       // Latest chip set replaces any prior one (LLM may re-disambiguate on
       // narrowed slots). Cleared in clearStreamBuffers on the next turn.
@@ -275,6 +285,7 @@ export function clearStreamBuffers(entry: StreamEntry): StreamEntry {
     currentReasoning: '',
     currentArtifacts: [],
     currentCharts: [],
+    currentProposals: [],
     currentToolCalls: [],
     cacheHit: false,
     cacheFreshness: null,

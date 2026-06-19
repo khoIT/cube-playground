@@ -17,7 +17,7 @@
  * supplies the population explicitly via PopulationRef.
  */
 
-import type { PercentileValue, PopulationRef } from '../types/predicate-tree.js';
+import type { PercentileValue, PopulationRef, IdentityMerge } from '../types/predicate-tree.js';
 
 /** A resolved percentile query ready to run against a data source. */
 export interface PercentileQuery {
@@ -27,6 +27,21 @@ export interface PercentileQuery {
   column: string;
   /** Percentile in (0,100). */
   p: number;
+  /**
+   * Optional WHERE clause restricting the reference population (e.g. payers
+   * only). MUST be a clause already compiled by predicateToSql (validated
+   * identifiers + escaped literals) — never raw end-user text. Callers that hold
+   * the structured population filter compile it themselves and pass the result
+   * here, keeping this module free of a predicate→SQL dependency (no cycle).
+   */
+  where?: string;
+  /**
+   * Collapse a multi-row-per-user table to one row per user before taking the
+   * percentile. `columns` is every column the percentile/WHERE references (each
+   * projected as `<agg>(col) AS col` so the WHERE still binds). Omit for clean
+   * one-row tables.
+   */
+  merge?: IdentityMerge & { columns: string[] };
 }
 
 /** Runs a percentile query and returns the numeric cutoff. */
@@ -53,7 +68,38 @@ export function buildPercentileSql(q: PercentileQuery): string {
   if (!Number.isFinite(q.p) || q.p < 0 || q.p > 100) {
     throw new Error(`percentile-cutoff-resolver: p must be in [0,100], got ${q.p}`);
   }
-  return `SELECT approx_percentile(${column}, ${q.p / 100}) AS cutoff FROM ${table}`;
+  // `where` (when present) is a pre-compiled predicateToSql clause — its
+  // identifiers are validated and literals escaped at that boundary, so it is
+  // interpolated as a trusted fragment here (same trust model as the raw-SQL
+  // predicate path that produced it). Scopes the cutoff to e.g. payers only.
+  const whereClause = q.where ? ` WHERE ${q.where}` : '';
+  // For multi-row-per-user marts, collapse to one row per user first so the
+  // percentile reflects per-user values (not raw rows). The WHERE applies to the
+  // merged grain — its columns are projected by `merge.columns`.
+  const from = buildMergedFrom(table, q.merge);
+  return `SELECT approx_percentile(${column}, ${q.p / 100}) AS cutoff FROM ${from}${whereClause}`;
+}
+
+/**
+ * The FROM token for a percentile/count query: the bare table for a clean
+ * one-row-per-user source, or `(SELECT split_part(id,'@',1) AS id, max(col) AS
+ * col, … FROM t GROUP BY 1) m` when the source must be collapsed per user.
+ * `table` must already be a validated identifier (callers pass assertIdent output).
+ */
+export function buildMergedFrom(table: string, merge?: PercentileQuery['merge']): string {
+  if (!merge) return table;
+  const idCol = assertIdent(merge.idColumn, 'merge.idColumn');
+  if (merge.transform !== 'split_part_at') {
+    throw new Error(`percentile-cutoff-resolver: unknown identityMerge transform "${merge.transform}"`);
+  }
+  const agg = merge.agg === 'sum' ? 'sum' : 'max';
+  const idExpr = `split_part(${idCol}, '@', 1)`;
+  // De-dup + drop the id col from the value projection; each value column is
+  // projected as agg(col) AS col so both the outer percentile and the WHERE bind
+  // to the merged value by name.
+  const cols = [...new Set(merge.columns)].filter((c) => c !== idCol);
+  const projected = cols.map((c) => `${agg}(${assertIdent(c, 'merge.column')}) AS ${assertIdent(c, 'merge.column')}`);
+  return `(SELECT ${idExpr} AS ${idCol}, ${projected.join(', ')} FROM ${table} GROUP BY 1) m`;
 }
 
 /**
@@ -68,6 +114,7 @@ export async function resolvePercentileCutoff(
   member: string,
   value: PercentileValue,
   exec: PercentileExecutor,
+  opts: { where?: string; merge?: PercentileQuery['merge'] } = {},
 ): Promise<number> {
   const over: PopulationRef = value.over ?? {};
   if (!over.table) {
@@ -79,6 +126,8 @@ export async function resolvePercentileCutoff(
     table: over.table,
     column: over.column ?? member,
     p: value.p,
+    ...(opts.where ? { where: opts.where } : {}),
+    ...(opts.merge ? { merge: opts.merge } : {}),
   };
   const cutoff = await exec(q);
   if (!Number.isFinite(cutoff)) {
