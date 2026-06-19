@@ -16,7 +16,7 @@
 
 import type { WorkspaceCtx } from '../../services/cube-client.js';
 import type { LensResult, ScopeRef } from '../diagnosis-types.js';
-import { readWithProvenance, extractScalar, type CubeReaderFn } from '../cube-read.js';
+import { readWithProvenance, extractScalar, type CubeReaderFn, type CubeRow } from '../cube-read.js';
 import { scopeToFilters, gameIdFromScope } from '../scope-helpers.js';
 
 /** Factor → measure for peer comparison (segment value vs same-tier cohort). */
@@ -24,6 +24,15 @@ const FACTOR_MEASURES: Record<string, string> = {
   payers: 'mf_users.paying_users',
   arppu: 'mf_users.arppu_vnd',
   lifespan: 'mf_users.avg_total_active_days',
+};
+
+/**
+ * Denominator for extensive count factors so the peer comparison is a rate, not
+ * a slice-size artefact (mirrors lens-01). Without it, the segment's payer count
+ * vs the whole tier's payer count always reads as a smaller slice → "weak".
+ */
+const FACTOR_DENOMINATOR: Record<string, string> = {
+  payers: 'mf_users.user_count',
 };
 
 /** Payer tiers available in mf_users.payer_tier dimension. */
@@ -55,16 +64,17 @@ export async function runLens03Peer(
 
   const gameId = gameIdFromScope(input.scope);
   const scopeFilters = scopeToFilters(input.scope);
+  const denominator = FACTOR_DENOMINATOR[input.factor];
+  const measures = denominator ? [measure, denominator] : [measure];
 
   try {
-    // Segment value.
+    // Segment value (+ denominator for count factors).
     const segResult = await readWithProvenance(
-      { measures: [measure], filters: scopeFilters },
+      { measures, filters: scopeFilters },
       ctx,
       `mf_users / ${gameId} — segment`,
       reader,
     );
-    const segValue = extractScalar(segResult.rows, measure);
 
     // Peer (same-tier) value — population filtered to same payer_tier.
     const peerFilter = {
@@ -73,12 +83,16 @@ export async function runLens03Peer(
       values: [input.dominantTier],
     };
     const peerResult = await readWithProvenance(
-      { measures: [measure], filters: [peerFilter] },
+      { measures, filters: [peerFilter] },
       ctx,
       `mf_users / ${gameId} — ${input.dominantTier} tier peers`,
       reader,
     );
-    const peerValue = extractScalar(peerResult.rows, measure);
+
+    // Compare conversion RATE for count factors so a smaller cohort isn't read
+    // as a weaker one; intensive factors compare their aggregate directly.
+    const segValue = ratioValue(segResult.rows, measure, denominator);
+    const peerValue = ratioValue(peerResult.rows, measure, denominator);
 
     if (segValue === null || peerValue === null || peerValue === 0) {
       return inconclusiveResult(input.factor, 'Insufficient data for peer comparison');
@@ -109,6 +123,19 @@ export async function runLens03Peer(
   } catch (err) {
     return inconclusiveResult(input.factor, (err as Error).message);
   }
+}
+
+/**
+ * Extract `measure`, dividing by `denominator` when supplied (count → rate).
+ * Returns null on a missing numerator or missing/zero denominator.
+ */
+function ratioValue(rows: CubeRow[], measure: string, denominator?: string): number | null {
+  const num = extractScalar(rows, measure);
+  if (num === null) return null;
+  if (!denominator) return num;
+  const den = extractScalar(rows, denominator);
+  if (den === null || den === 0) return null;
+  return num / den;
 }
 
 function inconclusiveResult(factor: string, reason: string): LensResult {

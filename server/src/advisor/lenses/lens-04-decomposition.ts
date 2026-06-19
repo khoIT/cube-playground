@@ -29,9 +29,16 @@ import { buildRevenueGoalTree, pickBottleneckFactor, factorGap } from '../goal-t
 import { readWithProvenance, extractScalar, type CubeReaderFn } from '../cube-read.js';
 import { scopeToFilters, gameIdFromScope } from '../scope-helpers.js';
 
-/** Measures fetched in one query for all three revenue factors. */
+/**
+ * Measures fetched in one query for all three revenue factors, plus user_count
+ * as the denominator that turns the payer COUNT into a payer conversion RATE
+ * (see goal-tree.buildRevenueGoalTree). Without the denominator a sub-segment's
+ * payer count is always smaller than the population's, flagging every cohort
+ * weak by construction.
+ */
 const REVENUE_MEASURES = [
   'mf_users.paying_users',
+  'mf_users.user_count',
   'mf_users.arppu_vnd',
   'mf_users.avg_total_active_days',
 ] as const;
@@ -76,12 +83,14 @@ export async function runLens04Decomposition(
 
     const observed: RevenueFactorValues = {
       payers: extractScalar(segResult.rows, 'mf_users.paying_users'),
+      users: extractScalar(segResult.rows, 'mf_users.user_count'),
       arppu: extractScalar(segResult.rows, 'mf_users.arppu_vnd'),
       lifespan: extractScalar(segResult.rows, 'mf_users.avg_total_active_days'),
     };
 
     const baseline: BaselineValues = {
       payers: extractScalar(popResult.rows, 'mf_users.paying_users'),
+      users: extractScalar(popResult.rows, 'mf_users.user_count'),
       arppu: extractScalar(popResult.rows, 'mf_users.arppu_vnd'),
       lifespan: extractScalar(popResult.rows, 'mf_users.avg_total_active_days'),
     };

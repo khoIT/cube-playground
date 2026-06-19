@@ -25,6 +25,13 @@ const WEAK_THRESHOLD_RATIO = 0.8; // below 80% of baseline = weak
 export interface RevenueFactorValues {
   /** Count of paying users in this scope. */
   payers: number | null;
+  /**
+   * Total user count in this scope. When present alongside `payers`, the payers
+   * factor is compared as a conversion RATE (payers ÷ users) rather than a raw
+   * count — see buildRevenueGoalTree. Optional so callers without a denominator
+   * (or older inputs) fall back to the count comparison.
+   */
+  users?: number | null;
   /** Average Revenue Per Paying User (lifetime, VND). */
   arppu: number | null;
   /**
@@ -36,6 +43,7 @@ export interface RevenueFactorValues {
 
 export interface BaselineValues {
   payers: number | null;
+  users?: number | null;
   arppu: number | null;
   lifespan: number | null;
 }
@@ -43,20 +51,25 @@ export interface BaselineValues {
 /**
  * Build the revenue GoalTree from observed values + baseline.
  * Revenue = payers × ARPPU × lifespan; factor is "weak" when below 80% of baseline.
+ *
+ * The payers factor is intensive-vs-extensive sensitive: a raw payer COUNT
+ * always shrinks for a sub-segment (a slice is smaller than the whole), so
+ * comparing the segment count to the population count flags every cohort "weak"
+ * by construction. When a `users` denominator is supplied, payers is therefore
+ * compared as a conversion RATE (payers ÷ users) — an intensive quantity that
+ * is genuinely comparable across scopes (and is the real lever: convert more of
+ * this cohort). ARPPU and lifespan are already per-capita averages, so they
+ * compare directly. The rate path activates only when both observed and
+ * baseline denominators are positive; otherwise it degrades to the count.
  */
 export function buildRevenueGoalTree(
   observed: RevenueFactorValues,
   baseline: BaselineValues,
 ): GoalTree {
+  const payerFactor = buildPayerFactor(observed, baseline);
+
   const factors: Factor[] = [
-    {
-      key: 'payers',
-      label: 'Payer Count',
-      value: observed.payers,
-      baseline: baseline.payers,
-      weak: isWeak(observed.payers, baseline.payers),
-      unit: 'users',
-    },
+    payerFactor,
     {
       key: 'arppu',
       label: 'ARPPU (lifetime)',
@@ -188,6 +201,47 @@ export function factorGap(f: Factor): { gapPct: number; gapValue: number } {
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Build the payers factor. When both observed and baseline carry a positive
+ * `users` denominator, payers is compared as a conversion RATE (payers ÷ users)
+ * — intensive and comparable across scopes — so a sub-segment is no longer
+ * flagged weak merely for being a smaller slice. Without a usable denominator
+ * it degrades to the raw count comparison (the prior behaviour).
+ */
+function buildPayerFactor(observed: RevenueFactorValues, baseline: BaselineValues): Factor {
+  const obsUsers = observed.users ?? null;
+  const basUsers = baseline.users ?? null;
+  const canRate =
+    observed.payers !== null &&
+    baseline.payers !== null &&
+    obsUsers !== null &&
+    basUsers !== null &&
+    obsUsers > 0 &&
+    basUsers > 0;
+
+  if (canRate) {
+    const obsRate = observed.payers! / obsUsers!;
+    const basRate = baseline.payers! / basUsers!;
+    return {
+      key: 'payers',
+      label: 'Payer Conversion',
+      value: obsRate,
+      baseline: basRate,
+      weak: isWeak(obsRate, basRate),
+      unit: 'rate',
+    };
+  }
+
+  return {
+    key: 'payers',
+    label: 'Payer Count',
+    value: observed.payers,
+    baseline: baseline.payers,
+    weak: isWeak(observed.payers, baseline.payers),
+    unit: 'users',
+  };
+}
 
 /** Returns true when observed is below WEAK_THRESHOLD_RATIO × baseline. */
 function isWeak(observed: number | null, baseline: number | null): boolean {

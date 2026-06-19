@@ -227,11 +227,15 @@ function extractDecompValues(decomp: DecompositionLensResult) {
   return {
     observed: {
       payers: obs['payers'] ?? null,
+      // Denominator for the payer conversion rate — must be threaded through or
+      // the rebuilt tree falls back to the count comparison (every slice "weak").
+      users: obs['users'] ?? null,
       arppu: obs['arppu'] ?? null,
       lifespan: obs['lifespan'] ?? null,
     },
     baseline: {
       payers: bas['payers'] ?? null,
+      users: bas['users'] ?? null,
       arppu: bas['arppu'] ?? null,
       lifespan: bas['lifespan'] ?? null,
     },

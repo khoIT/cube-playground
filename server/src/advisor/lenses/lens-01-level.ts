@@ -18,7 +18,7 @@
 
 import type { WorkspaceCtx } from '../../services/cube-client.js';
 import type { LensResult, ScopeRef } from '../diagnosis-types.js';
-import { readWithProvenance, extractScalar, type CubeReaderFn } from '../cube-read.js';
+import { readWithProvenance, extractScalar, type CubeReaderFn, type CubeRow } from '../cube-read.js';
 import { scopeToFilters, gameIdFromScope } from '../scope-helpers.js';
 
 /** Ratio-to-population threshold (%) — segment below 25% of the population = weak. */
@@ -29,6 +29,17 @@ const FACTOR_MEASURES: Record<string, string> = {
   payers: 'mf_users.paying_users',
   arppu: 'mf_users.arppu_vnd',
   lifespan: 'mf_users.avg_total_active_days',
+};
+
+/**
+ * Factors whose measure is an extensive COUNT need an intensive denominator so
+ * the segment-vs-population comparison is a rate, not a slice-size artefact. A
+ * raw payer count is always smaller for a sub-segment, so without this it reads
+ * "weak" by construction. arppu/lifespan are already per-capita averages — no
+ * denominator needed.
+ */
+const FACTOR_DENOMINATOR: Record<string, string> = {
+  payers: 'mf_users.user_count',
 };
 
 interface LevelLensInput {
@@ -53,31 +64,38 @@ export async function runLens01Level(
 
   const gameId = gameIdFromScope(input.scope);
   const scopeFilters = scopeToFilters(input.scope);
+  const denominator = FACTOR_DENOMINATOR[input.factor];
+  const measures = denominator ? [measure, denominator] : [measure];
 
   try {
-    // Step 1: measure the segment's aggregate value.
+    // Step 1: measure the segment's aggregate value (+ denominator when the
+    // factor is an extensive count, so we can derive a rate).
     const segResult = await readWithProvenance(
       {
-        measures: [measure],
+        measures,
         filters: scopeFilters,
       },
       ctx,
       `mf_users / ${gameId} — segment level`,
       reader,
     );
-    const segValue = extractScalar(segResult.rows, measure);
 
     // Step 2: measure the game-wide value (population baseline).
     const popResult = await readWithProvenance(
       {
-        measures: [measure],
+        measures,
         // No scope filter = full game population
       },
       ctx,
       `mf_users / ${gameId} — population`,
       reader,
     );
-    const popValue = extractScalar(popResult.rows, measure);
+
+    // For count factors, compare conversion RATE (value ÷ denominator) so a
+    // smaller cohort isn't mistaken for a weaker one; intensive factors compare
+    // their aggregate directly.
+    const segValue = ratioValue(segResult.rows, measure, denominator);
+    const popValue = ratioValue(popResult.rows, measure, denominator);
 
     if (segValue === null || popValue === null || popValue === 0) {
       return inconclusiveResult(input.factor, 'Could not read segment or population value');
@@ -107,6 +125,21 @@ export async function runLens01Level(
   } catch (err) {
     return inconclusiveResult(input.factor, (err as Error).message);
   }
+}
+
+/**
+ * Extract `measure` from rows, dividing by `denominator` when one is supplied
+ * (count → conversion rate). Returns null when the numerator is missing or the
+ * denominator is missing/zero, so the caller degrades to inconclusive rather
+ * than emitting a divide-by-zero artefact.
+ */
+function ratioValue(rows: CubeRow[], measure: string, denominator?: string): number | null {
+  const num = extractScalar(rows, measure);
+  if (num === null) return null;
+  if (!denominator) return num;
+  const den = extractScalar(rows, denominator);
+  if (den === null || den === 0) return null;
+  return num / den;
 }
 
 function inconclusiveResult(factor: string, reason: string): LensResult {
