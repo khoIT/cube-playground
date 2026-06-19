@@ -1,6 +1,13 @@
 # Phase 01 — cfm_vn spike: build the fix, measure build + serve
 
-**Priority:** P0. **Status:** blocked by phase-00. **Scope:** cfm_vn only (prove before spread).
+**Priority:** P0. **Status:** DONE (19 Jun). **Scope:** cfm_vn only (prove before spread).
+
+> **Outcome:** Extended `user_composition_batch` with `churn_risk` + `engagement_segment`
+> dims and `segments: [whales, at_risk_paying, paying_lifetime]`. Verified miss→hit by
+> compiled `/sql`; serve 10–13s → 0.01s; approx vs raw exact within 0.5–1.0%. No regression.
+> **Direction A (originalSql) DROPPED as YAGNI** — member-detail measured 14s (not 8min) and
+> is cached at refresh time, so the cost is ~0/request (user-confirmed skip). The original
+> premise that member queries scan `etl_ingame_moneyflow` was disproven in phase-00.
 **Goal:** implement the phase-00-recommended fix on cfm_vn, prove the target query classes
 flip to `external:true`, and bound the build cost.
 

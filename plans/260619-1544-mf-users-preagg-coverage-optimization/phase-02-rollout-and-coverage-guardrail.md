@@ -1,8 +1,18 @@
 # Phase 02 — Roll out to 8 games + coverage guardrail
 
-**Priority:** P1. **Status:** blocked by phase-01 (cfm_vn proven). **Goal:** replicate the
+**Priority:** P1. **Status:** DONE (19 Jun). **Goal:** replicate the
 proven fix across all games carrying `mf_users`, and add a guardrail so future rollup-miss
 regressions are caught.
+
+> **Outcome:** 6 games (ballistar, cros, muaw, ptg, pubg, tf) MIGRATED from partitioned+lambda
+> to the proven non-partitioned shape + LTV measures + per-game churn_risk/engagement dims +
+> segments; jus extended; cfm from phase-01. All 8: routing HIT (26/26) + serving sub-second,
+> verified live. Builds sealed via one all-games sweep; worker restored to default. Guardrail
+> `cube-dev/scripts/check-mf-users-rollup-coverage.py` added — PASS + demonstrably catches a
+> break. Both stacks share ONE model dir (no separate prod registry) → prod picks up on
+> deploy-restart, which MUST be followed by a build sweep (else serve-error window). Per-game:
+> ptg has 0 payers (all non_payer) — correct, not a bug. ballistar/muaw/pubg cohort rollup
+> carries payer_tier so payer_tier×ltv routes there (also correct).
 
 ## Pre-flight (informational, NOT a stop — user locked "roll out all")
 

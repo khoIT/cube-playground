@@ -429,6 +429,17 @@ cubes:
           - payer_tier
           - lifecycle_stage
           - is_paying_user
+          # Recency bucket so churn_risk group-by + segment-scoped cards route to
+          # the rollup. CURRENT_DATE-relative case dim (like lifecycle_stage),
+          # correct as of the 6h build.
+          - churn_risk
+        # Cohort cards are commonly scoped by a cube segment (whales / at-risk /
+        # paying). Listing them lets scoped queries match the rollup; each maps to
+        # a dim already present so the merge stays additive.
+        segments:
+          - whales
+          - at_risk_paying
+          - paying_lifetime
         # No time partitioning: composition is a user-attribute snapshot, not a
         # time series. One partition covers every user (incl. NULL install_date)
         # and sidesteps the partial-seal failure of partitioned rollups. All

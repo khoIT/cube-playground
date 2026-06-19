@@ -433,6 +433,10 @@ cubes:
         measures:
           - user_count_approx
           - paying_users_approx
+          # LTV sums (additive) so payer_tier / lifecycle value cards route here
+          # instead of a raw full-table scan.
+          - ltv_total_vnd
+          - ltv_30d_total_vnd
         dimensions:
           - country
           - media_source
@@ -440,19 +444,20 @@ cubes:
           - payer_tier
           - lifecycle_stage
           - is_paying_user
-        time_dimension: install_date
-        granularity: day
-        partition_granularity: year
+          # Engagement bucket so engagement_segment group-by + segment-scoped cards
+          # route to the rollup. CURRENT_DATE-relative case dim (like
+          # lifecycle_stage), correct as of the 6h build.
+          - engagement_segment
+        # Cohort cards are commonly scoped by a cube segment (whales / at-risk /
+        # paying). Listing them lets scoped queries match the rollup; each maps to
+        # a dim already present so the merge stays additive.
+        segments:
+          - whales
+          - at_risk_paying
+          - paying_lifetime
+        # Non-partitioned: composition is a user-attribute snapshot, not a time
+        # series. One partition covers every user (incl. NULL install_date) and
+        # sidesteps the partial-seal failure of partitioned rollups. All measures
+        # additive, so any payer_tier/lifecycle filter merges right.
         refresh_key:
           every: 6 hours
-          incremental: true
-        build_range_start:
-          sql: "SELECT from_iso8601_timestamp(CAST(MIN(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
-        build_range_end:
-          sql: "SELECT from_iso8601_timestamp(CAST(MAX(install_date) AS VARCHAR) || 'T00:00:00Z') FROM mf_users"
-
-      - name: user_composition
-        type: rollup_lambda
-        union_with_source_data: true
-        rollups:
-          - CUBE.user_composition_batch
