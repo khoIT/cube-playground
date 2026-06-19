@@ -13,6 +13,10 @@ interface Props {
   coverage: CsCareCoverage;
   pulse: CsCarePulse;
   freshnessDate: string | null;
+  /** Full segment population. When it exceeds the scanned member count, CS was
+   *  read over a capped sample, not the whole cohort — the denominator is then
+   *  labelled "sampled" so the count never implies full-population coverage. */
+  segmentSize?: number | null;
 }
 
 function Stat({ value, label, color }: { value: number; label: string; color?: string }): ReactElement {
@@ -30,9 +34,16 @@ const Divider = (): ReactElement => (
   <div style={{ width: 1, height: 26, background: 'var(--border-card)' }} aria-hidden />
 );
 
-export function CarePulseStrip({ coverage, pulse, freshnessDate }: Props): ReactElement {
+export function CarePulseStrip({ coverage, pulse, freshnessDate, segmentSize }: Props): ReactElement {
   const { t } = useTranslation();
   const pct = coverage.pct == null ? '—' : `${coverage.pct.toFixed(1)}%`;
+  // CS was scanned over the stored uid sample (capped) — when the segment is
+  // larger than that sample, label the denominator "sampled" so X / N never
+  // reads as full-population coverage. Full size is shown in the detail header.
+  const sampled = segmentSize != null && segmentSize > coverage.totalMembers;
+  const denomLabel = sampled
+    ? t('segments.detail.care.sampled', { defaultValue: 'sampled' })
+    : t('segments.detail.care.contacted', { defaultValue: 'contacted' });
   const coverageCaveat = t('segments.detail.care.coverageCaveat', {
     defaultValue: 'Only in-game/web/phone tickets join by player id; Facebook/AIHelp (~90% of volume) use a channel id and are excluded.',
   });
@@ -55,7 +66,7 @@ export function CarePulseStrip({ coverage, pulse, freshnessDate }: Props): React
           {coverage.contactedMembers}
         </span>
         <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          / {coverage.totalMembers} {t('segments.detail.care.contacted', { defaultValue: 'contacted' })}
+          / {coverage.totalMembers} {denomLabel}
         </span>
         <span style={{ marginLeft: 4 }}>
           <Chip tone="neu">{pct}</Chip>

@@ -122,7 +122,12 @@ export function CareTab({ segment }: Props): ReactElement {
           })}
         </div>
       )}
-      <CarePulseStrip coverage={data.coverage} pulse={data.pulse} freshnessDate={data.freshness.csMaxLogDate} />
+      <CarePulseStrip
+        coverage={data.coverage}
+        pulse={data.pulse}
+        freshnessDate={data.freshness.csMaxLogDate}
+        segmentSize={segment.uid_count}
+      />
       <div className={styles.careRail}>
         <CareWatchlist segmentId={segment.id} rows={data.watchlist} />
         <div className={styles.careRailSide}>
