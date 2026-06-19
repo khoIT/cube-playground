@@ -37,9 +37,10 @@ enable_research_mode: true
 
 # Diagnose Skill
 
-Find the most likely cause of a metric drop or spike, and conclude with a
-benchmark-aware verdict — the contributing factor, how far it sits from where
-it should be, and how confident the evidence is.
+Run one coherent rail: **diagnose → conclude → recommend.** Find the most
+likely cause of a metric drop or spike, conclude with a benchmark-aware verdict,
+then offer cited actions for the top driver. Do not stop at the diagnosis — the
+conclusion is only the midpoint.
 
 Prefer the deterministic decomposition engine over a hand-rolled walk: it
 decomposes the goal into growth-accounting factors, runs several independent
@@ -73,6 +74,21 @@ manual hypothesis walk only when the engine is unavailable.
    explicitly — never fabricate a band or norm.
 5. **Emit the explanatory artifact** for the suspect factor. `source: 'raw'`.
    Cite the engine's provenance (the Cube sources it returned) in the summary.
+6. **Offer to recommend.** After the conclusion, offer actions for the top
+   driver — e.g. "Want the recommended actions for <factor>?". If the user's
+   original ask was already prescriptive ("what should I do about X"), skip the
+   ask and go straight to Step 7 in the same turn.
+7. **Recommend (cited).** Call `recommend_actions` (segment scope, or whole-game
+   with `params.addressableN`). Render the top candidates; for EACH action state
+   its citation from the payload: **source engine + triggering signal +
+   benchmark** (internal band / external norm, or "no benchmark available yet").
+   - Append the returned `caveats` verbatim in spirit: **blind spots** ("cannot
+     assess X — no data path") and any **withheld** levers with their missing
+     cubes. Never present a blind spot as an action.
+   - Each action carries a `defaultWrite` (`case` / `sweep` / `experiment`) —
+     present it as a proposed next step the user can confirm. Do NOT trigger any
+     write here; the confirm affordance is the user's to take.
+   - To answer "what can CS act on / what's in the queue", use `care_queue`.
 
 ## Manual fallback (engine unavailable only)
 
@@ -85,15 +101,24 @@ the delta:
 - stop when one branch explains > 50% of the delta, or after 4 branches output
   "no single dimension explains > 50%; suggest a deeper drilldown via /explore".
 
-## Guard rails
+## Trust & blind-spot guardrails
 
-- Never invent member names, percentile bands, or external norms. The engine,
-  Cube /meta, and the benchmark tool are the sources of truth.
+- **No uncited action.** Render an action only with its `{sourceEngine,
+  triggeringSignal, benchmark}` citation from the tool payload. `recommend_actions`
+  already drops uncited candidates; never reconstruct or re-add a dropped one
+  from prose.
+- **Never invent** member names, percentile bands, external norms, or signals.
+  The engine, Cube /meta, and the benchmark tool are the sources of truth.
+- **Blind spots are not actions.** Surface them as "cannot assess — no data
+  path" (e.g. competitive-integrity cheating). Never phrase a blind spot, or a
+  withheld lever, as a recommendation.
+- **Genre honesty.** Only recommend what the game's data supports — e.g. a
+  social-MMORPG with no guild/gacha/PvP data must never be told to act on clan
+  or gacha levers; those arrive withheld and stay withheld.
 - The benchmark-aware conclusion (Step 4) is mandatory and comes before the
   artifact. State explicitly when a benchmark is missing rather than guessing.
 - Reasoning trace: report counts + percentages only; never raw row dumps beyond
-  5 values.
-- Manual fallback caps at 4 hypotheses per turn. Do not loop.
+  5 values. Manual fallback caps at 4 hypotheses per turn. Do not loop.
 
 ## Charts
 

@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { postJson, ServerClientError } from '../services/server-client.js';
 import type { ToolContext } from '../types.js';
 import { fetchLibrary, buildCitation, type CitableCandidate, type ActionCitation } from './recommendation-citation.js';
+import { guardRecommendations } from './recommendation-trust-guard.js';
 
 export const name = 'recommend_actions';
 export const description =
@@ -72,7 +73,12 @@ interface Recommendation {
 type CitedCandidate = RankedCandidate & { citation: ActionCitation };
 type OkResult = {
   ok: true;
+  /** Only fully-cited, non-blind-spot candidates — the trust guard drops the rest. */
   candidates: CitedCandidate[];
+  /** Candidates the trust guard withheld, with the reason (never silently dropped). */
+  rejected: Array<{ id: string; reason: string }>;
+  /** Narrative-ready honest caveats (blind spots + withheld count). */
+  caveats: string[];
   withheld: Array<{ id: string; lever: string; missingCubes: string[] }>;
   blindSpots: Array<{ id: string; lever: string; signal: string }>;
   blocked?: { reason: string };
@@ -143,16 +149,24 @@ export async function handler(
 
   // One library fetch per call; join in memory for every candidate.
   const library = await fetchLibrary(args.game_id, ctx);
-  const candidates: CitedCandidate[] = (rec.candidates ?? []).map((c) => ({
+  const cited: CitedCandidate[] = (rec.candidates ?? []).map((c) => ({
     ...c,
     citation: buildCitation(c, library),
   }));
 
+  // Trust gate: only fully-cited, non-blind-spot candidates are renderable.
+  // The guard runs on the server-truthed citation, so an uncited action never
+  // reaches the model to be narrated as a recommendation.
+  const blindSpots = (library?.blindSpots ?? []).map((b) => ({ id: b.id, lever: b.lever, signal: b.signal }));
+  const guarded = guardRecommendations(cited, blindSpots);
+
   return {
     ok: true,
-    candidates,
+    candidates: guarded.valid,
+    rejected: guarded.rejected,
+    caveats: guarded.caveats,
     withheld: library?.withheld ?? [],
-    blindSpots: (library?.blindSpots ?? []).map((b) => ({ id: b.id, lever: b.lever, signal: b.signal })),
+    blindSpots,
     ...(rec.diagnosis?.blocked ? { blocked: rec.diagnosis.blocked } : {}),
   };
 }

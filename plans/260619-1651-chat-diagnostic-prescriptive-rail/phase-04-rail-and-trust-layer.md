@@ -7,7 +7,9 @@
 
 ## Overview
 - **Priority**: P1
-- **Status**: pending
+- **Status**: done (code); live manual eval pending (needs the running stack)
+
+> Implemented: `recommendation-trust-guard.ts` enforces the citation invariant (`sourceEngine` + `triggeringSignal` + benchmark FIELD present; null benchmark allowed as an honest "none") and rejects blind-spot-as-action, returning honest caveats. `recommend_actions` now runs its candidates through the guard before returning — only fully-cited, non-blind-spot candidates reach the model; the rest come back in `rejected` with a reason. The diagnose skill is rewritten into the explicit one-flow rail (diagnose → benchmark-aware conclusion → offer → cited recommend), with trust + blind-spot + genre-honesty guardrails. Live end-to-end eval on cfm_vn / jus_vn still to be run against the running stack.
 - **Description**: Wire the flagship rail as ONE flow inside the diagnose skill: **diagnose → conclude (benchmark-aware narrative) → offer recommend → surface cited actions**. Add the trust/citation guardrails: every recommendation names source engine + triggering signal + benchmark; blind spots are flagged, never fabricated; withheld levers stated with the missing-cube reason.
 - **Blocked by**: P2, P3.
 
@@ -43,10 +45,11 @@ One-turn rail: user symptom → skill → decompose_metric (sync lenses 1-4) →
 4. Manual eval: run the rail on a cfm_vn revenue-drop and a jus_vn engagement-drop prompt; confirm cited end-to-end and jus shows no clan/gacha action.
 
 ## Todo
-- [ ] recommendation-trust-guard (citation + blind-spot invariants)
-- [ ] recommend_actions runs output through guard
-- [ ] SKILL.md rail orchestration + guardrails
-- [ ] manual eval cfm_vn + jus_vn
+- [x] recommendation-trust-guard (citation + blind-spot invariants)
+- [x] recommend_actions runs output through guard
+- [x] SKILL.md rail orchestration + guardrails
+- [x] tests: guard invariants (5) + recommend_actions still cited/withheld post-guard
+- [ ] manual eval cfm_vn + jus_vn (needs running chat-service + Cube + LLM under Node 22)
 
 ## Success criteria
 - A single symptom prompt yields: diagnosis → benchmark-aware conclusion → cited recommended actions, in one coherent flow.
