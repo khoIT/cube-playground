@@ -30,6 +30,7 @@ const STATIC: Array<{ prefix: string; label: string; to: string }> = [
   { prefix: '/catalog/workspaces',    label: 'Workspaces',        to: '/catalog/workspaces' },
   { prefix: '/catalog/glossary',      label: 'Glossary',          to: '/catalog/glossary' },
   { prefix: '/segments/identity-map', label: 'Identity Map',      to: '/segments/identity-map' },
+  { prefix: '/segments/snapshot-coverage', label: 'Snapshot Coverage', to: '/segments/snapshot-coverage' },
   { prefix: '/segments',              label: 'Segments',          to: '/segments' },
   { prefix: '/dashboards/cs',         label: 'CS · VIP Care',     to: '/dashboards/cs' },
   { prefix: '/dashboards',            label: 'Dashboards',        to: '/dashboards' },

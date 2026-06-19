@@ -1,7 +1,7 @@
 ---
 phase: 4
 title: "Fleet \"Snapshot coverage\" page"
-status: pending
+status: done
 priority: P3
 effort: "1d"
 dependencies: [3]
@@ -51,11 +51,24 @@ follow-up — independent of the per-segment merge.
 5. Tests: reader aggregate shape + route assembly (mocked DB + lakehouse). Build green.
 
 ## Todo List
-- [ ] readSnapshotCoverageFleet (single aggregate)
-- [ ] route (lakehouse + SQLite join, cached, serve-stale)
-- [ ] snapshot-coverage page (summary, filters, sortable table, mini strips)
-- [ ] nav + route registration; row → segment Monitor
-- [ ] tests + tsc + suites green
+- [x] readSnapshotCoverageFleet (single aggregate) — `readSnapshotCoverageTimestamps`:
+      ONE Trino pass over distinct (segment_id, snapshot_ts); grouped in memory.
+- [x] route (lakehouse + SQLite join, cached, serve-stale) — visibility guard
+      mirrors GET /api/segments; cache keyed per workspace+role+sub.
+- [x] snapshot-coverage page (summary, filters, sortable table, mini strips)
+- [x] nav + route registration; row → segment Monitor (`?tab=monitor`)
+- [x] tests + tsc + suites green — HTTP-level access-control tests added
+      (non-admin/admin visibility, per-principal cache isolation, ledger guards).
+
+## Implementation notes
+- `game_id` is NOT NULL in the segments schema, so every predicate segment has a
+  game and is snapshot-eligible. The mockup's "no game / manual" row is therefore
+  illustrative only — the fleet route lists **predicate** segments (which always
+  carry a game); manual segments are out of scope for snapshot coverage.
+- Fleet window fixed at 31 days (COVERAGE_WINDOW_DAYS) — depth/last/eras reflect
+  the last 31 days, which is plenty for a slow-changing, cached fleet view.
+- Stale-tail visual on the mini-strip was dropped (YAGNI): staleness is carried
+  by the "Last snapshot" column tone, so the strip paints captured eras only.
 
 ## Success Criteria
 - [ ] Page matches `snapshot-fleet-overview.html`; mixed states render (15m/1h/daily/off/stale)

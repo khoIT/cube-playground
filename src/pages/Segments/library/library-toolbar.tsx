@@ -7,7 +7,7 @@
 
 import { ReactElement } from 'react';
 import { Input, Select } from 'antd';
-import { Search, Settings2 } from 'lucide-react';
+import { BarChart3, Search, Settings2 } from 'lucide-react';
 import { useHistory } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import styles from '../segments.module.css';
@@ -54,6 +54,15 @@ export function LibraryToolbar({
           { value: 'size', label: t('segments.library.sort.size') },
         ]}
       />
+      <button
+        type="button"
+        className={styles.identityIconBtn}
+        onClick={() => history.push('/segments/snapshot-coverage')}
+        aria-label={t('segments.library.snapshotCoverage', { defaultValue: 'Snapshot coverage' })}
+        title={t('segments.library.snapshotCoverage', { defaultValue: 'Snapshot coverage' })}
+      >
+        <BarChart3 size={16} aria-hidden />
+      </button>
       <button
         type="button"
         className={styles.identityIconBtn}
