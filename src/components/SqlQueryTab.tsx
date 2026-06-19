@@ -4,6 +4,7 @@ import { QueryRenderer } from '@cubejs-client/react';
 import { format } from 'sql-formatter';
 
 import PrismCode from '../PrismCode';
+import { runnableSqlFromSqlQuery } from '../utils/inline-sql-params';
 import { FatalError } from '../components/Error/FatalError';
 
 type SqlEmitterOnChangeProps = {
@@ -42,7 +43,9 @@ export default function SqlQueryTab({ query, onChange }: SqlQueryTabProps) {
 
         // in the case of a compareDateRange query the SQL will be the same
         const [query] = Array.isArray(sqlQuery) ? sqlQuery : [sqlQuery];
-        const value = query && format(query.sql());
+        // Inline the bound `?` params so the SQL is ready to paste/run.
+        const runnable = query && runnableSqlFromSqlQuery(query);
+        const value = runnable && format(runnable);
 
         return (
           <>

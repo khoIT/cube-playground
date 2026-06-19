@@ -3,6 +3,7 @@ import { Alert, Block, Button, tasty } from '@cube-dev/ui-kit';
 import { QueryRenderer } from '@cubejs-client/react';
 import sqlFormatter from 'sql-formatter';
 
+import { runnableSqlFromSqlQuery } from '../utils/inline-sql-params';
 import { CopyButton } from './components/CopyButton';
 import { useDeepMemo } from './hooks';
 import { useQueryBuilderContext } from './context';
@@ -45,7 +46,9 @@ export function QueryBuilderGeneratedSQL() {
 
             // in the case of a compareDateRange query the SQL will be the same
             const [query] = Array.isArray(sqlQuery) ? sqlQuery : [sqlQuery];
-            const value = query && sqlFormatter.format(query.sql());
+            // Inline the bound `?` params so the SQL is ready to paste/run.
+            const runnable = query && runnableSqlFromSqlQuery(query);
+            const value = runnable && sqlFormatter.format(runnable);
 
             return (
               <TabPaneWithToolbar
