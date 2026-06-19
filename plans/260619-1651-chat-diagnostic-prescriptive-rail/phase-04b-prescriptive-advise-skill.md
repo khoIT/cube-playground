@@ -8,7 +8,9 @@
 
 ## Overview
 - **Priority**: P1
-- **Status**: pending
+- **Status**: done (code); live manual eval pending (needs the running stack)
+
+> Implemented: new `advise/SKILL.md` (prescriptive door — 4-step auto-chaining body that reuses the rail + all P4 guardrails, with an open-ended game-level lever-scan default) and an `advise` keyword block + `/advise` slash alias in `intent-router.ts`. Multi-word action phrases dominate the length-weighted scorer, so prescriptive prompts route to `advise` while "why" stays on `diagnose` and "show" stays on `explore`. `compose()` auto-discovers the skill from the loader (no allowlist) and gates tools by its `allowed_tools` — `recommend_actions` is reachable. Live end-to-end eval still to run against the stack.
 - **Description**: Give the diagnose→recommend rail a **second entry door** for prescriptive-first phrasing. Today the router triggers `diagnose` only on diagnostic words (why/drop/spike/anomaly); a prescriptive question ("what should I do to grow revenue?", "how do I improve D7?", "what should I focus on this week?") falls back to `explore` (confidence 0) — which does NOT declare the recommend tools, so the rail is unreachable. LiveOps managers and execs phrase prescriptively, so without this they miss the rail entirely. Add a dedicated `advise` skill that routes those intents straight into the rail and auto-chains to recommendations.
 - **Blocked by**: P2 (`decompose_metric`), P3 (`recommend_actions`, `care_queue`, citation builder), P4 (trust guard).
 
@@ -48,10 +50,11 @@ Two doors, one room: `diagnose` (why → conclude → *offer*) and `advise` (wha
 4. Manual eval: "what should I do to grow cfm_vn revenue?" auto-chains to cited actions; "how do I improve jus_vn retention?" yields server/VIP levers only (no clan/gacha); "why did revenue drop?" still routes to diagnose (offer, not auto).
 
 ## Todo
-- [ ] `advise/SKILL.md` (triggers, tools, auto-chaining rail body, guardrails)
-- [ ] `intent-router.ts` advise keyword block + registration
-- [ ] tool allowlist resolves (recommend_actions reachable from advise)
-- [ ] manual eval: prescriptive→advise, diagnostic→diagnose, descriptive→explore; cfm + jus data-gates hold
+- [x] `advise/SKILL.md` (triggers, tools, auto-chaining rail body, guardrails)
+- [x] `intent-router.ts` advise keyword block + `/advise` slash alias
+- [x] tool allowlist resolves (compose auto-discovers advise; recommend_actions reachable)
+- [x] routing tests: prescriptive→advise, diagnostic→diagnose, descriptive→explore (9 tests)
+- [ ] live manual eval cfm_vn + jus_vn (needs running chat-service + Cube + LLM under Node 22)
 
 ## Success criteria
 - Prescriptive prompts ("what should I do…", "how do I improve…", "recommendations", "what to focus on") route to `advise` and auto-chain to **cited** recommendations in one turn.

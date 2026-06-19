@@ -21,6 +21,7 @@ const SLASH_ALIASES: Record<string, string> = {
   '/metric_explain': 'metric_explain',
   '/compare': 'compare',
   '/diagnose': 'diagnose',
+  '/advise': 'advise',
   '/segment': 'segment',
 };
 
@@ -48,6 +49,17 @@ const KEYWORDS: Record<string, string[]> = {
     'fell', 'rose', 'surge',
     'tại sao', 'giảm', 'tăng đột',
     'nguyên nhân', 'vì sao', 'vì lý do gì', 'sụt giảm', 'tăng vọt',
+  ],
+  // Prescriptive door: "what should I DO" phrasing. Multi-word action phrases
+  // dominate the length-weighted scorer so these out-rank a stray short word and
+  // do not collide with explore's descriptive verbs (show/plot/by/…).
+  advise: [
+    'what should i', 'how should i', 'how do i improve', 'what to do',
+    'should we focus', 'should we prioritize', 'next steps', 'next step',
+    'recommendation', 'recommend', 'suggestion', 'suggest', 'focus on',
+    'priority', 'grow', 'boost', 'increase', 'mitigate', 'fix',
+    'nên làm gì', 'làm sao để', 'làm thế nào để', 'đề xuất', 'gợi ý',
+    'ưu tiên', 'tập trung vào', 'cải thiện',
   ],
   segment: [
     // EN — explicit segment / audience / cohort creation intent
