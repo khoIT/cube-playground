@@ -34,6 +34,7 @@ allowed_tools:
   - decompose_metric
   - recommend_actions
   - care_queue
+  - propose_action
   - get_cube_meta
   - get_topic_knowledge
   - list_business_metrics
@@ -81,6 +82,11 @@ skill — only the exit differs (advise recommends without asking permission fir
    next step the user can confirm. Do NOT trigger any write; the confirm
    affordance is the user's. Append the `caveats` (blind spots, withheld levers).
    - "What can CS act on / what's in the queue?" → use `care_queue`.
+5. **Propose on acceptance.** If the user accepts an action, call
+   `propose_action` (pass the candidate's `citation` verbatim and a `kind`
+   consistent with its `defaultWrite`) to emit a confirm card. It NEVER writes —
+   the user confirms and the frontend performs the write (sweep / experiment
+   take a second confirm). Never call a write endpoint yourself.
 
 ## Trust & blind-spot guardrails
 

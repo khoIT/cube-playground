@@ -431,6 +431,12 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       collectedProposals.push(data as SegmentProposal);
       emit({ type: 'segment_proposal', data });
     });
+    // Action proposals are forwarded live. The write (care case / sweep /
+    // experiment) still happens only on explicit FE confirm — chat proposes,
+    // the user confirms.
+    sseEmitter.on('action_proposal', (data: Extract<SseEvent, { type: 'action_proposal' }>['data']) => {
+      emit({ type: 'action_proposal', data });
+    });
     let clarifyEmitted = false;
     // Last disambig_options frame the turn emitted, kept so it can be persisted
     // on the assistant row and re-rendered as choice chips when the session

@@ -19,6 +19,7 @@ allowed_tools:
   - get_metric_benchmark
   - recommend_actions
   - care_queue
+  - propose_action
   - get_cube_meta
   - get_topic_knowledge
   - list_business_metrics
@@ -89,6 +90,11 @@ manual hypothesis walk only when the engine is unavailable.
      present it as a proposed next step the user can confirm. Do NOT trigger any
      write here; the confirm affordance is the user's to take.
    - To answer "what can CS act on / what's in the queue", use `care_queue`.
+8. **Propose on acceptance.** If the user accepts an action, call
+   `propose_action` (pass the candidate's `citation` verbatim and a `kind`
+   consistent with its `defaultWrite`). This emits a confirm card; it NEVER
+   writes — the user confirms and the frontend performs the write (sweeps and
+   experiments take a second confirm). Never call a write endpoint yourself.
 
 ## Manual fallback (engine unavailable only)
 
