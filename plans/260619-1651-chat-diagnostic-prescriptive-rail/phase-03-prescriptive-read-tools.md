@@ -10,7 +10,9 @@
 
 ## Overview
 - **Priority**: P1
-- **Status**: pending
+- **Status**: done
+
+> Implemented: `recommend_actions` (wraps `/api/advisor/recommend`; requires `addressableN` for whole-game scope — never invents a cohort size; 60s client timeout → `engine-unavailable`; 403 → `advisor-disabled`), `care_queue` (wraps `/api/care/playbooks` + optional `/api/care/cases`; 403 → `care-forbidden`), and the shared `recommendation-citation.ts`. The ranker/library family taxonomies differ, so the citation join is best-effort (mapped playbook id, then exact family) and falls back to a complete engine-sourced citation with a write default inferred from the lever actuator (cs → case, system → experiment) — never uncited. Withheld levers + blind spots surfaced. Both tools added to the diagnose skill `allowed_tools`; the rail chaining stays in P4.
 - **Description**: Add two READ chat tools. `recommend_actions` wraps `/api/advisor/recommend` and enriches each candidate with the Phase-1 genre lever (signal + cubes + dual benchmark + action + defaultWrite + blind spots). `care_queue` wraps `/api/care/playbooks` + `/api/care/cases` to list available playbooks and open cases for a game. Every output is cited (engine + signal + benchmark). Graceful 403/latency handling.
 - **Blocked by**: P1, P2.
 
@@ -52,11 +54,12 @@
 5. Boot-guard passes.
 
 ## Todo
-- [ ] recommendation-citation shared helper
-- [ ] recommend_actions tool (params defaults, citation join, error handling)
-- [ ] care_queue tool (playbooks+cases, annotate)
-- [ ] register + skill allowed_tools
-- [ ] boot-guard passes
+- [x] recommendation-citation shared helper (fetch-once library + best-effort join + engine fallback)
+- [x] recommend_actions tool (addressableN guard, citation join, withheld/blind-spots, 403/timeout handling)
+- [x] care_queue tool (playbooks + optional cases, lever annotation by mapped playbook id)
+- [x] register + skill allowed_tools
+- [x] boot-guard passes
+- [x] tests: citation builder (match/fallback/null-library) + both tools (11 tests)
 
 ## Success criteria
 - `recommend_actions` for cfm_vn returns ranked candidates, each citing source engine + triggering signal + internal&external benchmark + lever family; infeasible/blind-spot factors surfaced not dropped.

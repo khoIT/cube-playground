@@ -17,6 +17,8 @@ trigger_keywords:
 allowed_tools:
   - decompose_metric
   - get_metric_benchmark
+  - recommend_actions
+  - care_queue
   - get_cube_meta
   - get_topic_knowledge
   - list_business_metrics
