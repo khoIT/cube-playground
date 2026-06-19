@@ -4,6 +4,7 @@ import { QueryRenderer } from '@cubejs-client/react';
 import sqlFormatter from 'sql-formatter';
 
 import { runnableSqlFromSqlQuery } from '../utils/inline-sql-params';
+import { deriveTrinoSourceSql, sourceSqlNote } from '../utils/rollup-source-sql';
 import { CopyButton } from './components/CopyButton';
 import { useDeepMemo } from './hooks';
 import { useQueryBuilderContext } from './context';
@@ -46,9 +47,14 @@ export function QueryBuilderGeneratedSQL() {
 
             // in the case of a compareDateRange query the SQL will be the same
             const [query] = Array.isArray(sqlQuery) ? sqlQuery : [sqlQuery];
-            // Inline the bound `?` params so the SQL is ready to paste/run.
-            const runnable = query && runnableSqlFromSqlQuery(query);
-            const value = runnable && sqlFormatter.format(runnable);
+            // When the query is served from a pre-aggregation, query.sql() is
+            // CubeStore dialect against a rollup table absent from the source DB.
+            // Prefer a derived Trino source SQL so the tab stays paste-and-run;
+            // otherwise inline the bound `?` params on the normal source SQL.
+            const derived = query && deriveTrinoSourceSql(query.rawQuery?.());
+            const runnable = derived ? derived.sql : query && runnableSqlFromSqlQuery(query);
+            let value = runnable && sqlFormatter.format(runnable);
+            if (value && derived) value = `${sourceSqlNote(derived)}\n\n${value}`;
 
             return (
               <TabPaneWithToolbar
