@@ -148,6 +148,7 @@
 "user_gameplay_daily.clan_left_recent",
 "user_gameplay_daily.clan_switched_recent",
 "user_gameplay_daily.ladder_level",
+"user_gameplay_daily.ladder_level_prev",
 "user_gameplay_daily.ladder_rank",
 "user_gameplay_daily.ladder_rank_drop_48h",
 "user_gameplay_daily.ladder_score",

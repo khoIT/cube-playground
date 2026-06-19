@@ -116,10 +116,6 @@ const KNOWN_ABSENT = new Set<string>([
   // jus_vn (and cfm) model no guild data — the guild lever is honestly withheld.
   'guild_membership.guild_id',
   'guild_membership.left_at',
-  // Added to cfm/user_gameplay_daily.yml; unlocks the rank-drop lever only after
-  // the model is deployed to the live (tunnelled) Cube instance. Remove once the
-  // fixture is regenerated post-deploy.
-  'user_gameplay_daily.ladder_level_prev',
 ]);
 
 describe('lever data-gate resolves against the REAL Cube member set (naming-drift tripwire)', () => {
@@ -142,6 +138,11 @@ describe('lever data-gate resolves against the REAL Cube member set (naming-drif
     expect(ids).toContain('fps-clan-social-retention'); // was clan_cur → clan_id
     expect(ids).toContain('fps-skin-crate-fomo'); // was unique_players → distinct_players
     expect(ids).toContain('fps-whale-cause-typed-care'); // was ladder_level_cur → ladder_level
+  });
+
+  it('cfm_vn: the rank-drop lever resolves once ladder_level_prev is in the model', () => {
+    const ids = resolveLeversForGame('cfm_vn', new Set(LIVE_META.cfm_vn)).levers.map((l) => l.id);
+    expect(ids).toContain('fps-competitive-integrity-rank-drop'); // needs ladder_level + ladder_level_prev
   });
 
   it('jus_vn: the server-health lever resolves after the ccu_by_server rename', () => {
