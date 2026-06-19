@@ -2,10 +2,10 @@
  * Per-segment snapshot ledger — the collapsible "all historic snapshots" table
  * that sits under the coverage strip in the merged Monitor tab. One row per
  * captured snapshot (newest first), grouped by day: time (GMT+7), grain chip,
- * cohort size, # KPIs captured. The grain chip uses the SAME era-classification
- * the coverage strip uses (server-side computeCaptureEras → dayGrainMap), so a
- * day is labelled identically on both — the ledger reads its own window, so the
- * two can differ only at the window edges, never in the per-day grain logic.
+ * cohort size, # KPIs captured. The grain chip reflects the cadence THAT
+ * snapshot was actually captured at (server-side per-snapshot neighbour
+ * spacing), so a within-day cadence change labels each row correctly — the
+ * morning's 15m rows and the afternoon's 1h rows carry different chips.
  *
  * Counts only — no member identities. Collapsed by default. Row click is a
  * stub link-out (a frozen-snapshot detail view is a separate, later surface).
@@ -23,6 +23,9 @@ import styles from '../../../segments.module.css';
 
 interface Props {
   segmentId: string;
+  /** Window from the tab range picker; the ledger lists captures in this span. */
+  from?: string;
+  to?: string;
 }
 
 const GRAIN_LABEL: Record<MovementGranularity, string> = {
@@ -56,7 +59,7 @@ function formatCount(n: number): string {
   return `${(n / 1_000_000).toFixed(2)}M`;
 }
 
-export function SnapshotLedgerSection({ segmentId }: Props): ReactElement | null {
+export function SnapshotLedgerSection({ segmentId, from, to }: Props): ReactElement | null {
   const [rows, setRows] = useState<SnapshotLedgerRow[] | null>(null);
   const [collapsed, toggleCollapsed] = useCollapsiblePref(`monitor:snapshot-ledger:${segmentId}`);
 
@@ -64,7 +67,7 @@ export function SnapshotLedgerSection({ segmentId }: Props): ReactElement | null
     let cancelled = false;
     setRows(null);
     segmentMovementClient
-      .snapshotLedger(segmentId)
+      .snapshotLedger(segmentId, { from, to })
       .then((res) => {
         if (!cancelled) setRows(res.rows);
       })
@@ -74,7 +77,7 @@ export function SnapshotLedgerSection({ segmentId }: Props): ReactElement | null
     return () => {
       cancelled = true;
     };
-  }, [segmentId]);
+  }, [segmentId, from, to]);
 
   // Group consecutive rows (already newest-first) by calendar day for sub-heads.
   const groups: Array<{ day: string; rows: SnapshotLedgerRow[] }> = [];

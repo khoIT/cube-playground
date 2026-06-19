@@ -7,6 +7,7 @@
 import { ReactElement, useEffect } from 'react';
 import {
   segmentMovementClient,
+  type CadenceChange,
   type CaptureEra,
   type MovementGranularity,
 } from '../../../../../api/segment-movement-client';
@@ -18,17 +19,26 @@ interface Props {
   segmentId: string;
   granularity: MovementGranularity;
   days: number;
+  /** Explicit window from the tab range picker; overrides `days` when set. */
+  from?: string;
+  to?: string;
   onMeta: (meta: {
     effective: MovementGranularity;
     finest?: MovementGranularity;
     captureEras?: CaptureEra[];
+    /** Freshness + cadence annotations lifted to the tab control bar. */
+    asOf?: string | null;
+    cadenceChanges?: CadenceChange[];
+    stale?: boolean;
+    /** Buckets held flat (view grain finer than capture) — surfaced as a top pill. */
+    carryForward?: string[];
   }) => void;
 }
 
-export function MembershipMovementSection({ segmentId, granularity, days, onMeta }: Props): ReactElement {
+export function MembershipMovementSection({ segmentId, granularity, days, from, to, onMeta }: Props): ReactElement {
   const { data, loading, error } = useMovementResource(
-    () => segmentMovementClient.movement(segmentId, { granularity, days }),
-    [segmentId, granularity, days],
+    () => segmentMovementClient.movement(segmentId, { granularity, days, from, to }),
+    [segmentId, granularity, days, from, to],
   );
 
   useEffect(() => {
@@ -37,6 +47,10 @@ export function MembershipMovementSection({ segmentId, granularity, days, onMeta
         effective: data.effectiveGranularity,
         finest: data.finestGranularity,
         captureEras: data.captureEras,
+        asOf: data.asOf,
+        cadenceChanges: data.cadenceChanges,
+        stale: data.stale,
+        carryForward: data.carryForward,
       });
     }
   }, [data, onMeta]);

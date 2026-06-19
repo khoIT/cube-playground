@@ -35,7 +35,7 @@ import {
   floorTsBucket,
   computeCaptureEras,
   finestEraCadence,
-  dayGrainMap,
+  perSnapshotGrainMap,
   eraGrains,
   type SnapshotPoint,
   type SnapshotCadence,
@@ -552,12 +552,13 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
    * Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD&days=N
    *
    * The per-segment "all historic snapshots" ledger: one row per captured
-   * snapshot_ts (newest first) with cohort size, # KPIs, and the grain of the
-   * day it belongs to. Grain uses the SAME era-classification (computeCaptureEras
-   * → dayGrainMap) the coverage strip uses, so a given day is classified
-   * identically on both surfaces. The ledger reads its own (daily-cap) window,
-   * which may differ from the strip's downsample window, so era *boundaries* at
-   * the window edges can differ — the per-day grain logic does not.
+   * snapshot_ts (newest first) with cohort size, # KPIs, and the grain at which
+   * THAT snapshot was actually captured. Grain is per-snapshot (each row's real
+   * spacing to its neighbours via perSnapshotGrainMap), so a within-day cadence
+   * change — e.g. 15m captures in the morning then 1h in the afternoon — labels
+   * each row correctly instead of painting the whole day one grain. The coverage
+   * strip eras (computeCaptureEras) share the same spacing classifier, so a
+   * row's chip agrees with the era the strip paints over it.
    */
   app.get('/api/segments/:id/snapshot-ledger', async (req, reply) => {
     const { id } = req.params as { id: string };
@@ -582,12 +583,14 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
 
     try {
       const ledger = await readSnapshotLedger(gameId, id, fromDate, toDate);
-      // Eras from the full distinct-ts set → per-day grain map (strip parity).
-      const captureEras = computeCaptureEras(ledger.map((r) => r.ts));
-      const grainByDay = dayGrainMap(captureEras);
+      const allTs = ledger.map((r) => r.ts);
+      // Eras paint the strip; per-snapshot grain (real neighbour spacing) labels
+      // each ledger row — both derive from the same spacing classifier.
+      const captureEras = computeCaptureEras(allTs);
+      const grainByTs = perSnapshotGrainMap(allTs);
       const rows = ledger.map((r) => ({
         ts: r.ts,
-        grain: grainByDay.get(r.ts.slice(0, 10)) ?? 'daily',
+        grain: grainByTs.get(r.ts) ?? 'daily',
         memberCount: r.memberCount,
         kpiCount: r.kpiCount,
       }));

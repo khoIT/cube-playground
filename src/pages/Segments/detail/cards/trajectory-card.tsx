@@ -131,9 +131,12 @@ function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
 
 interface Props {
   segment: Segment;
+  /** Window (days) from the tab range picker. The trajectory reader is daily-only,
+   *  so the View-grain toggle doesn't apply here; the Range does. Defaults to 90. */
+  days?: number;
 }
 
-export function TrajectoryCard({ segment }: Props): ReactElement | null {
+export function TrajectoryCard({ segment, days = 90 }: Props): ReactElement | null {
   const [payload, setPayload] = useState<TrajectoryPayload | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,12 +153,12 @@ export function TrajectoryCard({ segment }: Props): ReactElement | null {
     }
     let alive = true;
     setLoading(true);
-    apiFetch<TrajectoryPayload>(`/api/segments/${encodeURIComponent(segment.id)}/trajectory?days=90`)
+    apiFetch<TrajectoryPayload>(`/api/segments/${encodeURIComponent(segment.id)}/trajectory?days=${days}`)
       .then((d) => { if (alive) { setPayload(d); setError(null); } })
       .catch((err: Error) => { if (alive) setError(err); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [segment.id, demo]);
+  }, [segment.id, demo, days]);
 
   // Mount-guard lives here too (server 404s non-predicate) so the monitor tab
   // composition stays declarative.

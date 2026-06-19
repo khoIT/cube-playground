@@ -20,6 +20,9 @@ interface Props {
   cubeSegments?: string[] | null;
   /** Wording differs slightly between an existing segment and the create flow. */
   variant?: 'monitor' | 'create';
+  /** Compact form: a single inline ⓘ chip (slice detail on hover) instead of the
+   *  full-width banner. Used on the Monitor tab where the banner was too heavy. */
+  compact?: boolean;
 }
 
 /** `mf_users.whales` → `segment: whales` chip text. */
@@ -32,9 +35,25 @@ export function SliceScopeNote({
   predicate,
   cubeSegments,
   variant = 'monitor',
+  compact = false,
 }: Props): ReactElement | null {
   const chips = [...(cubeSegments ?? []).map(cubeSegmentChip), ...describePredicate(predicate)];
   if (chips.length === 0) return null;
+
+  // Compact: a single quiet chip. The slice + caveat ride the native tooltip, so
+  // the page isn't dominated by a full-width banner it only needs to whisper.
+  if (compact) {
+    return (
+      <span
+        className={styles.sliceScopeChipCompact}
+        role="note"
+        title={`${chips.join(' · ')} — sliced metrics reflect the slice, not each member’s full history`}
+      >
+        <Info size={12} aria-hidden />
+        Sliced metrics
+      </span>
+    );
+  }
 
   const lead =
     variant === 'create'

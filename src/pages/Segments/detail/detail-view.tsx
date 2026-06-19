@@ -224,7 +224,7 @@ export function DetailView(): ReactElement {
       </div>
       </div>
 
-      {tab === 'monitor' && <MonitorTab segment={segment} onSegmentChange={setSegment} />}
+      {tab === 'monitor' && <MonitorTab segment={segment} preset={preset} onSegmentChange={setSegment} />}
       {tab === 'insights' && (
         <InsightsTab
           segment={segment}

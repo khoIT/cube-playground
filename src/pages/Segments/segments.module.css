@@ -1742,6 +1742,232 @@
   padding-bottom: 4px;
 }
 
+/* ── Monitor control bar: view grain · range · status pills ──────────── */
+.monitorControlBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  font-family: var(--font-sans);
+}
+
+.monitorControlGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monitorControlLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.monitorControlStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  /* Anchor the capture-cadence popover to this (right-aligned) group rather than
+     the 28px gear, so it opens flush-right inside the bar and never overflows. */
+  position: relative;
+}
+
+.statusPill {
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.statusPill_muted { background: var(--muted-soft); color: var(--muted-ink); }
+.statusPill_warning { background: var(--warning-soft); color: var(--warning-ink); }
+.statusPill_info { background: var(--info-soft); color: var(--info-ink); }
+.statusPill_success { background: var(--success-soft); color: var(--success-ink); }
+
+/* Capture-cadence gear — opens the "Track every" popover (a write setting kept
+   out of the chart flow so it stops reading as a second view-grain control). */
+.monitorGear { display: inline-flex; }
+.monitorGearBtn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.monitorGearBtn:hover { background: var(--bg-muted); }
+.monitorGearPopover {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  z-index: 30;
+  width: 320px;
+  max-width: min(320px, calc(100vw - 48px));
+  padding: 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  text-align: left;
+}
+/* The shared segmented control doesn't wrap by default; inside the fixed-width
+   popover its 8 options must wrap instead of forcing the box wider (overflow). */
+.monitorGearPopover .cadenceSegmented { flex-wrap: wrap; }
+
+/* Row hosting the compact slice ⓘ chip under the KPI tiles. */
+.monitorScopeChipRow { display: flex; }
+
+/* Compact slice caveat — replaces the full-width banner on the Monitor tab. */
+.sliceScopeChipCompact {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-full);
+  cursor: help;
+}
+
+/* Two charts side-by-side (membership movement · state distribution). */
+.monitorChartPair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 920px) {
+  .monitorChartPair { grid-template-columns: 1fr; }
+}
+
+/* KPI-trends metric selector — toggle which lines plot (all on one axis flattens
+   the small metrics, so the chart defaults to a legible subset). */
+.metricSelectorBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0 4px;
+}
+.metricSelectorLabel {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+.metricChip {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.metricChip:hover { background: var(--bg-muted); }
+.metricChipOn {
+  background: var(--brand-soft);
+  border-color: var(--add-pill-border);
+  color: var(--brand);
+}
+
+/* Compact from/to range picker (native date inputs + quick chips). */
+.rangePicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+}
+.rangePickerIcon { color: var(--text-muted); flex-shrink: 0; }
+.rangeInput {
+  padding: 3px 6px;
+  font-size: 11.5px;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.rangeArrow { color: var(--text-muted); font-size: 12px; }
+.rangeQuick { display: inline-flex; gap: 2px; margin-left: 2px; }
+.rangeQuickChip {
+  min-width: 30px;
+  height: 24px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.rangeQuickChip:hover:not(.rangeQuickChipActive) { color: var(--text-primary); }
+.rangeQuickChipActive { background: var(--brand); color: #fff; font-weight: 600; }
+
+/* ── KPI movement tiles (compact "now" summary with window delta) ────── */
+.kpiTileRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+.kpiTile {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+/* SIZE leads the row — a brand-tinted ring, mirroring the reference layout. */
+.kpiTileLead { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
+.kpiTileLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpiTileValue {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+.kpiTileDelta { font-size: 11px; font-weight: 600; }
+.kpiTileDelta_positive { color: var(--positive); }
+.kpiTileDelta_negative { color: var(--negative); }
+.kpiTileDelta_neutral { color: var(--text-muted); }
+.kpiTileDeltaBase { font-size: 10.5px; font-weight: 500; color: var(--text-muted); }
+
 .monitorSection {
   background: var(--bg-card);
   border: 1px solid var(--border-card);

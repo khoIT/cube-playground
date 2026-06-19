@@ -11,6 +11,7 @@ import { describe, it, expect } from 'vitest';
 import {
   computeCaptureEras,
   dayGrainMap,
+  perSnapshotGrainMap,
   eraGrains,
   finestEraCadence,
 } from '../src/lakehouse/downsample-snapshots.js';
@@ -48,6 +49,46 @@ describe('dayGrainMap — ledger/strip grain parity', () => {
 
   it('returns an empty map for no eras', () => {
     expect(dayGrainMap([]).size).toBe(0);
+  });
+});
+
+describe('perSnapshotGrainMap — per-row grain on within-day cadence change', () => {
+  // The screenshot case: morning captured every 15m, then switched to 1h in the
+  // afternoon. dayGrainMap collapses the whole day to 15m (its finest gap); the
+  // per-snapshot map must label the afternoon 1h rows as 1h.
+  const SWITCH_TS = [
+    '2026-06-18 00:00:00', // prior daily anchor
+    '2026-06-19 09:00:00',
+    '2026-06-19 09:15:00',
+    '2026-06-19 09:30:00',
+    '2026-06-19 12:00:00',
+    '2026-06-19 13:00:00',
+    '2026-06-19 14:00:00',
+  ];
+
+  it('labels the 15m morning rows 15m and the 1h afternoon rows 1h', () => {
+    const grain = perSnapshotGrainMap(SWITCH_TS);
+    expect(grain.get('2026-06-19 09:00:00')).toBe('15m');
+    expect(grain.get('2026-06-19 09:15:00')).toBe('15m');
+    expect(grain.get('2026-06-19 09:30:00')).toBe('15m');
+    expect(grain.get('2026-06-19 12:00:00')).toBe('1h');
+    expect(grain.get('2026-06-19 13:00:00')).toBe('1h');
+    expect(grain.get('2026-06-19 14:00:00')).toBe('1h');
+  });
+
+  it('labels a lone daily anchor (no near neighbour) daily', () => {
+    expect(perSnapshotGrainMap(SWITCH_TS).get('2026-06-18 00:00:00')).toBe('daily');
+  });
+
+  it('rounds an irregular gap UP to the coarser grain (40m → 1h)', () => {
+    const grain = perSnapshotGrainMap(['2026-06-19 09:00:00', '2026-06-19 09:40:00']);
+    expect(grain.get('2026-06-19 09:00:00')).toBe('1h');
+    expect(grain.get('2026-06-19 09:40:00')).toBe('1h');
+  });
+
+  it('a single snapshot is daily; an empty list yields an empty map', () => {
+    expect(perSnapshotGrainMap(['2026-06-19 09:15:00']).get('2026-06-19 09:15:00')).toBe('daily');
+    expect(perSnapshotGrainMap([]).size).toBe(0);
   });
 });
 

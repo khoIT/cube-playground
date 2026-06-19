@@ -176,13 +176,22 @@ function observedDayCadence(sortedDayTs: string[]): SnapshotCadence {
     const gap = tsToMs(sortedDayTs[i]) - tsToMs(sortedDayTs[i - 1]);
     if (gap > 0 && gap < minGap) minGap = gap;
   }
-  if (!Number.isFinite(minGap)) return 'daily';
-  // Finest cadence whose bucket width is >= the smallest observed gap.
+  return cadenceForGap(minGap);
+}
+
+/**
+ * Finest cadence whose bucket width is >= the observed gap. 'daily' when the gap
+ * is unknown (lone capture) or wider than a day (a far-isolated capture). The
+ * gap rounds UP to the coarser grain so an irregular spacing never over-claims
+ * fine detail (e.g. a 40-minute gap reports as 1h, not 30m).
+ */
+function cadenceForGap(gap: number): SnapshotCadence {
+  if (!Number.isFinite(gap)) return 'daily';
   let best: SnapshotCadence = 'daily';
   let bestMs = Number.POSITIVE_INFINITY;
   for (const c of SNAPSHOT_CADENCES) {
     const w = CADENCE_MS[c];
-    if (w >= minGap && w < bestMs) {
+    if (w >= gap && w < bestMs) {
       bestMs = w;
       best = c;
     }
@@ -246,6 +255,36 @@ export function dayGrainMap(eras: CaptureEra[]): Map<string, SnapshotCadence> {
     for (let t = start; t <= end; t += 86_400_000) {
       map.set(new Date(t).toISOString().slice(0, 10), era.cadence);
     }
+  }
+  return map;
+}
+
+/**
+ * Per-snapshot observed grain: classify EACH snapshot by its real spacing to its
+ * nearest neighbour (the smaller of gap-to-previous and gap-to-next over the
+ * sorted ts list). Finer than dayGrainMap — when the capture cadence changes
+ * WITHIN a day (e.g. 15m through the morning, then 1h in the afternoon) each
+ * snapshot is labelled with the cadence actually in force at that point, rather
+ * than collapsing the whole day to its single finest gap. A lone snapshot with
+ * no nearby neighbour is 'daily'. Used for the ledger's per-row grain chip.
+ *
+ * PURE — no I/O. Input need not be sorted; keys are the original ts strings.
+ */
+export function perSnapshotGrainMap(tsList: string[]): Map<string, SnapshotCadence> {
+  const sorted = [...new Set(tsList)].sort((a, b) => a.localeCompare(b));
+  const map = new Map<string, SnapshotCadence>();
+  for (let i = 0; i < sorted.length; i++) {
+    const cur = tsToMs(sorted[i]);
+    let minGap = Number.POSITIVE_INFINITY;
+    if (i > 0) {
+      const g = cur - tsToMs(sorted[i - 1]);
+      if (g > 0 && g < minGap) minGap = g;
+    }
+    if (i < sorted.length - 1) {
+      const g = tsToMs(sorted[i + 1]) - cur;
+      if (g > 0 && g < minGap) minGap = g;
+    }
+    map.set(sorted[i], cadenceForGap(minGap));
   }
   return map;
 }

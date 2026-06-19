@@ -1,15 +1,20 @@
 /**
  * Presentational wrapper for one Movement section. Renders the chart via the
  * shared AssistantChartSection (non-embedded — its built-in view menu is the
- * line↔bar / table / CSV toggle the user asked for) and appends the annotation
- * strip. Loading / error / empty fall back to a placeholder card styled to
- * match AssistantChartSection's surface so the layout doesn't jump.
+ * line↔bar / table / CSV toggle the user asked for). Loading / error / empty
+ * fall back to a placeholder card styled to match AssistantChartSection's
+ * surface so the layout doesn't jump.
+ *
+ * Freshness / cadence / carry-forward status is NOT rendered here — it reads
+ * once at the tab control bar (the per-chart meta strip was removed so the same
+ * note doesn't repeat under every chart). The asOf/stale/cadenceChanges/
+ * carryForward props are still accepted (callers pass them) and lifted to the
+ * control bar by the membership section's onMeta.
  */
 
 import { ReactElement, ReactNode } from 'react';
 import { AssistantChartSection } from '../../../../Chat/components/assistant-chart-section';
 import type { ChartArtifact } from '../../../../../api/chat-sse-client';
-import { MovementMetaStrip } from './movement-meta-strip';
 import type { CadenceChange } from '../../../../../api/segment-movement-client';
 
 interface Props {
@@ -18,6 +23,7 @@ interface Props {
   error: Error | null;
   /** Built chart; null when the window has no captured points yet. */
   artifact: ChartArtifact | null;
+  /** Accepted for API parity; surfaced at the control bar, not rendered here. */
   asOf?: string | null;
   stale?: boolean;
   cadenceChanges?: CadenceChange[];
@@ -50,7 +56,7 @@ function PlaceholderCard({ title, children }: { title: string; children: ReactNo
 }
 
 export function MovementSection({
-  title, loading, error, artifact, asOf, stale, cadenceChanges, carryForward, control, emptyHint,
+  title, loading, error, artifact, control, emptyHint,
 }: Props): ReactElement {
   let body: ReactElement;
   if (loading) {
@@ -71,7 +77,6 @@ export function MovementSection({
     <section style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {control}
       {body}
-      <MovementMetaStrip asOf={asOf ?? null} stale={stale} cadenceChanges={cadenceChanges} carryForward={carryForward} />
     </section>
   );
 }

@@ -26,14 +26,17 @@ interface Props {
   segmentId: string;
   granularity: MovementGranularity;
   days: number;
+  /** Explicit window from the tab range picker; overrides `days` when set. */
+  from?: string;
+  to?: string;
 }
 
-export function StateDistributionTrendSection({ segmentId, granularity, days }: Props): ReactElement {
+export function StateDistributionTrendSection({ segmentId, granularity, days, from, to }: Props): ReactElement {
   const [dimension, setDimension] = useState<string>(DIMENSIONS[0].key);
 
   const { data, loading, error } = useMovementResource(
-    () => segmentMovementClient.stateDistributionTrend(segmentId, dimension, { granularity, days }),
-    [segmentId, dimension, granularity, days],
+    () => segmentMovementClient.stateDistributionTrend(segmentId, dimension, { granularity, days, from, to }),
+    [segmentId, dimension, granularity, days, from, to],
   );
 
   const artifact = data ? buildDistributionChart(segmentId, 'State distribution', data.rows) : null;
