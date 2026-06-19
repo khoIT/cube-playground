@@ -55,9 +55,19 @@ const TZ_OFFSET_MS = 7 * 3_600_000; // GMT+7 (Asia/Saigon)
  * Outside this window the 15m tick is a no-op; the per-(segment, snapshot_ts)
  * guard still prevents double-writes inside the window. Manual trigger bypasses
  * this entirely (explicit human action).
+ *
+ * Set `SEGMENT_SNAPSHOT_IGNORE_WINDOW=true` to disable the window entirely so the
+ * cron fires on every tick whenever the process is up — intended for local dev,
+ * where the machine isn't online on a predictable daytime schedule and sub-daily
+ * cadences would otherwise never accrue enough history to view.
  */
 const WINDOW_START_HOUR = 8;
 const WINDOW_END_HOUR = 24;
+
+/** Read at call-time (not module load) so `.env.local` toggles it without a rebuild. */
+function ignoreSnapshotWindow(): boolean {
+  return (process.env.SEGMENT_SNAPSHOT_IGNORE_WINDOW ?? 'false').toLowerCase() === 'true';
+}
 
 /** Current calendar date in GMT+7 as 'YYYY-MM-DD'. */
 export function gmt7DateString(nowMs: number = Date.now()): string {
@@ -69,8 +79,10 @@ export function gmt7Hour(nowMs: number = Date.now()): number {
   return new Date(nowMs + TZ_OFFSET_MS).getUTCHours();
 }
 
-/** True when `nowMs` falls in the cron's GMT+7 attempt window [08:00, 24:00). */
+/** True when `nowMs` falls in the cron's GMT+7 attempt window [08:00, 24:00),
+ *  or always when the window is disabled via SEGMENT_SNAPSHOT_IGNORE_WINDOW. */
 export function isWithinSnapshotWindow(nowMs: number = Date.now()): boolean {
+  if (ignoreSnapshotWindow()) return true;
   const h = gmt7Hour(nowMs);
   return h >= WINDOW_START_HOUR && h < WINDOW_END_HOUR;
 }
