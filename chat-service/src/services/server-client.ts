@@ -33,6 +33,13 @@ function buildHeaders(ctx: ToolContext): Record<string, string> {
     'X-Owner-Id': ctx.ownerId,
     // cubeToken is used by the server proxy for game-scoped queries
     'X-Cube-Token': ctx.cubeToken,
+    // Game + workspace must travel with every server call: the server resolves
+    // the active Cube model from these headers. Without X-Cube-Game it falls
+    // back to the default game (wrong population, and per-game cubes like
+    // billing_detail resolve to "not found"); without X-Cube-Workspace it
+    // can't pick the right model on prod.
+    'X-Cube-Game': ctx.gameId,
+    'X-Cube-Workspace': ctx.workspace,
   };
 }
 
