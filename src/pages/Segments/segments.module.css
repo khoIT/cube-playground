@@ -1802,6 +1802,334 @@
   border-radius: var(--radius-md);
 }
 
+/* ── Snapshot ledger (per-segment "all historic snapshots" table) ─────────── */
+.ledgerCount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledgerTable {
+  display: flex;
+  flex-direction: column;
+}
+
+.ledgerHead,
+.ledgerRow {
+  display: grid;
+  grid-template-columns: 64px 1fr 1fr 64px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+}
+
+.ledgerHead {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-card);
+}
+
+.ledgerDay {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 8px 4px;
+  margin-top: 4px;
+}
+
+.ledgerRow {
+  border-bottom: 1px solid var(--border-card);
+}
+.ledgerRow:last-child { border-bottom: none; }
+.ledgerRow:hover { background: var(--bg-muted); }
+
+.ledgerTime {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.ledgerGrain {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: var(--radius-xs);
+  padding: 2px 7px;
+  letter-spacing: 0.02em;
+}
+.ledgerGrainDaily { background: var(--muted-soft); color: var(--muted-ink); }
+.ledgerGrainFine { background: var(--info-soft); color: var(--info-ink); }
+
+.ledgerNum {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* ── Fleet snapshot-coverage page ─────────────────────────────────────────── */
+.fleetPage {
+  padding: 24px 32px;
+  max-width: 1200px;
+  margin: 0 auto;
+  font-family: var(--font-sans);
+}
+
+.fleetEyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.fleetHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.fleetHeadIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  background: var(--brand-soft);
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.fleetHead h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+}
+.fleetHead .fleetMeta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.summaryBand {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.summaryCard {
+  flex: 1;
+  min-width: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.summaryCardWarn {
+  border-color: transparent;
+  background: var(--warning-soft);
+}
+.summaryCard .summaryK {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.summaryCardWarn .summaryK,
+.summaryCardWarn .summaryV,
+.summaryCardWarn .summaryS { color: var(--warning-ink); }
+.summaryCard .summaryV {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--text-primary);
+}
+.summaryCard .summaryS {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.fleetFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.fleetFilterLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+.fleetPillGroup {
+  display: inline-flex;
+  background: var(--bg-muted);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  gap: 2px;
+}
+.fleetPillGroup button {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: none;
+  background: none;
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.fleetPillGroup button.fleetPillOn {
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+}
+.fleetPillGroup button:hover:not(.fleetPillOn) {
+  color: var(--text-primary);
+  background: var(--bg-card);
+}
+
+.fleetTableCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.fleetTableWrap { overflow-x: auto; }
+.fleetTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 920px;
+}
+.fleetTable thead th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-card);
+  white-space: nowrap;
+  background: var(--bg-card);
+}
+.fleetTable thead th.fleetSortable { cursor: pointer; user-select: none; }
+.fleetTable thead th .fleetArr { color: var(--brand); font-size: 9px; margin-left: 3px; }
+.fleetTable tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+.fleetTable tbody tr:last-child td { border-bottom: none; }
+.fleetTable tbody tr { cursor: pointer; }
+.fleetTable tbody tr:hover { background: var(--bg-muted); }
+.fleetTable tbody tr:hover .fleetGoArrow { opacity: 1; }
+.fleetSegName {
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.fleetGoArrow {
+  opacity: 0;
+  color: var(--brand);
+  font-weight: 700;
+  transition: opacity 0.12s;
+}
+.fleetNum {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+.fleetDim { color: var(--text-muted); }
+
+.cadChip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  letter-spacing: 0.02em;
+}
+.cadChipCapture { background: var(--brand-soft); color: var(--brand); }
+.cadChipOff { background: var(--muted-soft); color: var(--muted-ink); }
+
+.fleetGrains { display: inline-flex; gap: 4px; }
+.fleetGrainMini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-xs);
+  padding: 2px 4px;
+  letter-spacing: 0.02em;
+}
+.fleetGrainDaily { background: var(--muted-soft); color: var(--muted-ink); }
+.fleetGrainFine { background: var(--info-soft); color: var(--info-ink); }
+.fleetGrainNone { font-size: 11px; color: var(--text-muted); }
+
+.fleetLast { font-weight: 600; font-variant-numeric: tabular-nums; }
+.fleetLastRecent { color: var(--success-ink); }
+.fleetLastOk { color: var(--text-primary); }
+.fleetLastStale { color: var(--warning-ink); }
+.fleetLastNone { color: var(--text-muted); font-weight: 500; }
+
+.miniStrip {
+  display: flex;
+  height: 9px;
+  width: 130px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  border: 1px solid var(--border-card);
+}
+.miniSeg { height: 100%; }
+.miniSegDaily { background: var(--muted-ink); }
+.miniSegFine { background: var(--chart-2); }
+.miniSegEmpty {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bg-muted),
+    var(--bg-muted) 3px,
+    var(--border-card) 3px,
+    var(--border-card) 4px
+  );
+}
+.miniMark { width: 2px; background: var(--brand); }
+
+.fleetLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+}
+.fleetLegend .fleetLegendItem { display: inline-flex; align-items: center; gap: 6px; }
+.fleetSwatch { width: 11px; height: 11px; border-radius: 2px; }
+
 .monitorMoreLink {
   margin-top: 8px;
   font-size: 12px;

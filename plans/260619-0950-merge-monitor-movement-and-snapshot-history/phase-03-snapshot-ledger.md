@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "Per-segment snapshot ledger"
-status: pending
+status: done
 priority: P2
 effort: "0.5d"
 dependencies: [2]
@@ -47,11 +47,15 @@ by day. The per-segment answer to "all historic snapshots + which grain availabl
 5. Tests: reader SQL shape + route payload + grain-mapping; build green.
 
 ## Todo List
-- [ ] readSnapshotLedger reader + test
-- [ ] route + client method + types
-- [ ] snapshot-ledger-section.tsx (collapsible, grouped, chips)
-- [ ] grain mapping matches the strip eras
-- [ ] suites + tsc green
+- [x] readSnapshotLedger reader + test
+- [x] route + client method + types
+- [x] snapshot-ledger-section.tsx (collapsible, grouped, chips)
+- [x] grain mapping matches the strip eras — both derive from `computeCaptureEras`
+      via the new pure `dayGrainMap`/`eraGrains` helpers (unit-tested for parity).
+      Caveat: ledger reads its own daily-cap window, so era *boundaries* at the
+      window edges may differ from the strip's downsample window — the per-day
+      grain classification is identical (comments scoped accordingly).
+- [x] suites + tsc green (106 server tests incl. ledger helpers + HTTP guards)
 
 ## Success Criteria
 - [ ] Ledger lists captured snapshots desc with correct grain chips that AGREE with the strip

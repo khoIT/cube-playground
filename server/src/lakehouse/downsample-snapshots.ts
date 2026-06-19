@@ -229,6 +229,34 @@ export function computeCaptureEras(tsList: string[]): CaptureEra[] {
   return eras;
 }
 
+/**
+ * Map each calendar day covered by the eras to its observed cadence. The
+ * per-segment snapshot ledger and the fleet coverage page use this so a row's
+ * grain chip matches the era the coverage strip paints for that same day —
+ * single source of truth (computeCaptureEras), so the surfaces never disagree.
+ *
+ * PURE — no I/O. Keys are 'YYYY-MM-DD'; eras are inclusive on both ends.
+ */
+export function dayGrainMap(eras: CaptureEra[]): Map<string, SnapshotCadence> {
+  const map = new Map<string, SnapshotCadence>();
+  for (const era of eras) {
+    const start = Date.parse(era.from.slice(0, 10) + 'T00:00:00Z');
+    const end = Date.parse(era.to.slice(0, 10) + 'T00:00:00Z');
+    if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+    for (let t = start; t <= end; t += 86_400_000) {
+      map.set(new Date(t).toISOString().slice(0, 10), era.cadence);
+    }
+  }
+  return map;
+}
+
+/** Distinct era cadences ordered coarse → fine (daily first), for grain chips. */
+export function eraGrains(eras: CaptureEra[]): SnapshotCadence[] {
+  const seen = new Set<SnapshotCadence>();
+  for (const e of eras) seen.add(e.cadence);
+  return [...seen].sort((a, b) => CADENCE_MS[b] - CADENCE_MS[a]);
+}
+
 /** Finest (smallest-width) cadence among a set of capture eras, or 'daily' when
  *  empty. The window's finest grain is the finest ERA grain — consistent with
  *  what the coverage strip shows, unlike a per-ts alignment guess. */

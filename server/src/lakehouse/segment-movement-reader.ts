@@ -84,6 +84,20 @@ export interface CadenceDefRow {
   cadence: string | null;
 }
 
+/** One captured snapshot for the per-segment ledger: cohort size + how many
+ *  distinct KPIs were recorded at that snapshot_ts. Counts only — no identities. */
+export interface SnapshotLedgerRow {
+  ts: string;
+  memberCount: number;
+  kpiCount: number;
+}
+
+/** A distinct (segment_id, snapshot_ts) pair for the fleet coverage aggregate. */
+export interface FleetCoverageTsRow {
+  segmentId: string;
+  ts: string;
+}
+
 /** Clamp `days` to a safe range based on whether the request is sub-daily.
  *  Non-finite / non-numeric input returns the default (7 subdaily, 30 daily).
  *  Numeric input below 1 is clamped to 1 (caller provided a value, even if tiny). */
@@ -292,6 +306,81 @@ export async function readCaptureTimestamps(
 
   const res = await runQuery(connector, LAKEHOUSE_SCHEMA, sql, MOVEMENT_READ_TIMEOUT_MS);
   return res.rows.map((r) => String(r[0]).replace('T', ' ').slice(0, 19));
+}
+
+/**
+ * Per-snapshot ledger for one segment over a window: one row per captured
+ * snapshot_ts with the cohort size (MAX member_count across that ts's metric
+ * rows) and the count of distinct KPIs recorded. Reads the KPI table — the
+ * authoritative per-snapshot record (every snapshot writes a row per metric).
+ * Ordered newest-first so the UI lists most-recent captures at the top.
+ */
+export async function readSnapshotLedger(
+  gameId: string,
+  segmentId: string,
+  fromDate: string,
+  toDate: string,
+  opts: MovementReaderOptions = {},
+): Promise<SnapshotLedgerRow[]> {
+  assertDateRange(fromDate, toDate, 'readSnapshotLedger');
+  const connector = opts.connector ?? lakehouseConnectorFromEnv();
+  const gameLit = toSqlLiteral(gameId);
+  const segLit = toSqlLiteral(segmentId);
+  const fromLit = `DATE '${fromDate}'`;
+  const toLit = `DATE '${toDate}'`;
+
+  const sql =
+    `SELECT CAST(snapshot_ts AS VARCHAR) AS ts,\n` +
+    `       MAX(member_count) AS member_count,\n` +
+    `       COUNT(DISTINCT metric_id) AS kpi_count\n` +
+    `FROM ${SEGMENT_KPI_DAILY}\n` +
+    `WHERE game_id = ${gameLit} AND segment_id = ${segLit}\n` +
+    `  AND snapshot_date BETWEEN ${fromLit} AND ${toLit}\n` +
+    `  AND snapshot_ts IS NOT NULL\n` +
+    `GROUP BY 1 ORDER BY ts DESC`;
+
+  const res = await runQuery(connector, LAKEHOUSE_SCHEMA, sql, MOVEMENT_READ_TIMEOUT_MS);
+  return res.rows.map((r) => ({
+    ts: String(r[0]).replace('T', ' ').slice(0, 19),
+    memberCount: Number(r[1] ?? 0),
+    kpiCount: Number(r[2] ?? 0),
+  }));
+}
+
+/**
+ * Single-pass fleet aggregate: distinct (segment_id, snapshot_ts) pairs across
+ * a set of (segmentId, gameId) scopes over a window. ONE Trino round-trip for
+ * the whole fleet (no per-segment N+1); the route groups the result by segment
+ * and derives eras / depth / last-snapshot in memory. Partition-pruned by both
+ * the game_id set and the segment_id set. Returns [] for an empty scope list.
+ */
+export async function readSnapshotCoverageTimestamps(
+  scopes: Array<{ segmentId: string; gameId: string }>,
+  fromDate: string,
+  toDate: string,
+  opts: MovementReaderOptions = {},
+): Promise<FleetCoverageTsRow[]> {
+  assertDateRange(fromDate, toDate, 'readSnapshotCoverageTimestamps');
+  if (scopes.length === 0) return [];
+  const connector = opts.connector ?? lakehouseConnectorFromEnv();
+  const segIn = scopes.map((s) => toSqlLiteral(s.segmentId)).join(', ');
+  const gameIn = [...new Set(scopes.map((s) => s.gameId))].map(toSqlLiteral).join(', ');
+  const fromLit = `DATE '${fromDate}'`;
+  const toLit = `DATE '${toDate}'`;
+
+  const sql =
+    `SELECT segment_id, CAST(snapshot_ts AS VARCHAR) AS ts\n` +
+    `FROM ${SEGMENT_KPI_DAILY}\n` +
+    `WHERE game_id IN (${gameIn}) AND segment_id IN (${segIn})\n` +
+    `  AND snapshot_date BETWEEN ${fromLit} AND ${toLit}\n` +
+    `  AND snapshot_ts IS NOT NULL\n` +
+    `GROUP BY segment_id, CAST(snapshot_ts AS VARCHAR)`;
+
+  const res = await runQuery(connector, LAKEHOUSE_SCHEMA, sql, MOVEMENT_READ_TIMEOUT_MS);
+  return res.rows.map((r) => ({
+    segmentId: String(r[0]),
+    ts: String(r[1]).replace('T', ' ').slice(0, 19),
+  }));
 }
 
 /**

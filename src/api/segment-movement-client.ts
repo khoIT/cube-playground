@@ -81,6 +81,49 @@ export interface StateDistributionTrendResponse extends MovementEnvelope {
   redacted: boolean;
 }
 
+/** One captured snapshot in the per-segment ledger. `grain` is the observed
+ *  capture cadence of the day this snapshot belongs to (agrees with the strip). */
+export interface SnapshotLedgerRow {
+  ts: string;
+  grain: MovementGranularity;
+  memberCount: number;
+  kpiCount: number;
+}
+export interface SnapshotLedgerResponse {
+  segmentId: string;
+  gameId: string;
+  fromDate: string;
+  toDate: string;
+  rows: SnapshotLedgerRow[];
+  captureEras: CaptureEra[];
+  finestGranularity: MovementGranularity;
+  count: number;
+  asOf: string | null;
+  stale?: boolean;
+}
+
+/** Track cadence as exposed to the fleet page — capture/recompute schedule, or
+ *  'Off' for on-demand only. Mirrors the server TrackCadence enum. */
+export type FleetTrackCadence = 'Off' | MovementGranularity;
+/** One segment's row in the fleet snapshot-coverage page. */
+export interface SnapshotCoverageRow {
+  segmentId: string;
+  name: string;
+  gameId: string | null;
+  trackCadence: FleetTrackCadence;
+  grains: MovementGranularity[];
+  depthDays: number;
+  lastSnapshotTs: string | null;
+  eras: CaptureEra[];
+}
+export interface SnapshotCoverageResponse {
+  fromDate: string;
+  toDate: string;
+  windowDays: number;
+  rows: SnapshotCoverageRow[];
+  stale?: boolean;
+}
+
 interface RangeQuery {
   granularity?: MovementGranularity;
   from?: string;
@@ -119,5 +162,15 @@ export const segmentMovementClient = {
       `/api/segments/${encodeURIComponent(id)}/state-distribution-trend`,
       { query: { ...rangeParams(q), dimension } },
     );
+  },
+
+  snapshotLedger(id: string, q: Pick<RangeQuery, 'from' | 'to' | 'days'> = {}): Promise<SnapshotLedgerResponse> {
+    return apiFetch<SnapshotLedgerResponse>(`/api/segments/${encodeURIComponent(id)}/snapshot-ledger`, {
+      query: { from: q.from, to: q.to, days: q.days != null ? String(q.days) : undefined },
+    });
+  },
+
+  snapshotCoverage(): Promise<SnapshotCoverageResponse> {
+    return apiFetch<SnapshotCoverageResponse>('/api/segments/snapshot-coverage');
   },
 };

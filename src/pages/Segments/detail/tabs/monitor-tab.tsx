@@ -25,6 +25,7 @@ import { StateDistributionTrendSection } from './movement/state-distribution-tre
 import { SizeTrendSection } from './monitor/size-trend-section';
 import { TrajectoryCard } from '../cards/trajectory-card';
 import { RefreshHistorySection } from './monitor/refresh-history-section';
+import { SnapshotLedgerSection } from './monitor/snapshot-ledger-section';
 import { TrackCadenceControl } from './monitor/track-cadence-control';
 import { SliceScopeNote } from '../../slice-scope/slice-scope-note';
 import { parseCubeSegmentsFromQueryJson } from '../../slice-scope/parse-cube-segments';
@@ -108,6 +109,7 @@ export function MonitorTab({ segment, onSegmentChange }: Props): ReactElement {
             onMeta={handleMeta}
           />
           <StateDistributionTrendSection segmentId={segment.id} granularity={granularity} days={days} />
+          <SnapshotLedgerSection segmentId={segment.id} />
         </>
       ) : (
         <>

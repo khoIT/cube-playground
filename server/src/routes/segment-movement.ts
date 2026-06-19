@@ -14,6 +14,7 @@
 
 import type { FastifyInstance } from 'fastify';
 import { guardSegment } from './segments.js';
+import { getDb } from '../db/sqlite.js';
 import {
   readKpiTrend,
   readMovementSeries,
@@ -21,6 +22,8 @@ import {
   readStateDistributionTrend,
   readCadenceHistory,
   readCaptureTimestamps,
+  readSnapshotLedger,
+  readSnapshotCoverageTimestamps,
   clampMovementDays,
   MAX_DAILY_DAYS,
   MAX_SUBDAILY_DAYS,
@@ -32,12 +35,26 @@ import {
   floorTsBucket,
   computeCaptureEras,
   finestEraCadence,
+  dayGrainMap,
+  eraGrains,
   type SnapshotPoint,
   type SnapshotCadence,
   type CaptureEra,
 } from '../lakehouse/downsample-snapshots.js';
 import { STATE_VALUE_COLUMNS } from '../lakehouse/canonical-metric-set.js';
-import { isSnapshotCadence } from '../services/snapshot-cadence.js';
+import { isSnapshotCadence, coerceTrackCadence } from '../services/snapshot-cadence.js';
+
+/** Fleet-coverage lookback window (days). Bounds the single aggregate; coverage
+ *  changes slowly and is cached, so a fixed recent window is plenty. */
+const COVERAGE_WINDOW_DAYS = 31;
+
+/** Inclusive day-count between two 'YYYY-MM-DD…' snapshot_ts strings. */
+function inclusiveDayCount(from: string, to: string): number {
+  const a = Date.parse(from.slice(0, 10) + 'T00:00:00Z');
+  const b = Date.parse(to.slice(0, 10) + 'T00:00:00Z');
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.round((b - a) / 86_400_000) + 1;
+}
 
 /** Sub-daily granularities that trigger the tighter 14-day range cap. */
 const SUBDAILY_GRANULARITIES: ReadonlySet<SnapshotCadence> = new Set([
@@ -520,6 +537,162 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         redacted: false,
       };
       cacheSet(cacheKey, payload);
+      return payload;
+    } catch (err) {
+      const stale = cacheGet(cacheKey + ':stale');
+      if (stale) return { ...(stale as Record<string, unknown>), stale: true };
+      return reply.status(502).send({
+        error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
+      });
+    }
+  });
+
+  /**
+   * GET /api/segments/:id/snapshot-ledger
+   * Query: ?from=YYYY-MM-DD&to=YYYY-MM-DD&days=N
+   *
+   * The per-segment "all historic snapshots" ledger: one row per captured
+   * snapshot_ts (newest first) with cohort size, # KPIs, and the grain of the
+   * day it belongs to. Grain uses the SAME era-classification (computeCaptureEras
+   * → dayGrainMap) the coverage strip uses, so a given day is classified
+   * identically on both surfaces. The ledger reads its own (daily-cap) window,
+   * which may differ from the strip's downsample window, so era *boundaries* at
+   * the window edges can differ — the per-day grain logic does not.
+   */
+  app.get('/api/segments/:id/snapshot-ledger', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = guardSegment(req, reply, id, 'read');
+    if (!row) return reply;
+    const gameId = typeof row.game_id === 'string' ? row.game_id : null;
+    if (!gameId) {
+      return reply.status(404).send({ error: { code: 'NO_GAME', message: 'Segment has no game_id' } });
+    }
+
+    const q = req.query as Record<string, string | undefined>;
+    // Ledger always reads at the daily window cap — it lists captures, not a
+    // downsampled series, so the tighter sub-daily cap does not apply.
+    const range = parseDateRange(q, null);
+    if (!range.ok) {
+      return reply.status(400).send({ error: { code: 'INVALID_DATE_RANGE', message: range.error } });
+    }
+    const { fromDate, toDate } = range;
+    const cacheKey = `snapshot-ledger:${id}:${fromDate}:${toDate}`;
+    const hit = cacheGet(cacheKey);
+    if (hit) return hit;
+
+    try {
+      const ledger = await readSnapshotLedger(gameId, id, fromDate, toDate);
+      // Eras from the full distinct-ts set → per-day grain map (strip parity).
+      const captureEras = computeCaptureEras(ledger.map((r) => r.ts));
+      const grainByDay = dayGrainMap(captureEras);
+      const rows = ledger.map((r) => ({
+        ts: r.ts,
+        grain: grainByDay.get(r.ts.slice(0, 10)) ?? 'daily',
+        memberCount: r.memberCount,
+        kpiCount: r.kpiCount,
+      }));
+
+      const payload = {
+        segmentId: id,
+        gameId,
+        fromDate,
+        toDate,
+        rows,
+        captureEras,
+        finestGranularity: finestEraCadence(captureEras),
+        count: rows.length,
+        asOf: rows.length > 0 ? rows[0].ts : null,
+      };
+      cacheSet(cacheKey, payload);
+      cacheSet(cacheKey + ':stale', payload);
+      return payload;
+    } catch (err) {
+      const stale = cacheGet(cacheKey + ':stale');
+      if (stale) return { ...(stale as Record<string, unknown>), stale: true };
+      return reply.status(502).send({
+        error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
+      });
+    }
+  });
+
+  /**
+   * GET /api/segments/snapshot-coverage
+   *
+   * Fleet view: one row per predicate segment the caller may read, with its
+   * Track cadence (SQLite), grains available + history depth + last snapshot +
+   * capture eras (lakehouse). A SINGLE aggregate query powers every row — the
+   * coverage timeline is grouped by segment in memory, not fetched per segment.
+   * Segments with no game (no capture) return empty coverage. Served stale on
+   * lakehouse error so the page degrades to last-good rather than 502-ing.
+   */
+  app.get('/api/segments/snapshot-coverage', async (req, reply) => {
+    const db = getDb();
+    let sql =
+      "SELECT id, name, game_id, track_cadence FROM segments " +
+      "WHERE type = 'predicate' AND workspace = ?";
+    const params: unknown[] = [req.workspace.id];
+    // Same visibility guard as GET /api/segments: admin sees all; others see
+    // shared/org plus their own. Keeps the fleet page from leaking segments.
+    if (req.principal.role !== 'admin') {
+      sql += " AND (COALESCE(visibility,'personal') IN ('shared','org') OR owner = ?)";
+      params.push(req.principal.sub);
+    }
+    sql += ' ORDER BY name';
+    const segs = db.prepare(sql).all(...params) as Array<{
+      id: string;
+      name: string;
+      game_id: string | null;
+      track_cadence: string | null;
+    }>;
+
+    const scopes = segs
+      .filter((s): s is typeof s & { game_id: string } => typeof s.game_id === 'string' && s.game_id.length > 0)
+      .map((s) => ({ segmentId: s.id, gameId: s.game_id }));
+
+    const toDate = new Date().toISOString().slice(0, 10);
+    const fromDate = new Date(Date.now() - (COVERAGE_WINDOW_DAYS - 1) * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+
+    // Key by workspace + principal so a different caller's visibility set never
+    // hits a foreign cache entry. Window is fixed, so it need not be keyed.
+    const cacheKey = `snapshot-coverage:${req.workspace.id}:${req.principal.role}:${req.principal.sub}`;
+    const hit = cacheGet(cacheKey);
+    if (hit) return hit;
+
+    try {
+      const tsRows = await readSnapshotCoverageTimestamps(scopes, fromDate, toDate);
+      const bySeg = new Map<string, string[]>();
+      for (const r of tsRows) {
+        const arr = bySeg.get(r.segmentId);
+        if (arr) arr.push(r.ts);
+        else bySeg.set(r.segmentId, [r.ts]);
+      }
+
+      const rows = segs.map((s) => {
+        const ts = (bySeg.get(s.id) ?? []).slice().sort((a, b) => a.localeCompare(b));
+        const eras = computeCaptureEras(ts);
+        const last = ts.length > 0 ? ts[ts.length - 1] : null;
+        return {
+          segmentId: s.id,
+          name: s.name,
+          gameId: s.game_id ?? null,
+          trackCadence: coerceTrackCadence(s.track_cadence),
+          grains: eraGrains(eras),
+          depthDays: ts.length > 0 ? inclusiveDayCount(ts[0], ts[ts.length - 1]) : 0,
+          lastSnapshotTs: last,
+          eras,
+        };
+      });
+
+      const payload = {
+        fromDate,
+        toDate,
+        windowDays: COVERAGE_WINDOW_DAYS,
+        rows,
+      };
+      cacheSet(cacheKey, payload);
+      cacheSet(cacheKey + ':stale', payload);
       return payload;
     } catch (err) {
       const stale = cacheGet(cacheKey + ':stale');
