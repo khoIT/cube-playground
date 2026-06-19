@@ -51,6 +51,7 @@ import adminLlmAuthRoutes from './routes/admin-llm-auth.js';
 import adminChatAuditRoutes from './routes/admin-chat-audit.js';
 import adminAdvisorAuditRoutes from './routes/admin-advisor-audit.js';
 import carePlaybooksRoutes from './routes/care-playbooks.js';
+import knowledgeLeversRoutes from './routes/knowledge-levers.js';
 import carePlaybooksAuthoringRoutes from './routes/care-playbooks-authoring.js';
 import carePlaybookPreviewRoutes from './routes/care-playbook-preview.js';
 import careDataFreshnessRoutes from './routes/care-data-freshness.js';
@@ -148,6 +149,7 @@ export async function buildApp() {
   await app.register(adminChatAuditRoutes);
   await app.register(adminAdvisorAuditRoutes);
   await app.register(carePlaybooksRoutes);
+  await app.register(knowledgeLeversRoutes);
   await app.register(carePlaybooksAuthoringRoutes);
   await app.register(carePlaybookPreviewRoutes);
   await app.register(careDataFreshnessRoutes);

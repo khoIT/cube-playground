@@ -15,6 +15,7 @@ import { pruneRefreshLog, DEFAULT_PRUNE_INTERVAL_MS } from './refresh-log-retent
 import { maybeRunAnomalyDetector } from './anomaly-detector.js';
 import { maybeRunMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { maybeRunCarePrecompute } from '../services/care-precompute-scheduler.js';
+import { maybeRunPercentileSnapshot } from '../knowledge/percentile-snapshot-job.js';
 
 export const TICK_INTERVAL_MS = 60_000;
 
@@ -113,6 +114,11 @@ export async function tick(): Promise<void> {
   await maybeRunCarePrecompute().catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[care-precompute] tick failed:', (err as Error).message);
+  });
+  // Nightly portfolio percentile snapshot — opt-in, self-gates on its window.
+  await maybeRunPercentileSnapshot().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[percentile-snapshot] tick failed:', (err as Error).message);
   });
 }
 
