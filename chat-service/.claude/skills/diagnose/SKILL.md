@@ -19,7 +19,6 @@ allowed_tools:
   - get_metric_benchmark
   - recommend_actions
   - care_queue
-  - propose_action
   - get_cube_meta
   - get_topic_knowledge
   - list_business_metrics
@@ -79,22 +78,22 @@ manual hypothesis walk only when the engine is unavailable.
    driver — e.g. "Want the recommended actions for <factor>?". If the user's
    original ask was already prescriptive ("what should I do about X"), skip the
    ask and go straight to Step 7 in the same turn.
-7. **Recommend (cited).** Call `recommend_actions` (segment scope, or whole-game
-   with `params.addressableN`). Render the top candidates; for EACH action state
-   its citation from the payload: **source engine + triggering signal +
-   benchmark** (internal band / external norm, or "no benchmark available yet").
+7. **Recommend cited strategy — where the rail ends.** Call `recommend_actions`
+   (segment scope, or whole-game with `params.addressableN`). Render the top
+   candidates as **strategy proposals**; for EACH state its citation from the
+   payload: **source engine + triggering signal + benchmark** (internal band /
+   external norm, or "no benchmark available yet").
+   - Frame each strategy against the **cohort/segment** it targets so the user can
+     take it forward themselves — build the segment, brief the team, run the test.
+     The playground stays a data-exploration tool: it proposes the cited strategy
+     and stops there. It does NOT perform care, experiment, or any other write,
+     and there is no confirm-to-write step. The user decides and acts in their own
+     tools.
    - Append the returned `caveats` verbatim in spirit: **blind spots** ("cannot
      assess X — no data path") and any **withheld** levers with their missing
-     cubes. Never present a blind spot as an action.
-   - Each action carries a `defaultWrite` (`case` / `sweep` / `experiment`) —
-     present it as a proposed next step the user can confirm. Do NOT trigger any
-     write here; the confirm affordance is the user's to take.
-   - To answer "what can CS act on / what's in the queue", use `care_queue`.
-8. **Propose on acceptance.** If the user accepts an action, call
-   `propose_action` (pass the candidate's `citation` verbatim and a `kind`
-   consistent with its `defaultWrite`). This emits a confirm card; it NEVER
-   writes — the user confirms and the frontend performs the write (sweeps and
-   experiments take a second confirm). Never call a write endpoint yourself.
+     cubes. Never present a blind spot as a strategy.
+   - `care_queue` is read-only reference — use it to show which CS playbooks
+     already exist for a lever, not to enqueue or act on anything.
 
 ## Manual fallback (engine unavailable only)
 

@@ -31,7 +31,6 @@ import * as decomposeMetric from './decompose-metric.js';
 import * as getMetricBenchmark from './get-metric-benchmark.js';
 import * as recommendActions from './recommend-actions.js';
 import * as careQueue from './care-queue.js';
-import * as proposeAction from './propose-action.js';
 import { config } from '../config.js';
 
 // ---------------------------------------------------------------------------
@@ -209,13 +208,6 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: careQueue.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: careQueue.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
-  },
-  {
-    name: proposeAction.name,
-    description: proposeAction.description,
-    inputSchema: proposeAction.inputSchema,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler: proposeAction.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
 

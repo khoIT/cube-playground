@@ -34,7 +34,6 @@ allowed_tools:
   - decompose_metric
   - recommend_actions
   - care_queue
-  - propose_action
   - get_cube_meta
   - get_topic_knowledge
   - list_business_metrics
@@ -74,19 +73,18 @@ skill — only the exit differs (advise recommends without asking permission fir
 3. **Recommend (cited).** Call `recommend_actions` (segment scope, or whole-game
    with `params.addressableN`). This returns only trust-guarded, fully-cited
    candidates plus `caveats`, `withheld`, and `blindSpots`.
-4. **Render the actions.** For the top candidates, give a one-line
-   benchmark-aware framing of the driver, then each action with its citation
-   from the payload: **source engine + triggering signal + benchmark** (internal
-   band / external norm, or "no benchmark available yet"). Each action carries a
-   `defaultWrite` (`case` / `sweep` / `experiment`) — present it as a proposed
-   next step the user can confirm. Do NOT trigger any write; the confirm
-   affordance is the user's. Append the `caveats` (blind spots, withheld levers).
-   - "What can CS act on / what's in the queue?" → use `care_queue`.
-5. **Propose on acceptance.** If the user accepts an action, call
-   `propose_action` (pass the candidate's `citation` verbatim and a `kind`
-   consistent with its `defaultWrite`) to emit a confirm card. It NEVER writes —
-   the user confirms and the frontend performs the write (sweep / experiment
-   take a second confirm). Never call a write endpoint yourself.
+4. **Render the strategy — where the rail ends.** For the top candidates, give a
+   one-line benchmark-aware framing of the driver, then each strategy with its
+   citation from the payload: **source engine + triggering signal + benchmark**
+   (internal band / external norm, or "no benchmark available yet"). Frame each
+   against the **cohort/segment** it targets so the user can take it forward
+   themselves — build the segment, brief the team, run the test. The playground
+   stays a data-exploration tool: it proposes the cited strategy and stops there.
+   It does NOT perform care, experiment, or any other write, and there is no
+   confirm-to-write step. The user decides and acts in their own tools. Append
+   the `caveats` (blind spots, withheld levers).
+   - `care_queue` is read-only reference — show which CS playbooks already exist
+     for a lever, not to enqueue or act on anything.
 
 ## Trust & blind-spot guardrails
 

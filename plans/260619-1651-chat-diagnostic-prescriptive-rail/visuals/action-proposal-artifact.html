@@ -1,0 +1,251 @@
+<meta charset="utf-8" />
+<title>Action Proposal — artifact card (both states)</title>
+<style>
+  /* Tokens resolved verbatim from src/theme/tokens.css (light mode) so this
+     mockup is byte-faithful to the live chat surface — no invented values. */
+  :root {
+    --surface-raised: #f8efe5;
+    --bg-card: #f8efe5;
+    --bg-muted: #efe3d4;
+    --border-card: #e1d4c2;
+    --border-strong: #d2c2ab;
+    --shell-text: #171717;
+    --shell-text-secondary: #404040;
+    --shell-text-muted: #525252;
+    --shell-text-faint: #a3a3a3;
+    --shell-bg-subtle: #f5f5f5;
+    --brand: #f05a22;
+    --text-on-brand: #ffffff;
+    --info-soft: #dbeafe; --info-ink: #1d4ed8;
+    --warning-soft: #fef3c7; --warning-ink: #92400e;
+    --success-soft: #d1fae5; --success-ink: #047857;
+    --muted-soft: #efe3d4; --muted-ink: #525252;
+    --radius-sm: 6px; --radius-md: 8px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.04);
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    /* Warm app canvas, matching the chat thread background tone */
+    background: #fbf6ee;
+    font-family: var(--font-sans);
+    color: var(--shell-text);
+    padding: 40px 24px 72px;
+  }
+  .page { max-width: 760px; margin: 0 auto; }
+  .pageHead { margin-bottom: 8px; }
+  .pageHead h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+  .pageHead p { font-size: 13px; color: var(--shell-text-muted); margin: 0; line-height: 1.5; }
+  .stateLabel {
+    font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--shell-text-faint); margin: 36px 0 10px;
+  }
+
+  /* ── Card shell — cloned from SegmentProposalCard ─────────────────────── */
+  .card {
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    background: var(--surface-raised);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    width: 100%;
+  }
+  .cardHead {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 24px; border-bottom: 1px solid var(--shell-bg-subtle);
+  }
+  .cardHead .glyph { width: 16px; height: 16px; flex-shrink: 0; }
+  .cardHead .title { flex: 1; font-size: 14px; font-weight: 600; color: var(--shell-text); }
+  .badge {
+    padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; flex-shrink: 0;
+  }
+  .badge.game { background: var(--info-soft); border: 1px solid rgba(29,78,216,.25); color: var(--info-ink); }
+  .badge.kind {
+    background: var(--muted-soft); border: 1px solid var(--border-card);
+    color: var(--muted-ink); text-transform: uppercase; letter-spacing: .04em; font-size: 10px;
+  }
+
+  .cardBody { padding: 16px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .actionTitle { font-size: 15px; font-weight: 600; color: var(--shell-text); line-height: 1.35; }
+  .summary { font-size: 13px; color: var(--shell-text-secondary); line-height: 1.55; margin: 0; }
+
+  .fieldLabel {
+    font-size: 11px; font-weight: 600; color: var(--shell-text-muted);
+    text-transform: uppercase; letter-spacing: .06em;
+  }
+
+  /* ── Citation panel — the trust contract, given first-class weight ────── */
+  .cite {
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .citeRow { display: flex; gap: 10px; align-items: baseline; }
+  .citeKey {
+    font-size: 11px; font-weight: 600; color: var(--shell-text-muted);
+    width: 96px; flex-shrink: 0; letter-spacing: .02em;
+  }
+  .citeVal { font-size: 12.5px; color: var(--shell-text); line-height: 1.5; }
+  .citeVal.mono { font-family: var(--font-mono); font-size: 11.5px; }
+  .bench { display: flex; flex-direction: column; gap: 4px; }
+  .benchLine { font-size: 12.5px; color: var(--shell-text); }
+  .benchLine b { font-weight: 600; }
+  .benchNone { font-size: 12.5px; color: var(--warning-ink); display: inline-flex; align-items: center; gap: 5px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip {
+    display: inline-block; padding: 2px 8px; border-radius: var(--radius-sm);
+    background: var(--info-soft); color: var(--info-ink);
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  }
+
+  /* ── Footer: confirm affordance (read-only / not wired this round) ────── */
+  .cardFoot {
+    padding: 12px 24px; display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--shell-bg-subtle);
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 6px; font-family: var(--font-sans); cursor: not-allowed;
+  }
+  .btnPrimary {
+    padding: 7px 16px; font-size: 13px; font-weight: 600;
+    background: var(--bg-muted); color: var(--shell-text-faint);
+    border: 1px solid var(--border-card);
+  }
+  .btnGhost {
+    padding: 6px 12px; font-size: 12px; font-weight: 500;
+    background: var(--bg-card); border: 1px solid var(--border-card);
+    color: var(--shell-text-faint);
+  }
+  .stepHint {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--shell-text-muted);
+  }
+  .stepDots { display: inline-flex; gap: 3px; align-items: center; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border-strong); }
+  .dot.lead { background: var(--brand); }
+  .footNote {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; color: var(--shell-text-faint); font-style: italic;
+  }
+  .arrow { color: var(--shell-text-faint); font-size: 12px; }
+</style>
+
+<div class="page">
+  <div class="pageHead">
+    <h1>Action proposal — chat artifact</h1>
+    <p>A cited, read-only record of an accepted recommendation. It persists on the turn and reopens
+       from chat history. The confirm affordance is shown but <b>not wired</b> to the care console or
+       experiment endpoints this round — artifact only.</p>
+  </div>
+
+  <!-- ════════════════════ STATE A · care_case (one confirm) ═══════════════ -->
+  <div class="stateLabel">State A — care_case · one confirm</div>
+  <div class="card">
+    <div class="cardHead">
+      <!-- LifeBuoy glyph (care) -->
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>
+      <span class="title">Action proposal</span>
+      <span class="badge kind">care case</span>
+      <span class="badge game">cfm_vn</span>
+    </div>
+    <div class="cardBody">
+      <div class="actionTitle">Open first-deposit welcome care case</div>
+      <p class="summary">Payer conversion is the weakest factor in the revenue tree — open a CS-delivered
+         welcome offer for never-paid actives who hit the deposit screen.</p>
+
+      <div class="cite">
+        <div class="citeRow">
+          <span class="citeKey">Source engine</span>
+          <span class="citeVal mono">advisor / recommend</span>
+        </div>
+        <div class="citeRow">
+          <span class="citeKey">Triggering signal</span>
+          <span class="citeVal">Payer conversion 1.8% vs population — weakest of 4 agreeing lenses</span>
+        </div>
+        <div class="citeRow">
+          <span class="citeKey">Benchmark</span>
+          <span class="citeVal bench">
+            <span class="benchLine"><b>Internal</b> · p25–p50 band for FPS portfolio (1.5%–3.1%)</span>
+            <span class="benchLine"><b>External</b> · 2–5% first-deposit norm <span style="color:var(--shell-text-faint)">(industry, mobile FPS)</span></span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span class="fieldLabel">Lever</span>
+        <div class="chips">
+          <span class="chip">monetization-funnel</span>
+          <span class="chip">playbook · 01</span>
+        </div>
+      </div>
+    </div>
+    <div class="cardFoot">
+      <button class="btn btnPrimary" disabled>Open care case</button>
+      <span class="stepHint">
+        <span class="stepDots"><span class="dot lead"></span></span>
+        1 confirm
+      </span>
+      <span class="footNote">Artifact only — confirm wiring pending</span>
+    </div>
+  </div>
+
+  <!-- ════════════════ STATE B · sweep / experiment (two confirms) ═════════ -->
+  <div class="stateLabel">State B — sweep / experiment · two confirms</div>
+  <div class="card">
+    <div class="cardHead">
+      <!-- FlaskConical glyph (experiment) -->
+      <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="#1d4ed8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 9.3V2"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>
+      <span class="title">Action proposal</span>
+      <span class="badge kind">experiment</span>
+      <span class="badge game">jus_vn</span>
+    </div>
+    <div class="cardBody">
+      <div class="actionTitle">Draft win-back test for lapsed 30-day payers</div>
+      <p class="summary">Reactivation is the top opportunity for lapsed payers — draft a holdout-controlled
+         win-back experiment and assign the treatment split.</p>
+
+      <div class="cite">
+        <div class="citeRow">
+          <span class="citeKey">Source engine</span>
+          <span class="citeVal mono">advisor / recommend</span>
+        </div>
+        <div class="citeRow">
+          <span class="citeKey">Triggering signal</span>
+          <span class="citeVal">Lapsed-payer reactivation 4.2% vs population — top-ranked opportunity</span>
+        </div>
+        <div class="citeRow">
+          <span class="citeKey">Benchmark</span>
+          <span class="citeVal bench">
+            <span class="benchNone">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              No benchmark available yet — social-MMORPG win-back norm not in library
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <span class="fieldLabel">Lever</span>
+        <div class="chips">
+          <span class="chip">win-back</span>
+        </div>
+      </div>
+    </div>
+    <div class="cardFoot">
+      <button class="btn btnPrimary" disabled>Accept</button>
+      <span class="arrow">→</span>
+      <button class="btn btnGhost" disabled>Assign split</button>
+      <span class="stepHint">
+        <span class="stepDots"><span class="dot lead"></span><span class="dot"></span></span>
+        2 confirms
+      </span>
+      <span class="footNote">Artifact only — confirm wiring pending</span>
+    </div>
+  </div>
+</div>

@@ -233,37 +233,6 @@ export type SseEvent =
         disclosures: string[];
         suggestedVisibility: 'personal' | 'shared' | 'org';
       };
-    }
-  /**
-   * Emitted by propose_action when the model accepts a recommended action on the
-   * user's behalf. The frontend renders a confirm card; the WRITE (care case /
-   * sweep / experiment) happens only on explicit user confirm — chat proposes,
-   * FE writes. Sweep and experiment are two-step (accept, then run/assign) so a
-   * cohort mutation or split-freeze is never one click.
-   */
-  | {
-      type: 'action_proposal';
-      data: {
-        type: 'action_proposal';
-        game_id: string;
-        kind: 'care_case' | 'sweep' | 'experiment';
-        leverFamily: string;
-        playbookId?: string;
-        /** Short action label, e.g. "Open first-deposit care case". */
-        title: string;
-        /** Cited one-line framing of why this action, for the card body. */
-        summary: string;
-        citation: {
-          sourceEngine: string;
-          triggeringSignal: string;
-          benchmark: { internal: unknown; external: unknown } | null;
-          defaultWrite: 'case' | 'sweep' | 'experiment' | 'none';
-        };
-        /** 1 = single confirm (care case); 2 = accept then run/assign (sweep, experiment). */
-        confirmSteps: 1 | 2;
-        /** Params the FE forwards to the write endpoint (segmentId, windowDays, …). */
-        params?: Record<string, unknown>;
-      };
     };
 
 /**

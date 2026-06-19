@@ -16,20 +16,21 @@ Make the analytics chat reason like a game-ops + business leader. Ship the flags
 **levers** (not raw metrics); every prescriptive output cites the engine + signal +
 benchmark that produced it. ~80% is wiring engines that already exist; the net-new
 asset is an enriched multi-genre knowledge library + chat tools + rail orchestration +
-trust/citation layer + outcome-loop writes.
+trust/citation layer. (Outcome-loop writes were descoped 2026-06-19 — see phase-05.)
 
 ## Locked decisions (build to these)
 1. Benchmarks = BOTH internal portfolio percentiles AND external published F2P/FPS/MMORPG norms. Each metric shown against both.
 2. Genre enrichment MULTI-GENRE from start: cfm_vn (competitive FPS) + jus_vn (wuxia MMORPG) on a genre-tag framework.
 3. Forecast-vs-target = follow-on (out of scope; seam only).
-4. Outcome loop wired NOW: accepting a recommendation writes to existing care-case / experiment ledgers.
+4. ~~Outcome loop wired NOW: accepting a recommendation writes to existing care-case / experiment ledgers.~~ **DESCOPED 2026-06-19** — playground stays a data-exploration tool; the rail ends at proposing cited strategy framed on segments/cohorts. The user figures out and confirms any real-world action (care / experiment / sweep) themselves. No confirm-gated write artifact. See phase-05.
 
 ## Critical design principle
-Chat **PROPOSES**, user/FE **CONFIRMS** writes. Agent never silently triggers write-gated
-mutations (sweep / case create / experiment create). It surfaces recommendation + confirm
-action; the write happens on explicit confirm — mirrors `propose_segment` (verified
-`chat-service/src/tools/propose-segment.ts:6`, FE `src/pages/Chat/components/segment-proposal-card.tsx`).
-Reads (diagnose, recommend preview, list playbooks/cases) call directly.
+Chat **PROPOSES**, user/FE **CONFIRMS** writes. Agent never silently mutates state. Post-descope
+(2026-06-19) the only in-scope propose→confirm write is **segment creation** — a data-exploration
+artifact (mirrors `propose_segment`, verified `chat-service/src/tools/propose-segment.ts:6`, FE
+`src/pages/Chat/components/segment-proposal-card.tsx`). Care/experiment/sweep actuation is OUT of
+scope: the rail proposes cited strategy framed on segments and the user actuates in their own tools.
+Reads (diagnose, recommend, list playbooks/cases) call directly.
 
 ## Phases
 | # | Phase | Scope (one line) | Status | Blockers |
@@ -39,7 +40,7 @@ Reads (diagnose, recommend preview, list playbooks/cases) call directly.
 | 3 | [Prescriptive reads](phase-03-prescriptive-read-tools.md) | `recommend_actions` + `care_queue` tools through library; every output cited; 403/latency handling | done | P1,P2 |
 | 4 | [Rail + trust](phase-04-rail-and-trust-layer.md) | Chain diagnose→conclude→recommend one flow; citation + blind-spot guardrails | done (code); live eval pending | P2,P3 |
 | 4b | [Prescriptive door: `advise` skill](phase-04b-prescriptive-advise-skill.md) | New `advise` skill + router keyword block so prescriptive-first phrasings ("what should I do") reach the rail and auto-chain to recommend; diagnose unchanged | done (code); live eval pending | P2,P3,P4 |
-| 5 | [Outcome loop](phase-05-outcome-loop-writes.md) | Confirm-gated proposers create care case / experiment on acceptance; scorecard read seam | pending | P3,P4 |
+| 5 | [Outcome loop](phase-05-outcome-loop-writes.md) | DESCOPED — rail ends at cited strategy framed on segments; user actuates care/experiment themselves (data-exploration scope). `propose_action`/`action_proposal` removed | descoped | — |
 | 6 | [Tests + docs](phase-06-tests-docs-lessons.md) | TDD coverage per phase incl. routing tests (prescriptive→advise, diagnostic→diagnose, descriptive→explore); docs update, lessons-learned entry | pending | P1-P5,P4b |
 
 ## Key dependencies
