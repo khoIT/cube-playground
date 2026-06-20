@@ -1,0 +1,173 @@
+cubes:
+  # ===========================================================================
+  # etl_logout — per-role logout events. Source: etl_ingame_logout (~218M rows).
+  #
+  # account_id joins directly to mf_users; role_id bridges to user_roles.
+  # online_time is per-session duration (seconds) → this cube gives session
+  # length / day (aggregate daily online time lives on active_daily).
+  # ===========================================================================
+  - name: etl_logout
+    sql_table: etl_ingame_logout
+    title: JUS VN — Logout Events (events, 登出)
+    description: >
+      Per-role logout events (~218M rows). Carries account_id (= mf_users.user_id)
+      so it joins directly to mf_users; role_id bridges to user_roles.
+      online_time here is per-session duration (seconds), so this cube gives
+      session length / day rather than aggregate online time (which lives on
+      active_daily). Carries vip_level, scene, exp at logout. ALWAYS query with
+      account_id/user_id OR role_id + a bounded log_date range.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.account_id, ''), '__', CAST({CUBE}.logout_time AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE({CUBE}.server, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: NetEase URS account — direct join key to mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: role_class
+        sql: role_class
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: logout_time
+        sql: logout_time
+        type: time
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: hour_of_day_vn
+        sql: "HOUR({CUBE}.logout_time AT TIME ZONE 'Asia/Ho_Chi_Minh')"
+        type: number
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: online_time_sec
+        sql: online_time
+        type: number
+        description: Session duration in seconds
+
+      - name: exp
+        sql: exp
+        type: number
+
+      - name: vip_level
+        sql: vip_level
+        type: number
+
+      - name: scene
+        sql: scene
+        type: string
+
+      - name: last_operation
+        sql: last_operation
+        type: string
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: os_platform
+        sql: os_name
+        type: string
+
+      - name: network
+        sql: network
+        type: string
+
+      - name: device_model
+        sql: device_model
+        type: string
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: session_band
+        type: string
+        description: Bucketed session length (online_time seconds)
+        case:
+          when:
+            - sql: "{CUBE}.online_time >= 7200"
+              label: ">= 2h"
+            - sql: "{CUBE}.online_time >= 3600"
+              label: "1h - 2h"
+            - sql: "{CUBE}.online_time >= 1800"
+              label: "30m - 1h"
+            - sql: "{CUBE}.online_time >= 600"
+              label: "10m - 30m"
+          else:
+            label: "< 10m"
+
+    measures:
+      - name: sessions
+        type: count
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: total_online_time_sec
+        sql: online_time
+        type: sum
+
+      - name: avg_session_sec
+        sql: online_time
+        type: avg
+
+      - name: max_session_sec
+        sql: online_time
+        type: max
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

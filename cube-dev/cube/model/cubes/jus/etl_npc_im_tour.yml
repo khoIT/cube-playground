@@ -1,0 +1,125 @@
+cubes:
+  # ===========================================================================
+  # etl_npc_im_tour — per-role NPC intimacy / companion-tour interaction events
+  # (jus's relationship/companion engagement loop). Source: etl_ingame_npc_im_tour.
+  #
+  # account_id joins directly to mf_users (no role bridge); role_id bridges to
+  # user_roles. npc_rel_id has NO jus enum reference doc, so it is kept as a raw
+  # code (labels NOT fabricated).
+  # ===========================================================================
+  - name: etl_npc_im_tour
+    sql_table: etl_ingame_npc_im_tour
+    title: JUS VN — NPC Intimacy / Tour (events, NPC亲密度)
+    description: >
+      Per-role NPC intimacy / tour interaction events (~70K+ rows, fresh to
+      current, fully scannable). Each row is one NPC interaction: is_enter flags
+      an enter event ('true' or blank at source), npc_rel_id identifies the NPC,
+      role_grade / role_class describe the character at the time. account_id
+      joins directly to mf_users; role_id bridges to user_roles. Use for "do
+      NPC-engaged players retain / monetize better" analysis. Query with
+      account_id/user_id OR role_id filter + bounded log_date range.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.account_id, ''), '__', CAST({CUBE}.tsforvng AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE({CUBE}.npc_rel_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: NetEase URS account — direct join key to mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: npc_rel_id
+        sql: npc_rel_id
+        type: string
+        description: Raw NPC relationship id. No jus enum reference doc — kept as raw code.
+
+      - name: is_enter
+        sql: "CASE WHEN {CUBE}.is_enter = 'true' THEN TRUE ELSE FALSE END"
+        type: boolean
+        description: Whether this interaction is an enter event ('true' or blank at source).
+
+      - name: role_class
+        sql: role_class
+        type: string
+
+      - name: role_grade
+        sql: role_grade
+        type: number
+
+      - name: event_time
+        sql: tsforvng
+        type: time
+        description: NPC interaction event time (UTC).
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Partition column — date-bound filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+    measures:
+      - name: interactions
+        type: count
+
+      - name: enters
+        type: count
+        filters:
+          - sql: "{CUBE}.is_enter = 'true'"
+
+      - name: distinct_npcs
+        type: count_distinct_approx
+        sql: npc_rel_id
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: active_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: max_role_grade
+        sql: role_grade
+        type: max
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

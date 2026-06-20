@@ -1,0 +1,135 @@
+cubes:
+  # ===========================================================================
+  # etl_register — per-role first-character-create events. Source:
+  # etl_ingame_register (~3.5M rows). account_id joins directly to mf_users;
+  # role_id bridges to user_roles. Use for time-to-create, channel/platform
+  # attribution of role creation, and the register-vs-install funnel.
+  # ===========================================================================
+  - name: etl_register
+    sql_table: etl_ingame_register
+    title: JUS VN — Register Events (events, 创角)
+    description: >
+      Per-role first-character-create events (~3.5M rows). Carries account_id
+      (= mf_users.user_id) so it joins directly to mf_users; role_id bridges to
+      user_roles. Carries born_server, is_guest, role_class/gender, nick_name at
+      creation. Use for acquisition-cohort analysis, channel/platform attribution
+      of role creation, and register-vs-install funnel. ALWAYS query with
+      account_id/user_id OR role_id filter + a bounded log_date range.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.account_id, ''), '__', CAST({CUBE}.create_time AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: NetEase URS account — direct join key to mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: role_class
+        sql: role_class
+        type: string
+
+      - name: role_gender
+        sql: role_gender
+        type: string
+
+      - name: nick_name
+        sql: nick_name
+        type: string
+
+      - name: register_time
+        sql: create_time
+        type: time
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: born_server
+        sql: born_server
+        type: string
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: os_platform
+        sql: os_name
+        type: string
+
+      - name: os_version
+        sql: os_ver
+        type: string
+
+      - name: device_model
+        sql: device_model
+        type: string
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: is_guest
+        sql: "CASE WHEN {CUBE}.is_guest = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: registers
+        type: count
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

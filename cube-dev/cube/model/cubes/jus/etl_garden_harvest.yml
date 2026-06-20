@@ -1,0 +1,131 @@
+cubes:
+  # ===========================================================================
+  # etl_garden_harvest — per-role garden crop-harvest events (the farming loop
+  # that is jus's genre signature). Source: etl_ingame_garden_farm_crop_harvest.
+  #
+  # account_id (= mf_users.user_id, the NetEase URS account) joins directly to
+  # mf_users — no role bridge required. role_id (server-suffixed character id)
+  # also joins to user_roles for character-level cuts. Raw event table → always
+  # query with account_id/user_id OR role_id + a bounded log_date range.
+  # ===========================================================================
+  - name: etl_garden_harvest
+    sql_table: etl_ingame_garden_farm_crop_harvest
+    title: JUS VN — Garden Crop Harvest (events, 庄园收获)
+    description: >
+      Per-role garden crop-harvest events (~11M rows, fresh to current). Each
+      row is one crop harvest carrying crop_level (1–11) and a device / network
+      fingerprint. Use for the farming-engagement panel of a 360 view and for
+      "which crop level stalls / drives retention" analysis. account_id joins
+      directly to mf_users; role_id bridges to user_roles for character-level
+      cuts. ALWAYS query with account_id/user_id OR role_id + bounded log_date.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.account_id, ''), '__', CAST({CUBE}.tsforvng AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE(CAST({CUBE}.crop_level AS VARCHAR), ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: NetEase URS account — direct join key to mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: crop_level
+        sql: crop_level
+        type: number
+        description: Harvested crop level (1–11).
+
+      - name: harvest_time
+        sql: tsforvng
+        type: time
+        description: Crop harvest event time (UTC).
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: os_platform
+        sql: os_name
+        type: string
+
+      - name: device_model
+        sql: device_model
+        type: string
+
+      - name: network
+        sql: network
+        type: string
+
+      - name: isp
+        sql: isp
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: is_emulator
+        sql: "CASE WHEN {CUBE}.is_emulator = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: is_root
+        sql: "CASE WHEN {CUBE}.is_root = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: harvests
+        type: count
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: active_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: max_crop_level
+        sql: crop_level
+        type: max
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

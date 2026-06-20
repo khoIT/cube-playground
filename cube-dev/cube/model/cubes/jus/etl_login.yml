@@ -1,0 +1,235 @@
+cubes:
+  # ===========================================================================
+  # etl_login — per-role login events. Source: etl_ingame_login (~218M rows).
+  #
+  # account_id joins directly to mf_users (no role bridge); role_id bridges to
+  # user_roles. Big append-only event table → ALWAYS query with account_id/
+  # user_id OR role_id filter + a bounded log_date range. Carries progression
+  # (role_level, total_score), guild membership, and device/network fingerprint.
+  # ===========================================================================
+  - name: etl_login
+    sql_table: etl_ingame_login
+    title: JUS VN — Login Events (events, 登录)
+    description: >
+      Per-role login events (~218M rows). Carries account_id (= mf_users.user_id,
+      the NetEase URS account), so it joins directly to mf_users without a role
+      bridge; role_id also joins to user_roles for character-level analysis.
+      Profile signals: hour/weekday distribution (VN tz), device + network
+      fingerprint per session, emulator/root/guest flags, guild membership,
+      role level / total_score progression. ALWAYS query with account_id/user_id
+      OR role_id filter + a bounded log_date range.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.account_id, ''), '__', CAST({CUBE}.login_time AS VARCHAR), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE({CUBE}.server, ''))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: NetEase URS account — direct join key to mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: role_name
+        sql: role_name
+        type: string
+
+      - name: role_class
+        sql: role_class
+        type: string
+
+      - name: role_gender
+        sql: role_gender
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: login_time
+        sql: login_time
+        type: time
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Partition column — REQUIRED filter for this table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: hour_of_day_vn
+        sql: "HOUR({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh')"
+        type: number
+        description: 0–23 in Asia/Ho_Chi_Minh — for hour-of-day distribution panel
+
+      - name: day_of_week_vn
+        sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE))"
+        type: number
+        description: 1=Mon … 7=Sun in VN timezone
+
+      - name: weekday_label
+        type: string
+        case:
+          when:
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 1"
+              label: T2
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 2"
+              label: T3
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 3"
+              label: T4
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 4"
+              label: T5
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 5"
+              label: T6
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 6"
+              label: T7
+            - sql: "DAY_OF_WEEK(CAST({CUBE}.login_time AT TIME ZONE 'Asia/Ho_Chi_Minh' AS DATE)) = 7"
+              label: CN
+          else:
+            label: unknown
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: login_channel
+        sql: login_channel
+        type: string
+
+      - name: app_channel
+        sql: app_channel
+        type: string
+
+      - name: app_version
+        sql: app_ver
+        type: string
+
+      - name: os_platform
+        sql: os_name
+        type: string
+        description: pc / ios / ad (android)
+
+      - name: os_version
+        sql: os_ver
+        type: string
+
+      - name: platform
+        sql: platform
+        type: string
+
+      - name: device_model
+        sql: device_model
+        type: string
+
+      - name: network
+        sql: network
+        type: string
+
+      - name: isp
+        sql: isp
+        type: string
+
+      - name: device_id
+        sql: unisdk_deviceid
+        type: string
+        public: false
+        description: PII — restricted
+
+      - name: client_ip
+        sql: ip
+        type: string
+        public: false
+        description: PII — restricted
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+      - name: guild_id
+        sql: guild_id
+        type: string
+
+      - name: total_score
+        sql: total_score
+        type: number
+
+      - name: is_emulator
+        sql: "CASE WHEN {CUBE}.is_emulator = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: is_root
+        sql: "CASE WHEN {CUBE}.is_root = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+      - name: is_guest
+        sql: "CASE WHEN {CUBE}.is_guest = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+
+    measures:
+      - name: logins
+        type: count
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+      - name: distinct_devices
+        type: count_distinct_approx
+        sql: unisdk_deviceid
+
+      - name: distinct_ips
+        type: count_distinct_approx
+        sql: ip
+
+      - name: distinct_servers
+        type: count_distinct_approx
+        sql: server
+
+      - name: max_role_level
+        sql: role_level
+        type: max
+
+      - name: emulator_logins
+        type: count
+        filters:
+          - sql: "{CUBE}.is_emulator = 1"
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: mobile_only
+        sql: "{CUBE}.os_name IN ('ios', 'ad')"
+
+      - name: pc_only
+        sql: "{CUBE}.os_name = 'pc'"
+
+      - name: emulator_only
+        sql: "{CUBE}.is_emulator = 1"

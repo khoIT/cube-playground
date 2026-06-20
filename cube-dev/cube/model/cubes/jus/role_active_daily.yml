@@ -1,0 +1,132 @@
+cubes:
+  # ===========================================================================
+  # role_active_daily — per-ROLE (character) daily activity snapshot. Source:
+  # std_ingame_role_active_daily (one row per role per active day).
+  #
+  # jus is an MMO: one account (mf_users.user_id) owns many characters across
+  # servers. Every other jus cube is account/user grain — this is the ONLY
+  # role-grain daily mart, so it answers "which characters are active / how
+  # long / at what level", not just "which accounts". user_id joins to mf_users;
+  # role_id joins to user_roles (the per-role master).
+  # ===========================================================================
+  - name: role_active_daily
+    sql_table: std_ingame_role_active_daily
+    title: JUS VN — Daily Active by Role (per character, per day)
+    description: >
+      One row per role (character) per active day. Use for character-level
+      engagement: how many distinct characters were active, total/avg online
+      time per character-day, level progression, and how many active characters
+      also recharged that day. For account-grain activity use active_daily;
+      for revenue per character use role_recharge_daily. For best 1-entity
+      latency, pass a user_id or role_id equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.user_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.role_id, '__', {CUBE}.server_id, '__', CAST({CUBE}.log_date AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: role_class
+        sql: ingame_last_active_role_class
+        type: string
+        description: Character class on that day (last-active value)
+
+      - name: role_level
+        sql: ingame_last_active_role_level
+        type: number
+        description: Character level on that day (last-active value)
+
+      - name: is_recharge
+        sql: "CASE WHEN {CUBE}.is_recharge = 1 THEN TRUE ELSE FALSE END"
+        type: boolean
+        description: Whether this character recharged on that day
+
+      - name: os_platform
+        sql: ingame_last_active_os_platform
+        type: string
+
+      - name: channel
+        sql: ingame_last_active_channel
+        type: string
+
+      - name: country_code
+        sql: ingame_last_active_country_code
+        type: string
+
+    measures:
+      - name: active_role_days
+        type: count
+        description: Row count — one per active character-day
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+        description: Distinct active characters
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: user_id
+        description: Distinct accounts behind the active characters
+
+      - name: total_online_time_sec
+        sql: total_online_time
+        type: sum
+        description: Total in-game online time (seconds) across character-days
+
+      - name: avg_online_time_sec
+        sql: total_online_time
+        type: avg
+        description: Average online time per character-day (seconds)
+
+      - name: max_role_level
+        sql: ingame_max_active_role_level
+        type: max
+
+      - name: recharging_role_days
+        type: count
+        filters:
+          - sql: "{CUBE}.is_recharge = 1"
+        description: Character-days that also recharged
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
+
+      - name: recharged_only
+        sql: "{CUBE}.is_recharge = 1"

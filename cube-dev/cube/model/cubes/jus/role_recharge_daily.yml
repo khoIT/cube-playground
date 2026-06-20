@@ -1,0 +1,137 @@
+cubes:
+  # ===========================================================================
+  # role_recharge_daily — per-ROLE (character) daily recharge snapshot. Source:
+  # std_ingame_role_recharge_daily (one row per recharging role per day).
+  #
+  # The only character-grain revenue mart for jus: answers "how much does each
+  # character spend, at what VIP / level, via IAP vs web". user_id joins to
+  # mf_users; role_id joins to user_roles. For account-grain revenue use
+  # user_recharge_daily / recharge.
+  # ===========================================================================
+  - name: role_recharge_daily
+    sql_table: std_ingame_role_recharge_daily
+    title: JUS VN — Daily Recharge by Role (per character, per day)
+    description: >
+      One row per role (character) per recharging day. Use for character-level
+      revenue: total VND/USD per character-day, IAP vs web split, VIP level and
+      role level at time of recharge, per-character ARPPU. For account-grain
+      revenue use user_recharge_daily / recharge. For best 1-entity latency,
+      pass a user_id or role_id equality filter.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.user_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT({CUBE}.role_id, '__', {CUBE}.server_id, '__', CAST({CUBE}.log_date AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: user_id
+        type: string
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: server_id
+        sql: server_id
+        type: string
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: role_level
+        sql: ingame_last_recharge_role_level
+        type: number
+        description: Character level at last recharge that day
+
+      - name: vip_level
+        sql: ingame_last_recharge_vip_level
+        type: number
+        description: VIP level at last recharge that day
+
+      - name: product_id
+        sql: ingame_last_recharge_product_id
+        type: string
+
+      - name: currency_code
+        sql: last_currency_code
+        type: string
+
+      - name: payment_channel
+        sql: ingame_last_recharge_payment_channel
+        type: string
+
+      - name: os_platform
+        sql: ingame_last_recharge_os_platform
+        type: string
+
+      - name: country_code
+        sql: ingame_last_recharge_country_code
+        type: string
+
+    measures:
+      - name: recharge_role_days
+        type: count
+        description: Row count — one per recharging character-day
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+        description: Distinct paying characters
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: user_id
+        description: Distinct paying accounts
+
+      - name: total_recharge_vnd
+        sql: ingame_total_recharge_value_vnd
+        type: sum
+        description: Total recharge value (VND) across character-days
+
+      - name: total_recharge_vnd_iap
+        sql: ingame_total_recharged_value_vnd_iap
+        type: sum
+
+      - name: total_recharge_vnd_web
+        sql: ingame_total_recharged_value_vnd_web
+        type: sum
+
+      - name: total_recharge_usd
+        sql: ingame_total_recharged_value_usd
+        type: sum
+
+      - name: total_transactions
+        sql: ingame_total_recharge_transaction_id
+        type: sum
+        description: Total recharge transactions across character-days
+
+      - name: arppu_vnd
+        sql: "SUM({CUBE}.ingame_total_recharge_value_vnd) / NULLIF(COUNT(DISTINCT {CUBE}.user_id), 0)"
+        type: number
+        description: Average recharge VND per paying account in the window
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"

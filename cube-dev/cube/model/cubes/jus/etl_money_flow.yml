@@ -1,0 +1,140 @@
+cubes:
+  # ===========================================================================
+  # etl_money_flow — per-role virtual-currency flow events. Source:
+  # etl_ingame_money_flow (~2.8B rows). account_id joins directly to mf_users;
+  # role_id bridges to user_roles.
+  #
+  # IMPORTANT (verified): jus money_flow has NO direction flag. `num` is always
+  # positive, `log_type` is always NULL, and there is no addorreduce/golddirection
+  # column (unlike cfm/omg). So gain-vs-spend is NOT encoded in the data and is
+  # NOT fabricated here. `now_num` is the running balance AFTER the event — the
+  # only direction signal available, derivable only via per-role balance deltas
+  # (a window op), so it is exposed as a dimension, not a credit/debit split.
+  #
+  # `field` (currency), `reason` (action), and `reason_remarks` (coarse group)
+  # are RAW codes — there is no jus enum reference doc, so labels are NOT
+  # fabricated (matches the upstream omg/npc convention). Group `total_value`
+  # by `field` to avoid summing mixed currency units.
+  # ===========================================================================
+  - name: etl_money_flow
+    sql_table: etl_ingame_money_flow
+    title: JUS VN — Virtual Currency Flow (events, 货币流水)
+    description: >
+      Per-role virtual-currency flow events (~2.8B rows). Each row is one balance
+      change: num = absolute delta (always positive — direction is NOT encoded),
+      now_num = balance after. field / reason / reason_remarks are RAW codes (no
+      jus enum doc — labels not fabricated). account_id joins directly to mf_users;
+      role_id bridges to user_roles. Use for currency sources/sinks by field, and
+      whether players are accumulating vs depleting balances (via balance_after).
+      ALWAYS query with account_id/user_id OR role_id filter + a bounded log_date
+      range — this is a very large table.
+
+    joins:
+      - name: mf_users
+        relationship: many_to_one
+        sql: "split_part({CUBE}.account_id, '@', 1) = {mf_users}.user_id"
+
+      - name: user_roles
+        relationship: many_to_one
+        sql: "{CUBE}.role_id = {user_roles}.role_id"
+
+    refresh_key:
+      every: 30 minute
+
+    dimensions:
+      - name: composite_pk
+        sql: "CONCAT(COALESCE({CUBE}.transid, ''), '__', COALESCE({CUBE}.role_id, ''), '__', COALESCE({CUBE}.field, ''), '__', COALESCE({CUBE}.reason, ''), '__', CAST({CUBE}.log_date AS VARCHAR))"
+        type: string
+        primary_key: true
+        public: false
+
+      - name: user_id
+        sql: account_id
+        type: string
+        description: NetEase URS account — direct join key to mf_users
+
+      - name: account_id
+        sql: account_id
+        type: string
+        public: false
+
+      - name: role_id
+        sql: role_id
+        type: string
+
+      - name: server_id
+        sql: server
+        type: string
+
+      - name: currency_field
+        sql: field
+        type: string
+        description: Raw currency-type code (30 distinct). No jus enum doc — labels not provided.
+
+      - name: reason_code
+        sql: reason
+        type: string
+        description: Raw flow reason / action code (225 distinct). No jus enum doc.
+
+      - name: reason_group
+        sql: reason_remarks
+        type: string
+        description: Coarse reason group (1–4). Raw code — no jus enum doc.
+
+      - name: role_class
+        sql: role_class
+        type: string
+
+      - name: role_level
+        sql: role_level
+        type: number
+
+      - name: balance_after
+        sql: "TRY_CAST({CUBE}.now_num AS DOUBLE)"
+        type: number
+        description: Running balance of this currency after the event (now_num).
+
+      - name: log_date
+        sql: "from_iso8601_timestamp(CAST({CUBE}.log_date AS VARCHAR) || 'T00:00:00Z')"
+        type: time
+        description: Partition column — REQUIRED filter for this very large table
+
+      - name: log_month
+        sql: log_month
+        type: string
+
+      - name: scene_id
+        sql: scene_id
+        type: string
+
+      - name: country_code
+        sql: country_code
+        type: string
+
+    measures:
+      - name: flows
+        type: count
+
+      - name: total_value
+        sql: "TRY_CAST({CUBE}.num AS DOUBLE)"
+        type: sum
+        description: Sum of flow deltas (num, always positive) — group by currency_field (mixed units otherwise).
+
+      - name: distinct_roles
+        type: count_distinct_approx
+        sql: role_id
+
+      - name: distinct_users
+        type: count_distinct_approx
+        sql: account_id
+
+      - name: distinct_days
+        type: count_distinct_approx
+        sql: log_date
+
+    segments:
+      - name: last_7d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '7' DAY"
+
+      - name: last_30d
+        sql: "{CUBE}.log_date >= CURRENT_DATE - INTERVAL '30' DAY"
