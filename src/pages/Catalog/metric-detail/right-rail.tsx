@@ -6,13 +6,10 @@
  * rail can stay slim and focused on actions.
  */
 
-import { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { pushFromMetric } from '../../../shared/activation/push-from-metric';
 import { useMetricOverrideStore } from '../metrics-tab/metric-override-store';
-import { SubscribeModal } from '../digest/subscribe-modal';
 import type { BusinessMetric } from '../metrics-tab/business-metric-types';
 import { useCatalogMeta } from '../use-catalog-meta';
 import { buildExploreUrl } from './explore-query-builder';
@@ -65,7 +62,6 @@ const Primary = styled(Button)`
 export function RightRail({ metric }: { metric: BusinessMetric }) {
   const history = useHistory();
   const { cubes } = useCatalogMeta();
-  const [subscribeOpen, setSubscribeOpen] = useState(false);
   const runnability = useMetricRunnability(metric);
   const overridden = useMetricOverrideStore((s) => s.allowed.has(metric.id));
   const exploreBlocked = runnability.status === 'broken' && !overridden;
@@ -87,26 +83,15 @@ export function RightRail({ metric }: { metric: BusinessMetric }) {
       >
         Open in Explore →
       </Primary>
-      <Button
-        type="button"
-        onClick={() => history.push(pushFromMetric(metric).url)}
-        title="Hand off to Segments to materialise + push to activation"
-      >
+      <Button type="button" disabled title="Coming in a later phase">
         Push to activation →
       </Button>
-      <Button
-        type="button"
-        onClick={() => setSubscribeOpen(true)}
-        title="Schedule Slack / email digest"
-      >
+      <Button type="button" disabled title="Coming in a later phase">
         Subscribe
       </Button>
       <Button type="button" disabled title="Coming in a later phase">
         Edit
       </Button>
-      {subscribeOpen && (
-        <SubscribeModal metric={metric} onClose={() => setSubscribeOpen(false)} />
-      )}
     </Rail>
   );
 }
