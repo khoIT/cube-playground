@@ -36,6 +36,7 @@ allowed_tools:
   - preview_cube_query
   - explain_cube_sql
   - emit_query_artifact
+  - emit_combined_artifact
   - emit_chart
   - get_business_metric_history
   - get_segmentable_measures

@@ -89,6 +89,14 @@ export const ChartSpecSchema = z.discriminatedUnion('type', [
     encoding: SeriesEncoding,
     data: z.array(DataRowSchema).min(1).max(HEATMAP_MAX_ROWS),
   }),
+  // Dual-axis: two metrics over one (date) category on independent y-axes —
+  // bars on the left (`value`), a line on the right (`series`). Emitted by the
+  // combined-artifact path when two differently-scaled metrics (e.g. DAU ~tens
+  // of thousands vs revenue ~millions) are aligned on a shared date axis; a
+  // single shared scale would flatten one of them. The FE renderer reads
+  // `value` (left/bars) + `series` (right/line) — same encoding the client-side
+  // dual-axis view transform uses.
+  z.object({ ...baseShape, type: z.literal('dual-axis'), encoding: SeriesEncoding }),
 ]);
 
 export type ChartSpec = z.infer<typeof ChartSpecSchema>;
@@ -154,7 +162,10 @@ export function truncateTopN(spec: ChartSpec, limit = TOP_N): TruncateResult {
     spec.type === 'heatmap' ||
     spec.type === 'line' ||
     spec.type === 'area' ||
-    spec.type === 'multi-line'
+    spec.type === 'multi-line' ||
+    // Dual-axis rows are date-ordered; value-sorting + "Other"-lumping would
+    // scramble the shared date axis exactly like line/area.
+    spec.type === 'dual-axis'
   ) {
     return { spec, truncated: false, originalRowCount };
   }

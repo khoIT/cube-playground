@@ -55,9 +55,10 @@ export type ChartType =
   // Heatmap: one metric across two categorical dims — category = x column,
   // series = y (row) column, value = cell intensity. One data row per cell.
   | 'heatmap'
-  // Render-only view type: never emitted by the backend/LLM. The chart-type
-  // menu derives it client-side for "1 category + 2 metrics" data, showing the
-  // two metrics on independent axes (bars on the left, a line on the right).
+  // Two metrics on independent axes (bars on the left, a line on the right).
+  // The chart-type menu derives it client-side for "1 category + 2 metrics"
+  // data, AND the backend emits it directly for a combined artifact (two
+  // cross-cube metrics merged on a shared date axis).
   | 'dual-axis';
 
 export interface ChartSpec {
@@ -113,6 +114,13 @@ export interface QueryArtifact {
   payload: unknown;
   /** Optional inline chart suggested by the LLM at emit time. */
   chart?: ChartArtifact;
+  /**
+   * Combined dual-axis artifact: a second Cube query overlaid on `query` on a
+   * shared date axis. `query` stays a runnable single CubeQuery; `combined`
+   * flags the dual-series shape (deeplink + builder handle it in later phases).
+   */
+  overlay?: unknown;
+  combined?: boolean;
 }
 
 export interface SseQueryArtifact extends SseEventBase {

@@ -154,6 +154,15 @@ export function buildRefreshHook(deps: RefreshDeps) {
         nextCharts.push(chart);
         continue;
       }
+      // A combined artifact's chart is the date-value merge of TWO queries;
+      // reloading only `src.query` (the primary) would rebuild it as a single
+      // series and silently drop the overlay. The combined chart is normally
+      // embedded on the artifact (never in this standalone list), but guard the
+      // path explicitly: keep the cached merged chart rather than corrupt it.
+      if (src.combined) {
+        nextCharts.push(chart);
+        continue;
+      }
       try {
         const rows = await load(src.query);
         const rebuilt = rebuildChartWithRows(chart, rows);

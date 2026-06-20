@@ -55,6 +55,14 @@ export interface QueryArtifact {
   payload?: CubeQuery; // only present when via === 'session-storage'
   /** Optional inline chart suggested by the LLM at emit time. */
   chart?: ChartArtifact;
+  /**
+   * Combined dual-axis artifact: a second Cube query whose measure is overlaid
+   * on `query`'s on a shared date axis. Loaded independently and merged on the
+   * date value (the two cubes share no Cube join). `query` stays a runnable
+   * single CubeQuery for back-compat; `combined` flags the dual-series shape.
+   */
+  overlay?: CubeQuery;
+  combined?: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ import * as disambiguateQuery from './disambiguate-query.js';
 import * as offerChoices from './offer-choices.js';
 import * as previewCubeQuery from './preview-cube-query.js';
 import * as emitQueryArtifact from './emit-query-artifact.js';
+import * as emitCombinedArtifact from './emit-combined-artifact.js';
 import * as listBusinessMetrics from './list-business-metrics.js';
 import * as getBusinessMetric from './get-business-metric.js';
 import * as listSegments from './list-segments.js';
@@ -103,6 +104,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: emitQueryArtifact.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: emitQueryArtifact.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: emitCombinedArtifact.name,
+    description: emitCombinedArtifact.description,
+    inputSchema: emitCombinedArtifact.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: emitCombinedArtifact.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
   {
     name: listBusinessMetrics.name,

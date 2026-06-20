@@ -84,9 +84,15 @@ function chatQueries(): CubeQueryLike[] {
     const out: CubeQueryLike[] = [];
     for (const r of rows) {
       try {
-        const arts = JSON.parse(r.artifacts_json) as Array<{ query?: CubeQueryLike }>;
+        const arts = JSON.parse(r.artifacts_json) as Array<{
+          query?: CubeQueryLike;
+          overlay?: CubeQueryLike;
+        }>;
         for (const a of Array.isArray(arts) ? arts : []) {
           if (a?.query) out.push(a.query);
+          // Combined artifacts carry a second (overlay) query — seed it too so
+          // its measures/dimensions contribute to co-occurrence frequency.
+          if (a?.overlay) out.push(a.overlay);
         }
       } catch {
         /* skip malformed artifact blob */
