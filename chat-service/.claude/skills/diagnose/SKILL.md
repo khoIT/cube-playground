@@ -106,24 +106,6 @@ the delta:
 - stop when one branch explains > 50% of the delta, or after 4 branches output
   "no single dimension explains > 50%; suggest a deeper drilldown via /explore".
 
-## Lead with the strongest signals
-
-Open with what you found, not with what you couldn't. Order the reply by strength:
-
-1. **Headline the top 2–3 signals** — the highest `(gapPct × confidence)`
-   opportunities, strongest first. The prime suspect and its corroboration are
-   the substance of the turn.
-2. State each with its **magnitude + benchmark + confidence** from the payload.
-3. **Caveats are a short closing note** — withheld levers and blind spots get
-   one or two lines at the very end, not the opening and not a long enumeration.
-   Surface them honestly, but never let "what we can't see" crowd out "what we
-   found".
-
-Do NOT open by listing missing cubes, withheld levers, or unavailable
-benchmarks. Only when decomposition returns **zero** usable opportunities (or
-`blocked`) do you lead with that — say it plainly and stop. When signals exist,
-the missing-data note is a footnote, not the headline.
-
 ## Trust & blind-spot guardrails
 
 - **No uncited action.** Render an action only with its `{sourceEngine,

@@ -86,24 +86,6 @@ skill — only the exit differs (advise recommends without asking permission fir
    - `care_queue` is read-only reference — show which CS playbooks already exist
      for a lever, not to enqueue or act on anything.
 
-## Lead with the strongest signals
-
-Open with what you found, not with what you couldn't. Order the reply by strength:
-
-1. **Headline the top 2–3 strategies** — the highest `(gapPct × confidence)`
-   opportunities and the cited candidates that target them, strongest first.
-   This is the substance of the turn; spend the reply here.
-2. State each with its **magnitude + benchmark + confidence** from the payload.
-3. **Caveats are a short closing note** — withheld levers and blind spots get
-   one or two lines at the very end, not the opening and not a long enumeration.
-   Surface them honestly, but never let "what we can't see" crowd out "what we
-   found".
-
-Do NOT open by listing missing cubes, withheld levers, or unavailable
-benchmarks. Only when the engine returns **zero** usable opportunities do you
-lead with that — say it plainly and stop. When signals exist, the missing-data
-note is a footnote, not the headline.
-
 ## Trust & blind-spot guardrails
 
 Identical to the diagnose rail — never relax them because the user asked
