@@ -10,13 +10,20 @@ import { render, screen, waitFor } from '@testing-library/react';
 import type { Segment } from '../../../../../types/segment-api';
 import {
   buildTrajectoryModel,
+  buildTrajectoryModelFromMovement,
   fmtCompact,
+  fmtTrajectoryTick,
   type TrajectoryPayload,
 } from '../trajectory-card-model';
 
 const apiFetchMock = vi.fn();
 vi.mock('../../../../../api/api-client', () => ({
   apiFetch: (...args: unknown[]) => apiFetchMock(...args),
+}));
+
+const movementMock = vi.fn();
+vi.mock('../../../../../api/segment-movement-client', () => ({
+  segmentMovementClient: { movement: (...args: unknown[]) => movementMock(...args) },
 }));
 
 import { TrajectoryCard } from '../trajectory-card';
@@ -45,6 +52,7 @@ const seg = (over: Partial<Segment> = {}): Segment =>
 beforeEach(() => {
   apiFetchMock.mockReset();
   apiFetchMock.mockResolvedValue(payload());
+  movementMock.mockReset();
 });
 
 describe('buildTrajectoryModel', () => {
@@ -75,6 +83,36 @@ describe('buildTrajectoryModel', () => {
   });
 });
 
+describe('buildTrajectoryModelFromMovement', () => {
+  it('builds a continuous (gapless) model from movement buckets', () => {
+    const m = buildTrajectoryModelFromMovement([
+      { ts: '2026-06-21 00:00:00', memberCount: 1000, entered: 0, exited: 0 },
+      { ts: '2026-06-21 06:00:00', memberCount: 1100, entered: 120, exited: 20 },
+      { ts: '2026-06-21 12:00:00', memberCount: 1050, entered: 10, exited: 60 },
+    ])!;
+    // No synthetic day-stepping/gaps — buckets render as returned.
+    expect(m.days).toHaveLength(3);
+    expect(m.gapCount).toBe(0);
+    expect(m.latestDate).toBe('2026-06-21 12:00:00');
+    expect(m.latestMembers).toBe(1050);
+    expect(m.maxMembers).toBe(1100);
+    expect(m.minMembers).toBe(1000);
+    expect(m.windowChangePct).toBeCloseTo(5.0, 5);
+  });
+
+  it('returns null when no bucket has a member count', () => {
+    expect(buildTrajectoryModelFromMovement([{ ts: '2026-06-21 00:00:00' }])).toBeNull();
+    expect(buildTrajectoryModelFromMovement([])).toBeNull();
+  });
+});
+
+describe('fmtTrajectoryTick', () => {
+  it('renders MM-DD for daily and DD HH:MM for sub-daily', () => {
+    expect(fmtTrajectoryTick('2026-06-21')).toBe('06-21');
+    expect(fmtTrajectoryTick('2026-06-21 14:00:00')).toBe('21 14:00');
+  });
+});
+
 describe('<TrajectoryCard />', () => {
   it('renders stat rail + freshness and gap chips from live data', async () => {
     render(<TrajectoryCard segment={seg()} />);
@@ -84,6 +122,21 @@ describe('<TrajectoryCard />', () => {
     expect(screen.getByText('1 night missed')).toBeTruthy();
     expect(screen.getByText('+38.2k')).toBeTruthy();
     expect(screen.getByText('−26.5k')).toBeTruthy();
+  });
+
+  it('re-sources from the grain-aware movement feed for sub-daily grains', async () => {
+    movementMock.mockResolvedValue({
+      points: [
+        { ts: '2026-06-21 00:00:00', memberCount: 1_000_000, entered: 0, exited: 0 },
+        { ts: '2026-06-21 12:00:00', memberCount: 1_100_000, entered: 120_000, exited: 20_000 },
+      ],
+    });
+    render(<TrajectoryCard segment={seg()} granularity="12h" from="2026-06-20" to="2026-06-21" />);
+    await waitFor(() => expect(movementMock).toHaveBeenCalled());
+    // Daily snapshot endpoint must NOT be hit on the sub-daily path.
+    expect(apiFetchMock).not.toHaveBeenCalled();
+    expect(movementMock.mock.calls[0][1]).toMatchObject({ granularity: '12h' });
+    await waitFor(() => expect(screen.getByText('latest 2026-06-21 12:00')).toBeTruthy());
   });
 
   it('shows the informative empty state when no partitions exist', async () => {

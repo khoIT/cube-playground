@@ -4,6 +4,8 @@
  * formatting. Kept free of React so it's unit-testable without rendering.
  */
 
+import type { MovementPoint } from '../../../../api/segment-movement-client';
+
 export interface SizePoint {
   date: string;
   members: number;
@@ -101,6 +103,61 @@ export function buildTrajectoryModel(payload: TrajectoryPayload): TrajectoryMode
     minMembers: Math.min(...landed.map((p) => p.members)),
     maxDelta,
   };
+}
+
+/**
+ * Build the same view-model from the grain-aware movement feed (memberCount /
+ * entered / exited per bucket at the selected view grain). Used when the view
+ * grain is finer than daily, so the trajectory follows the grain toggle like
+ * every other over-time section. The movement reader already carries buckets
+ * forward across capture gaps, so there are no null/amber gaps to insert here —
+ * the line stays continuous over the returned buckets.
+ */
+export function buildTrajectoryModelFromMovement(points: MovementPoint[]): TrajectoryModel | null {
+  const landed = points.filter((p) => p.memberCount != null);
+  if (landed.length === 0) return null;
+
+  const days: TrajectoryDay[] = points.map((p) => ({
+    date: p.ts,
+    members: p.memberCount ?? null,
+    entered: p.entered ?? null,
+    exited: p.exited ?? null,
+  }));
+
+  const memberVals = landed.map((p) => p.memberCount as number);
+  const firstMembers = memberVals[0];
+  const latestMembers = memberVals[memberVals.length - 1];
+  const last = landed[landed.length - 1];
+  const maxDelta = Math.max(
+    1,
+    ...points.map((p) => Math.max(p.entered ?? 0, p.exited ?? 0)),
+  );
+
+  return {
+    days,
+    gapCount: 0,
+    latestDate: last.ts,
+    latestMembers,
+    windowChangePct:
+      memberVals.length > 1 && firstMembers > 0
+        ? ((latestMembers - firstMembers) / firstMembers) * 100
+        : null,
+    latestEntered: last.entered ?? null,
+    latestExited: last.exited ?? null,
+    maxMembers: Math.max(...memberVals),
+    minMembers: Math.min(...memberVals),
+    maxDelta,
+  };
+}
+
+/**
+ * Axis tick label. Daily ts ("2026-06-21") → "06-21"; sub-daily ts
+ * ("2026-06-21 14:00:00") → "21 14:00" so finer grains read cleanly.
+ */
+export function fmtTrajectoryTick(ts: string): string {
+  const [date, time] = ts.split(' ');
+  if (!time) return date.slice(5);
+  return `${date.slice(8)} ${time.slice(0, 5)}`;
 }
 
 /** Compact human number: 7174638 → "7.17M", 38200 → "38.2k", 224 → "224". */

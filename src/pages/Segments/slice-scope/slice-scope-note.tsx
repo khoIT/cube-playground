@@ -40,17 +40,21 @@ export function SliceScopeNote({
   const chips = [...(cubeSegments ?? []).map(cubeSegmentChip), ...describePredicate(predicate)];
   if (chips.length === 0) return null;
 
-  // Compact: a single quiet chip. The slice + caveat ride the native tooltip, so
-  // the page isn't dominated by a full-width banner it only needs to whisper.
+  // Compact: a single quiet chip. The slice + caveat ride a styled hover bubble
+  // (not the native `title`, which appears after a ~1s browser delay and reads
+  // as broken) so the detail shows instantly. Mirrors the glossary filter-bar
+  // tooltip pattern.
   if (compact) {
+    const tip = `${chips.join(' · ')} — sliced metrics reflect the slice, not each member’s full history`;
     return (
-      <span
-        className={styles.sliceScopeChipCompact}
-        role="note"
-        title={`${chips.join(' · ')} — sliced metrics reflect the slice, not each member’s full history`}
-      >
-        <Info size={12} aria-hidden />
-        Sliced metrics
+      <span className={styles.sliceScopeChipWrap}>
+        <span className={styles.sliceScopeChipCompact} role="note" tabIndex={0} aria-label={tip}>
+          <Info size={12} aria-hidden />
+          Sliced metrics
+        </span>
+        <span className={styles.sliceScopeTip} role="tooltip">
+          {tip}
+        </span>
       </span>
     );
   }

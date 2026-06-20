@@ -26,6 +26,7 @@ import { useSegmentLivePolling } from './hooks/use-segment-live-polling';
 import { useSegmentSizeDelta } from './hooks/use-segment-size-delta';
 import { format as formatDate, addMinutes } from 'date-fns';
 import { DetailHeaderActions } from './components/detail-header-actions';
+import { EditableSegmentTitle } from './components/editable-segment-title';
 import { AiBriefCard } from './components/ai-brief-card';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
@@ -159,7 +160,7 @@ export function DetailView(): ReactElement {
       <BrokenSegmentBanner segment={segment} onViewRefreshLog={() => setTab('monitor')} />
       <header className={styles.detailHeader}>
         <div className={styles.detailTitleRow}>
-          <h1 className={styles.detailTitle}>{segment.name}</h1>
+          <EditableSegmentTitle segment={segment} onRename={setSegment} />
           {segment.cube != null && (
             <span className={styles.cubeBadge}>{segment.cube}</span>
           )}

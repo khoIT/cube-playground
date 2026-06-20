@@ -148,7 +148,13 @@ export function MonitorTab({ segment, preset = null, onSegmentChange }: Props): 
       <CadenceCoverageStrip eras={captureEras} finest={finest} />
       <MonitorKpiTiles segment={segment} preset={preset} range={effRange} granularity={granularity} />
       <div className={styles.monitorScopeChipRow}>{scopeChip}</div>
-      <TrajectoryCard segment={segment} days={effDays} />
+      <TrajectoryCard
+        segment={segment}
+        days={effDays}
+        granularity={granularity}
+        from={effRange.from}
+        to={effRange.to}
+      />
 
       {/* ── Over time ───────────────────────────────────────────────────── */}
       <div className={styles.zoneEyebrow}>Over time</div>

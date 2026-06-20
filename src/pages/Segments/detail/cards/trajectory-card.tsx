@@ -13,13 +13,16 @@
 import { ReactElement, useEffect, useState } from 'react';
 import { Waypoints } from 'lucide-react';
 import { apiFetch } from '../../../../api/api-client';
+import { segmentMovementClient, type MovementGranularity } from '../../../../api/segment-movement-client';
 import { CardShell } from './card-shell';
 import { useMeasuredWidth } from './use-measured-width';
 import { isDemoWeekMode, demoTrajectoryPayload } from './demo-week-mode';
 import {
   buildTrajectoryModel,
+  buildTrajectoryModelFromMovement,
   fmtCompact,
   fmtPct,
+  fmtTrajectoryTick,
   type TrajectoryModel,
   type TrajectoryPayload,
 } from './trajectory-card-model';
@@ -121,7 +124,7 @@ function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
         {bars}
         {tickIdx.map((i) => (
           <text key={i} x={x(i)} y={STRIP_H - 2} fontSize={10} fill="var(--text-muted)" textAnchor={tickAnchor(i)}>
-            {m.days[i].date.slice(5)}
+            {fmtTrajectoryTick(m.days[i].date)}
           </text>
         ))}
       </svg>
@@ -131,40 +134,69 @@ function TrajectoryCharts({ m }: { m: TrajectoryModel }): ReactElement {
 
 interface Props {
   segment: Segment;
-  /** Window (days) from the tab range picker. The trajectory reader is daily-only,
-   *  so the View-grain toggle doesn't apply here; the Range does. Defaults to 90. */
+  /** Window (days) from the tab range picker. Defaults to 90. */
   days?: number;
+  /**
+   * View grain from the tab toggle. At 'daily' (the coarsest grain) the card
+   * reads the gap-aware daily snapshot trajectory. At a finer grain it follows
+   * the grain like the other over-time sections, re-sourcing from the grain-aware
+   * movement feed (member_count / entered / exited per bucket). Defaults to daily.
+   */
+  granularity?: MovementGranularity;
+  /** Explicit window from the range picker — passed through to the movement feed. */
+  from?: string;
+  to?: string;
 }
 
-export function TrajectoryCard({ segment, days = 90 }: Props): ReactElement | null {
-  const [payload, setPayload] = useState<TrajectoryPayload | null>(null);
+export function TrajectoryCard({
+  segment,
+  days = 90,
+  granularity = 'daily',
+  from,
+  to,
+}: Props): ReactElement | null {
+  const [model, setModel] = useState<TrajectoryModel | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
 
   const demo = isDemoWeekMode();
+  // Daily is the coarsest grain and the only one the daily snapshot reader can
+  // serve; finer grains follow the view toggle via the movement feed.
+  const subDaily = granularity !== 'daily';
 
   useEffect(() => {
     if (demo) {
       // Temporary preview mode (?demo=1): a week of fixture data instead of
       // the lakehouse read — for visualizing the card before history accrues.
-      setPayload(demoTrajectoryPayload(segment.id, segment.game_id ?? '') as TrajectoryPayload);
+      const payload = demoTrajectoryPayload(segment.id, segment.game_id ?? '') as TrajectoryPayload;
+      setModel(payload.empty ? null : buildTrajectoryModel(payload));
+      setError(null);
       setLoading(false);
       return;
     }
     let alive = true;
     setLoading(true);
-    apiFetch<TrajectoryPayload>(`/api/segments/${encodeURIComponent(segment.id)}/trajectory?days=${days}`)
-      .then((d) => { if (alive) { setPayload(d); setError(null); } })
+
+    const fetched = subDaily
+      ? segmentMovementClient
+          .movement(segment.id, { granularity, days, from, to })
+          .then((res) => buildTrajectoryModelFromMovement(res.points))
+      : apiFetch<TrajectoryPayload>(
+          `/api/segments/${encodeURIComponent(segment.id)}/trajectory?days=${days}`,
+        ).then((d) => (d.empty ? null : buildTrajectoryModel(d)));
+
+    fetched
+      .then((m) => { if (alive) { setModel(m); setError(null); } })
       .catch((err: Error) => { if (alive) setError(err); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [segment.id, demo, days]);
+  }, [segment.id, segment.game_id, demo, subDaily, granularity, days, from, to]);
 
   // Mount-guard lives here too (server 404s non-predicate) so the monitor tab
   // composition stays declarative.
   if (segment.type !== 'predicate' || !segment.game_id) return null;
 
-  const m = payload && !payload.empty ? buildTrajectoryModel(payload) : null;
+  const m = model;
 
   return (
     <CardShell
@@ -178,7 +210,7 @@ export function TrajectoryCard({ segment, days = 90 }: Props): ReactElement | nu
         m ? (
           <>
             {demo && <Chip tone="warning">demo data</Chip>}
-            <Chip tone="success">{`latest ${m.latestDate}`}</Chip>
+            <Chip tone="success">{`latest ${m.latestDate.slice(0, 16)}`}</Chip>
             {m.gapCount > 0 && <Chip tone="warning">{`${m.gapCount} night${m.gapCount > 1 ? 's' : ''} missed`}</Chip>}
           </>
         ) : undefined

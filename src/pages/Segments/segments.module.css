@@ -412,6 +412,46 @@
   color: var(--text-primary);
 }
 
+/* Click-to-rename affordance: wraps the title; pencil fades in on hover/focus. */
+.detailTitleEditable {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: text;
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.detailTitleEditIcon {
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  flex-shrink: 0;
+}
+
+.detailTitleEditable:hover .detailTitleEditIcon,
+.detailTitleEditable:focus-visible .detailTitleEditIcon {
+  opacity: 1;
+}
+
+.detailTitleEditable:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Inline rename input — inherits .detailTitle typography, sits on a subtle field. */
+.detailTitleInput {
+  padding: 0 6px;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  outline: none;
+  max-width: min(560px, 70vw);
+}
+
 .cubeBadge {
   display: inline-flex;
   align-items: center;
@@ -1830,6 +1870,11 @@
 .monitorScopeChipRow { display: flex; }
 
 /* Compact slice caveat — replaces the full-width banner on the Monitor tab. */
+.sliceScopeChipWrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .sliceScopeChipCompact {
   display: inline-flex;
   align-items: center;
@@ -1841,7 +1886,39 @@
   background: var(--bg-muted);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-full);
-  cursor: help;
+  /* No `cursor: help` — it renders the OS "?" pointer, which reads as a
+     broken/error affordance. Detail rides the styled bubble below. */
+  cursor: default;
+  outline: none;
+}
+
+/* Instant styled hover/focus bubble — replaces the ~1s-delayed native title. */
+.sliceScopeTip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 1000;
+  width: max-content;
+  max-width: 340px;
+  padding: 7px 10px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.45;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+
+.sliceScopeChipWrap:hover .sliceScopeTip,
+.sliceScopeChipWrap:focus-within .sliceScopeTip {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Two charts side-by-side (membership movement · state distribution). */
@@ -2592,7 +2669,9 @@
   border: none;
   background: transparent;
   color: var(--text-muted);
-  cursor: help;
+  /* No `cursor: help` — the OS "?" pointer reads as broken; the title tooltip
+     carries the identity-dim detail without it. */
+  cursor: default;
   border-radius: var(--radius-sm);
 }
 
