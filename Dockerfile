@@ -15,7 +15,7 @@
 ############################################################
 # base — Node + the toolchain better-sqlite3's node-gyp build needs
 ############################################################
-FROM node:22-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 WORKDIR /app
 # CI runners have no direct internet from build steps — apt and npm reach the
 # mirrors only through the org proxy, passed in as the predefined *_PROXY build
@@ -95,7 +95,7 @@ RUN npm run build --prefix chat-service
 ############################################################
 # server — runtime (Fastify :3004)
 ############################################################
-FROM node:22-bookworm-slim AS server
+FROM node:24-bookworm-slim AS server
 ENV NODE_ENV=production
 WORKDIR /app/server
 # Proven node_modules with the already-compiled better-sqlite3 binary.
@@ -125,7 +125,7 @@ CMD ["node", "dist/index.js"]
 ############################################################
 # chat-service — runtime (Fastify :3005)
 ############################################################
-FROM node:22-bookworm-slim AS chat-service
+FROM node:24-bookworm-slim AS chat-service
 ENV NODE_ENV=production
 # Runtime egress proxy. The LLM gateway (ANTHROPIC_BASE_URL —
 # aawp-litellm-testing.vnggames.net — resolves to a PUBLIC IP) is reachable from
