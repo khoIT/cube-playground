@@ -145,6 +145,26 @@ export const inputSchema = {
         'just explored (same shape as CubeQuery.filters from emit_query_artifact). ' +
         'Supports leaf filters (member/operator/values) and logical AND/OR groups.',
     ),
+  /** threshold/percentile/top_n: extra conditions AND-ed onto the main leaf */
+  additional_filters: z
+    .array(
+      z.object({
+        member: z
+          .string()
+          .describe('Fully-qualified member on the SAME cube, e.g. "mf_users.ltv_vnd".'),
+        operator: z.enum(['equals', 'notEquals', 'gt', 'gte', 'lt', 'lte', 'set', 'notSet']),
+        values: z.array(z.union([z.string(), z.number()])).optional(),
+      }),
+    )
+    .optional()
+    .describe(
+      'Extra conditions AND-ed onto a threshold/percentile/top_n proposal so it ' +
+        'expresses a COMPOUND predicate in one call — e.g. "top 25% by active days ' +
+        'who never paid" = kind=percentile on active_days + additional_filters ' +
+        '[{member:"mf_users.ltv_vnd", operator:"equals", values:[0]}]. All members ' +
+        'must be on the same cube. Use this instead of probing for a cutoff and ' +
+        'asking the user for a manual floor.',
+    ),
   /** query only: logical cube name (member prefix, e.g. "mf_users") */
   cube: z
     .string()
@@ -198,6 +218,7 @@ export async function handler(
     percentile_top_pct?: number;
     top_n?: number;
     filters?: CubeInputFilter[];
+    additional_filters?: import('./propose-segment-handlers.js').AdditionalFilter[];
     cube?: string;
     suggested_visibility?: 'personal' | 'shared' | 'org';
     language?: 'en' | 'vi' | 'mixed';

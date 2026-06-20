@@ -10,7 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { postJson, ServerClientError } from '../services/server-client.js';
 import type { ToolContext } from '../types.js';
 import type { SegmentableMeasure, PopulationOver } from './get-segmentable-measures.js';
-import type { LeafNode, GroupNode } from '../types/predicate-tree.js';
+import type { LeafNode, GroupNode, LeafOperator, LeafValueType } from '../types/predicate-tree.js';
 import type { CubeInputFilter } from '../utils/cube-query-to-predicate-tree.js';
 import { cubeQueryToPredicateTree } from '../utils/cube-query-to-predicate-tree.js';
 import {
@@ -55,6 +55,17 @@ export interface CutoffResponse {
 // Shared arg shapes
 // ---------------------------------------------------------------------------
 
+/**
+ * A simple extra condition AND-ed onto the main threshold/percentile/top_n leaf
+ * so a single proposal can express a compound predicate (e.g. "top 25% by active
+ * days AND ltv_vnd = 0"). Plain comparison ops only — no cutoff resolution.
+ */
+export type AdditionalFilter = {
+  member: string;
+  operator: 'equals' | 'notEquals' | 'gt' | 'gte' | 'lt' | 'lte' | 'set' | 'notSet';
+  values?: (string | number)[];
+};
+
 /** Handler args for threshold / percentile / top_n — measure guaranteed non-null. */
 export type MeasureHandlerArgs = {
   game_id: string;
@@ -65,10 +76,66 @@ export type MeasureHandlerArgs = {
   percentile_top_pct?: number;
   top_n?: number;
   filters?: CubeInputFilter[];
+  additional_filters?: AdditionalFilter[];
   cube?: string;
   suggested_visibility?: 'personal' | 'shared' | 'org';
   language?: 'en' | 'vi' | 'mixed';
 };
+
+const VALUE_LESS_OPS = new Set<LeafOperator>(['set', 'notSet']);
+const OP_SYMBOL: Record<string, string> = {
+  equals: '=', notEquals: '≠', gt: '>', gte: '≥', lt: '<', lte: '≤',
+  set: 'is set', notSet: 'is not set',
+};
+
+/**
+ * Translate `additional_filters` into AND-able leaves, validating each member
+ * belongs to the same logical cube and carries a value when the op needs one.
+ * Returns the leaves plus a human-readable summary for the disclosures.
+ */
+export function buildAdditionalLeaves(
+  filters: AdditionalFilter[] | undefined,
+  cube: string,
+): { ok: true; leaves: LeafNode[]; summary: string[] } | ErrResult {
+  if (!filters || filters.length === 0) return { ok: true, leaves: [], summary: [] };
+
+  const leaves: LeafNode[] = [];
+  const summary: string[] = [];
+  for (const f of filters) {
+    if (!f.member.startsWith(`${cube}.`)) {
+      return {
+        ok: false,
+        error: 'invalid_filters',
+        detail:
+          `additional_filters member "${f.member}" must belong to cube "${cube}" ` +
+          `(prefix "${cube}."). Mixing cubes in one segment predicate is not supported.`,
+      };
+    }
+    const needsValue = !VALUE_LESS_OPS.has(f.operator);
+    const values = f.values ?? [];
+    if (needsValue && values.length === 0) {
+      return {
+        ok: false,
+        error: 'invalid_filters',
+        detail: `additional_filters "${f.member}" with operator "${f.operator}" needs at least one value.`,
+      };
+    }
+    // Numeric type only when every supplied value is a number (e.g. ltv_vnd = 0).
+    const type: LeafValueType =
+      needsValue && values.every((v) => typeof v === 'number') ? 'number' : 'string';
+    leaves.push({
+      kind: 'leaf',
+      id: randomUUID(),
+      member: f.member,
+      type,
+      op: f.operator as LeafOperator,
+      values: needsValue ? values : [],
+    });
+    const sym = OP_SYMBOL[f.operator] ?? f.operator;
+    summary.push(needsValue ? `${f.member} ${sym} ${values.join(', ')}` : `${f.member} ${sym}`);
+  }
+  return { ok: true, leaves, summary };
+}
 
 /** Handler args for query kind — measure optional. */
 export type QueryHandlerArgs = {
@@ -139,7 +206,18 @@ export async function handleThreshold(opts: {
     op: 'gte',
     values: [args.threshold_value],
   };
-  const predicate: GroupNode = { kind: 'group', id: randomUUID(), op: 'AND', children: [leaf] };
+
+  // Optional extra conditions (e.g. ltv_vnd = 0) AND-ed onto the threshold so a
+  // single proposal can express a compound predicate.
+  const extra = buildAdditionalLeaves(args.additional_filters, cube);
+  if (!extra.ok) return extra;
+
+  const predicate: GroupNode = {
+    kind: 'group',
+    id: randomUUID(),
+    op: 'AND',
+    children: [leaf, ...extra.leaves],
+  };
 
   const windowLabel = measure.window ?? 'lifetime';
   const currencyNote = measure.currency ? ` (${measure.currency})` : '';
@@ -151,6 +229,11 @@ export async function handleThreshold(opts: {
     window: measure.window,
     isVi,
   });
+  if (extra.summary.length > 0) {
+    disclosures.push(
+      (isVi ? 'Kèm điều kiện: ' : 'Also requires: ') + extra.summary.join(isVi ? ' VÀ ' : ' AND '),
+    );
+  }
 
   const proposal: SegmentProposal = {
     type: 'segment_proposal',

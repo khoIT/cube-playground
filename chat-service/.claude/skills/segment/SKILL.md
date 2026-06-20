@@ -96,10 +96,27 @@ User says "save that as a segment", "turn that into a segment", or "create a seg
 
 The `name` you pass is shown verbatim on the confirm card, but the **predicate is what actually selects users**. They must agree. A name that promises a condition the predicate does not encode is a silently-wrong segment.
 
-- `threshold`, `percentile`, and `top_n` each encode **exactly ONE condition** on a single measure. They CANNOT express a compound intent like "high-engagement **never-payers**" (engagement percentile AND spend = 0) — `measure.over` only scopes the *population the percentile is computed over*, it does NOT add a membership filter.
-- Do **NOT** put a second concept in the name that the predicate omits. "High-Engagement Never-Payers" with a predicate of only `top 25% active_days` is wrong — drop "Never-Payers" from the name, or build the compound predicate instead.
-- For a genuine **compound** intent (two or more conditions AND/OR-ed), use `kind='query'`: explore the conditions as a Cube query first (or have the user do so), then pass the full `filters` array. That is the only shape that carries more than one condition.
+- `threshold`, `percentile`, and `top_n` encode one condition on a single measure **by default** — but you can AND extra conditions onto them with `additional_filters` (see below). `measure.over` only scopes the *population the percentile is computed over*; it does NOT add a membership filter.
+- Do **NOT** put a second concept in the name that the predicate omits. "High-Engagement Never-Payers" with a predicate of only `top 25% active_days` is wrong — either add the `ltv_vnd = 0` condition via `additional_filters`, or drop "Never-Payers" from the name.
 - When unsure whether the user wants one condition or several, call `offer_choices` rather than guessing a richer name than the predicate supports.
+
+### Compound predicates — `additional_filters`
+
+A compound intent like "**top 25% by active days who have never paid**" is ONE proposal, not a probe + a manual-floor question. Use the percentile/threshold/top_n shape on the *primary* measure and AND the rest via `additional_filters`:
+
+```
+propose_segment({
+  kind: 'percentile', percentile_top_pct: 25,
+  measure: <active_days catalog entry>,
+  additional_filters: [{ member: 'mf_users.ltv_vnd', operator: 'equals', values: [0] }],
+  name: 'High-Engagement Never-Payers', ...
+})
+```
+
+- `additional_filters` are plain comparisons (`equals`/`notEquals`/`gt`/`gte`/`lt`/`lte`/`set`/`notSet`) on members of the **same cube**. They need no cutoff resolution.
+- The percentile cutoff is still resolved over its own population; the extra conditions narrow membership. The tool discloses that the estimated size counts the percentile population only (actual is smaller, computed on first refresh).
+- **Never** emit a probe-named proposal (e.g. `_cutoff_probe_*`) or ask the user to hand-pick a fixed floor when they already gave a percentile — resolve it with `kind='percentile'` + `additional_filters` directly.
+- `kind='query'` remains the path for predicates built entirely from plain dimension filters the user already explored (it rejects measure filters — use `additional_filters` for measure conditions like `ltv_vnd = 0`).
 
 ## Disclosure requirements
 

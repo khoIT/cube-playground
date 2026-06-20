@@ -590,3 +590,112 @@ describe('propose_segment — kind=query', () => {
     expect(hasVi).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Compound predicates — additional_filters AND-ed onto the main leaf
+// ---------------------------------------------------------------------------
+
+describe('propose_segment — additional_filters (compound)', () => {
+  it('ANDs a never-payer condition onto a percentile proposal', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    mockPostJson.mockResolvedValueOnce({ cutoff: 120, populationCount: 1_000_000, estCount: 250_000 });
+
+    const ACTIVE_DAYS: SegmentableMeasure = {
+      concept: 'active_days',
+      label: 'Total active days (lifetime)',
+      dimension: 'mf_users.total_active_days',
+      window: 'lifetime',
+      over: { table: 'game_integration.jus_vn.mf_users', column: 'ingame_total_active_days' },
+    };
+
+    const result = await handler(
+      {
+        game_id: 'jus_vn',
+        name: 'High-Engagement Never-Payers',
+        kind: 'percentile',
+        measure: ACTIVE_DAYS,
+        percentile_top_pct: 25,
+        additional_filters: [{ member: 'mf_users.ltv_vnd', operator: 'equals', values: [0] }],
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { op: string; children: Array<{ op: string; member: string; values: unknown[] }> };
+    expect(tree.op).toBe('AND');
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[0].op).toBe('percentileGte');
+    expect(tree.children[1]).toMatchObject({ member: 'mf_users.ltv_vnd', op: 'equals', values: [0] });
+
+    // Disclosure names the extra condition.
+    const disclosures = proposal.disclosures as string[];
+    expect(disclosures.some((d) => d.includes('Also requires') && d.includes('mf_users.ltv_vnd'))).toBe(true);
+  });
+
+  it('ANDs extra conditions onto a threshold proposal (no cutoff call)', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Big spenders in VN',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 1_000_000,
+        additional_filters: [{ member: 'mf_users.country', operator: 'equals', values: ['VN'] }],
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mockPostJson).not.toHaveBeenCalled();
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { children: Array<{ op: string; member: string }> };
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[1]).toMatchObject({ member: 'mf_users.country', op: 'equals' });
+  });
+
+  it('rejects an additional_filter member on a different cube', async () => {
+    const { ctx } = makeCtx();
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Cross-cube',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 100,
+        additional_filters: [{ member: 'other_cube.foo', operator: 'equals', values: [1] }],
+        language: 'en',
+      },
+      ctx,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('invalid_filters');
+  });
+
+  it('rejects an additional_filter that needs a value but has none', async () => {
+    const { ctx } = makeCtx();
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'No value',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 100,
+        additional_filters: [{ member: 'mf_users.ltv_vnd', operator: 'equals', values: [] }],
+        language: 'en',
+      },
+      ctx,
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('invalid_filters');
+  });
+});

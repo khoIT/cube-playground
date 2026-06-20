@@ -12,6 +12,7 @@ import type { ToolContext } from '../types.js';
 import type { LeafNode, GroupNode } from '../types/predicate-tree.js';
 import {
   resolveCutoff,
+  buildAdditionalLeaves,
   type OkResult,
   type ErrResult,
   type MeasureHandlerArgs,
@@ -75,7 +76,17 @@ export async function handlePercentile(opts: {
     op: 'percentileGte',
     values: [{ p, over: measure.over }],
   };
-  const predicate: GroupNode = { kind: 'group', id: randomUUID(), op: 'AND', children: [leaf] };
+  // Optional extra conditions (e.g. ltv_vnd = 0) AND-ed onto the percentile leaf
+  // so one proposal can express a compound predicate.
+  const extra = buildAdditionalLeaves(args.additional_filters, cube);
+  if (!extra.ok) return extra;
+
+  const predicate: GroupNode = {
+    kind: 'group',
+    id: randomUUID(),
+    op: 'AND',
+    children: [leaf, ...extra.leaves],
+  };
 
   const populationLabel = populationLabelFor(measure);
   const disclosures = buildDisclosures({
@@ -89,6 +100,14 @@ export async function handlePercentile(opts: {
     populationLabel,
     isVi,
   });
+  if (extra.summary.length > 0) {
+    disclosures.push(
+      (isVi ? 'Kèm điều kiện: ' : 'Also requires: ') + extra.summary.join(isVi ? ' VÀ ' : ' AND '),
+      isVi
+        ? 'Kích thước ước tính chỉ tính theo nhóm phân vị; điều kiện bổ sung sẽ thu hẹp thêm (tính khi làm mới).'
+        : 'Estimated size counts the percentile population only — the additional conditions narrow it further (actual computed on first refresh).',
+    );
+  }
 
   const proposal: SegmentProposal = {
     type: 'segment_proposal',
@@ -175,7 +194,16 @@ export async function handleTopN(opts: {
     op: 'percentileGte',
     values: [{ p, over: measure.over }],
   };
-  const predicate: GroupNode = { kind: 'group', id: randomUUID(), op: 'AND', children: [leaf] };
+  // Optional extra conditions (e.g. ltv_vnd = 0) AND-ed onto the top-N leaf.
+  const extra = buildAdditionalLeaves(args.additional_filters, cube);
+  if (!extra.ok) return extra;
+
+  const predicate: GroupNode = {
+    kind: 'group',
+    id: randomUUID(),
+    op: 'AND',
+    children: [leaf, ...extra.leaves],
+  };
 
   const populationLabel = populationLabelFor(measure);
   const disclosures = buildDisclosures({
@@ -190,6 +218,14 @@ export async function handleTopN(opts: {
     populationCount,
     isVi,
   });
+  if (extra.summary.length > 0) {
+    disclosures.push(
+      (isVi ? 'Kèm điều kiện: ' : 'Also requires: ') + extra.summary.join(isVi ? ' VÀ ' : ' AND '),
+      isVi
+        ? 'Kích thước ước tính chỉ tính theo nhóm phân vị; điều kiện bổ sung sẽ thu hẹp thêm (tính khi làm mới).'
+        : 'Estimated size counts the percentile population only — the additional conditions narrow it further (actual computed on first refresh).',
+    );
+  }
 
   const proposal: SegmentProposal = {
     type: 'segment_proposal',
