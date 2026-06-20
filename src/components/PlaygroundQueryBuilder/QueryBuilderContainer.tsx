@@ -20,7 +20,7 @@ import { applyGameFilter } from '../../shared/game-scoping/apply-game-filter';
 import { normalizeQueryRelativeDateRanges } from '../../QueryBuilderV2/utils/normalize-relative-date-range';
 import { ChartRendererStateProvider } from '../QueryTabs/ChartRendererStateProvider';
 import { OverlayQueryProvider } from '../../QueryBuilderV2/overlay-query-context';
-import { loadOverlayPayload } from '../../QueryBuilderV2/overlay-deeplink-store';
+import { loadOverlayForPrimary, primaryQueryKey } from '../../QueryBuilderV2/overlay-deeplink-store';
 import { QueryTabs, QueryTabsProps } from '../QueryTabs/QueryTabs';
 import {
   QueryBuilder,
@@ -307,19 +307,10 @@ function QueryTabsRenderer({
   // serve the cached payload silently instead of a spurious "expired" toast.
   const chatPayloadCacheRef = useRef<{ id: string; payload: Record<string, unknown> } | null>(null);
 
-  // Combined artifact (?combined=1): the OVERLAY query is read from a DURABLE
-  // store keyed by artifact id (localStorage), so a page refresh re-derives the
-  // dual-axis instead of dropping to primary-only. The primary payload above
-  // stays a runnable single CubeQuery, so a pre-combined build still works; the
-  // overlay only enriches the center chart into a dual-axis view.
-  const isCombined = params.get('combined') === '1';
-  const overlayPayloadRef = useRef<Record<string, unknown> | null>(null);
-
   if (chatArtifactId && processedArtifactRef.current !== chatProcessKey) {
     // Mark as processed immediately (synchronous, before any render side-effects).
     processedArtifactRef.current = chatProcessKey;
     chatPayloadRef.current = null;
-    overlayPayloadRef.current = null;
 
     const storageKey = `gds-cube:pending-chat-deeplink:${chatArtifactId}`;
     const raw = typeof sessionStorage !== 'undefined'
@@ -346,13 +337,6 @@ function QueryTabsRenderer({
         'This chat link has expired — return to the chat to re-open it.',
         4,
       );
-    }
-
-    // Read the overlay from the durable store (combined links only). It is NOT
-    // consumed/removed, so a refresh under the same artifact id re-reads it.
-    // Its absence is non-fatal: the center degrades to the primary single chart.
-    if (isCombined) {
-      overlayPayloadRef.current = loadOverlayPayload(chatArtifactId);
     }
   }
 
@@ -498,14 +482,15 @@ function QueryTabsRenderer({
   const wasNormalized = normalizedQuery !== rawQuery;
   const query = applyGameFilter(normalizedQuery, gameId, cubeHasGameDim);
 
-  // Combined overlay: normalize + game-filter exactly like the primary so the
-  // center dual-axis series shares the primary's window and game scope. Null
-  // (non-combined, or a missing/expired sibling key) leaves the center as the
-  // normal single-series chart.
-  const rawOverlay =
-    isCombined && chatArtifactId && processedArtifactRef.current === chatProcessKey
-      ? overlayPayloadRef.current
-      : null;
+  // Combined overlay: look the overlay up from the durable store by the PRIMARY
+  // query's identity (measures + time dims), NOT by any URL param. The builder
+  // rewrites its URL to ?query=<primary> as soon as the query runs, dropping the
+  // from-chat-artifact/combined params — so gating the overlay on those params
+  // made it vanish after one query change (and on refresh). Keying by the active
+  // tab's query re-attaches the overlay whenever that primary is shown, surviving
+  // the URL rewrite, refresh, and tab switches. Normalized + game-filtered to
+  // match the primary's window/scope. Null leaves the center single-series.
+  const rawOverlay = query ? loadOverlayForPrimary(primaryQueryKey(query)) : null;
   const overlayQuery = rawOverlay
     ? applyGameFilter(normalizeQueryRelativeDateRanges(rawOverlay), gameId, cubeHasGameDim)
     : null;

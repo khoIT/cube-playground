@@ -1,10 +1,15 @@
 /**
  * useOverlayRows — load a combined artifact's OVERLAY query independently and
  * return its rows, so the center chart can merge it with the primary result on
- * the date value. Reuses the compare module's workspace-aware CubeApi factory
- * (NOT its merge — that keys on cube-prefixed members and never matches across
- * cubes). The factory is imported lazily to avoid loading @cubejs-client/core
- * at module-collection time (OOMs Node v24 vitest workers).
+ * the date value AND the Results grid can show it as an extra column. Reuses the
+ * compare module's workspace-aware CubeApi factory (NOT its merge — that keys on
+ * cube-prefixed members and never matches across cubes). The factory is imported
+ * lazily to avoid loading @cubejs-client/core at module-collection time (OOMs
+ * Node v24 vitest workers).
+ *
+ * A module-level result + in-flight cache dedupes identical loads: the center
+ * chart and the Results column both mount with the same overlay query, so a
+ * shared cache keeps it to ONE Cube /load instead of two.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +24,10 @@ interface OverlayRowsState {
 
 const IDLE: OverlayRowsState = { rows: null, isLoading: false, error: null };
 
+// Shared across hook instances so chart + results grid load the overlay once.
+const resultCache = new Map<string, CubeRow[]>();
+const inflightCache = new Map<string, Promise<CubeRow[]>>();
+
 function extractRows(rs: ResultSet<Record<string, string | number>>): CubeRow[] {
   try {
     // @ts-expect-error — SDK types don't expose loadResponse directly
@@ -26,6 +35,35 @@ function extractRows(rs: ResultSet<Record<string, string | number>>): CubeRow[] 
   } catch {
     return [];
   }
+}
+
+/** Load the overlay rows for `key`, sharing an in-flight promise across callers. */
+function loadShared(
+  key: string,
+  overlayQuery: Query,
+  apiUrl: string,
+  token: string,
+  gameId: string | null,
+  signal: AbortSignal,
+): Promise<CubeRow[]> {
+  const cached = resultCache.get(key);
+  if (cached) return Promise.resolve(cached);
+  const existing = inflightCache.get(key);
+  if (existing) return existing;
+
+  const promise = (async () => {
+    const { makeCubeApi } = await import('./compare/cube-api-factory');
+    const api = makeCubeApi(token, apiUrl, gameId, signal);
+    const rs = await api.load(overlayQuery);
+    const rows = extractRows(rs as ResultSet<Record<string, string | number>>);
+    resultCache.set(key, rows);
+    return rows;
+  })();
+  inflightCache.set(key, promise);
+  promise.finally(() => {
+    if (inflightCache.get(key) === promise) inflightCache.delete(key);
+  });
+  return promise;
 }
 
 /**
@@ -54,21 +92,24 @@ export function useOverlayRows(
     if (keyRef.current === key) return; // already loaded this exact overlay
     keyRef.current = key;
 
+    const cached = resultCache.get(key);
+    if (cached) {
+      setState({ rows: cached, isLoading: false, error: null });
+      return;
+    }
+
     const controller = new AbortController();
     setState({ rows: null, isLoading: true, error: null });
 
-    (async () => {
-      try {
-        const { makeCubeApi } = await import('./compare/cube-api-factory');
-        const api = makeCubeApi(token, apiUrl, gameId, controller.signal);
-        const rs = await api.load(overlayQuery);
+    loadShared(key, overlayQuery, apiUrl, token, gameId, controller.signal)
+      .then((rows) => {
         if (controller.signal.aborted) return;
-        setState({ rows: extractRows(rs as ResultSet<Record<string, string | number>>), isLoading: false, error: null });
-      } catch (err) {
+        setState({ rows, isLoading: false, error: null });
+      })
+      .catch((err) => {
         if (controller.signal.aborted) return;
         setState({ rows: null, isLoading: false, error: err instanceof Error ? err.message : 'overlay load failed' });
-      }
-    })();
+      });
 
     return () => controller.abort();
   }, [overlayQuery, apiUrl, token, gameId]);

@@ -9,7 +9,7 @@
  *     repeat click instead of the once-per-artifact guard swallowing it
  */
 import type { QueryArtifact } from '../../../api/chat-sse-client';
-import { saveOverlayPayload } from '../../../QueryBuilderV2/overlay-deeplink-store';
+import { saveOverlayForPrimary, primaryQueryKey } from '../../../QueryBuilderV2/overlay-deeplink-store';
 
 export function openArtifactInPlayground(
   artifact: QueryArtifact,
@@ -24,13 +24,14 @@ export function openArtifactInPlayground(
     } catch {
       // sessionStorage quota/unavailable — proceed anyway; /build will show stale toast.
     }
-    // Combined artifact: the overlay query goes to a DURABLE store keyed by the
-    // artifact id (not the one-shot primary key) so a refresh of /build keeps
-    // the dual-axis. The primary payload stays a runnable single CubeQuery, so a
-    // consumer that ignores `combined` still renders the primary. &combined=1 in
-    // the deeplink tells /build to look the overlay up.
+    // Combined artifact: store the overlay query in a DURABLE store keyed by the
+    // PRIMARY query's identity (not the artifact id or a URL param). The builder
+    // rewrites its URL to ?query=<primary> as soon as the query runs, so keying
+    // by the primary lets /build re-attach the overlay from the active tab's
+    // query — surviving that rewrite AND a page refresh. The primary payload
+    // stays a runnable single CubeQuery so a consumer that ignores it still works.
     if (artifact.combined && artifact.overlay !== undefined) {
-      saveOverlayPayload(artifact.id, artifact.overlay);
+      saveOverlayForPrimary(primaryQueryKey(artifact.query), artifact.overlay);
     }
   }
   // deeplinkUrl is "#/build?..." — strip the leading '#' for react-router-dom v5.

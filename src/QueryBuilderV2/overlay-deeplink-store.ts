@@ -1,18 +1,44 @@
 /**
  * Durable store for a combined dual-axis artifact's OVERLAY query, keyed by the
- * chat artifact id. Unlike the primary deeplink payload (one-shot sessionStorage
- * that degrades to the builder's persisted query tab), the overlay has no tab
- * state to fall back on — so a page refresh would silently drop the right-axis
- * series and the center chart would revert to the primary single-series view.
+ * PRIMARY query's identity (its measures + time dimensions) — NOT by the chat
+ * artifact id or any URL param.
  *
- * Persisting the overlay in localStorage keyed by artifact id lets a refresh of
- * /build re-derive the same dual-axis. A small FIFO index caps how many overlays
- * we retain so the store can't grow unbounded across many opened artifacts.
+ * Why keyed by the primary query: the builder canonicalizes its URL to
+ * `?query=<primary>` the moment the query runs (for shareability), erasing the
+ * `from-chat-artifact` / `combined=1` params the overlay used to ride on. Keying
+ * the overlay by the primary query means the center can re-attach it from
+ * whatever query the active tab currently holds — surviving that URL rewrite,
+ * a page refresh, and tab switches, with no dependence on transient params.
+ *
+ * A small FIFO index caps retention so the store can't grow unbounded across
+ * many opened artifacts.
  */
 
-const PREFIX = 'gds-cube:chat-deeplink-overlay:';
-const INDEX_KEY = 'gds-cube:chat-deeplink-overlay-index';
+import type { Query } from '@cubejs-client/core';
+
+const PREFIX = 'gds-cube:chat-overlay-by-primary:';
+const INDEX_KEY = 'gds-cube:chat-overlay-by-primary-index';
 const MAX_RETAINED = 20;
+
+/**
+ * Stable identity for a primary query: its measures (sorted) + each time
+ * dimension's dimension/granularity/dateRange. Deliberately ignores `filters`
+ * and other fields so the key matches whether or not the container has appended
+ * a game filter to the query (the game filter never changes measures/grain).
+ */
+export function primaryQueryKey(query: unknown): string {
+  const q = (query ?? {}) as {
+    measures?: string[];
+    timeDimensions?: Array<{ dimension?: string; granularity?: string; dateRange?: unknown }>;
+  };
+  const measures = [...(q.measures ?? [])].sort();
+  const timeDimensions = (q.timeDimensions ?? []).map((td) => ({
+    d: td.dimension ?? null,
+    g: td.granularity ?? null,
+    r: td.dateRange ?? null,
+  }));
+  return JSON.stringify({ measures, timeDimensions });
+}
 
 function readIndex(): string[] {
   try {
@@ -24,13 +50,13 @@ function readIndex(): string[] {
   }
 }
 
-/** Persist an overlay query for `id`, evicting the oldest beyond the cap. */
-export function saveOverlayPayload(id: string, payload: unknown): void {
+/** Persist `overlay` for the given primary key, evicting the oldest beyond the cap. */
+export function saveOverlayForPrimary(primaryKey: string, overlay: unknown): void {
   try {
-    localStorage.setItem(PREFIX + id, JSON.stringify(payload));
-    // Move id to the most-recent end; evict overflow from the front.
-    const index = readIndex().filter((x) => x !== id);
-    index.push(id);
+    localStorage.setItem(PREFIX + primaryKey, JSON.stringify(overlay));
+    // Move this key to the most-recent end; evict overflow from the front.
+    const index = readIndex().filter((k) => k !== primaryKey);
+    index.push(primaryKey);
     while (index.length > MAX_RETAINED) {
       const evicted = index.shift();
       if (evicted) localStorage.removeItem(PREFIX + evicted);
@@ -41,11 +67,11 @@ export function saveOverlayPayload(id: string, payload: unknown): void {
   }
 }
 
-/** Read the overlay query for `id`, or null if absent/unparseable. */
-export function loadOverlayPayload(id: string): Record<string, unknown> | null {
+/** Read the overlay query stored for `primaryKey`, or null if absent/unparseable. */
+export function loadOverlayForPrimary(primaryKey: string): Query | null {
   try {
-    const raw = localStorage.getItem(PREFIX + id);
-    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null;
+    const raw = localStorage.getItem(PREFIX + primaryKey);
+    return raw ? (JSON.parse(raw) as Query) : null;
   } catch {
     return null;
   }

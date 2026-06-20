@@ -1,39 +1,62 @@
 /**
- * Tests for the durable overlay deeplink store: a saved overlay round-trips and
- * SURVIVES re-reads (the refresh case — never consumed), unknown ids return
- * null, and the FIFO index caps retention so the store can't grow unbounded.
+ * Tests for the durable overlay store keyed by PRIMARY query identity:
+ * primaryQueryKey is stable across game-filter additions / measure ordering,
+ * a saved overlay round-trips and survives re-reads (refresh + URL-rewrite
+ * case), unknown keys return null, and the FIFO index caps retention.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
-import { saveOverlayPayload, loadOverlayPayload } from '../overlay-deeplink-store';
+import {
+  saveOverlayForPrimary,
+  loadOverlayForPrimary,
+  primaryQueryKey,
+} from '../overlay-deeplink-store';
 
 beforeEach(() => localStorage.clear());
 
-describe('overlay-deeplink-store', () => {
-  it('round-trips a saved overlay and re-reads it (refresh keeps it)', () => {
-    saveOverlayPayload('A1', { measures: ['b.n'] });
-    expect(loadOverlayPayload('A1')).toEqual({ measures: ['b.n'] });
-    // A second read (simulating a refresh) still resolves — not one-shot.
-    expect(loadOverlayPayload('A1')).toEqual({ measures: ['b.n'] });
+const PRIMARY = {
+  measures: ['active_daily.paying_dau'],
+  timeDimensions: [{ dimension: 'active_daily.log_date', granularity: 'day', dateRange: ['2026-06-11', '2026-06-20'] }],
+};
+const OVERLAY = {
+  measures: ['user_recharge_daily.revenue_vnd_total'],
+  timeDimensions: [{ dimension: 'user_recharge_daily.log_date', granularity: 'day', dateRange: ['2026-06-11', '2026-06-20'] }],
+};
+
+describe('primaryQueryKey', () => {
+  it('is stable when a game filter is appended (filters are ignored)', () => {
+    const withFilter = { ...PRIMARY, filters: [{ member: 'active_daily.game_id', operator: 'equals', values: ['cfm_vn'] }] };
+    expect(primaryQueryKey(withFilter)).toBe(primaryQueryKey(PRIMARY));
   });
 
-  it('returns null for an unknown id', () => {
-    expect(loadOverlayPayload('nope')).toBeNull();
+  it('is stable regardless of measure ordering', () => {
+    const a = { measures: ['x.a', 'x.b'], timeDimensions: [] };
+    const b = { measures: ['x.b', 'x.a'], timeDimensions: [] };
+    expect(primaryQueryKey(a)).toBe(primaryQueryKey(b));
   });
 
-  it('caps retention to 20 — the oldest overlay is evicted', () => {
-    for (let i = 0; i < 22; i++) saveOverlayPayload(`id${i}`, { measures: [`m${i}`] });
-    // First two were evicted by the FIFO cap; the most recent survive.
-    expect(loadOverlayPayload('id0')).toBeNull();
-    expect(loadOverlayPayload('id1')).toBeNull();
-    expect(loadOverlayPayload('id21')).toEqual({ measures: ['m21'] });
-    expect(loadOverlayPayload('id2')).toEqual({ measures: ['m2'] });
+  it('differs when the date window differs', () => {
+    const other = { ...PRIMARY, timeDimensions: [{ ...PRIMARY.timeDimensions[0], dateRange: ['2026-05-01', '2026-05-10'] }] };
+    expect(primaryQueryKey(other)).not.toBe(primaryQueryKey(PRIMARY));
+  });
+});
+
+describe('overlay-deeplink-store (keyed by primary identity)', () => {
+  it('round-trips and re-reads (refresh / URL-rewrite keeps it)', () => {
+    saveOverlayForPrimary(primaryQueryKey(PRIMARY), OVERLAY);
+    expect(loadOverlayForPrimary(primaryQueryKey(PRIMARY))).toEqual(OVERLAY);
+    // A second read (after the URL became ?query=) still resolves — not one-shot.
+    expect(loadOverlayForPrimary(primaryQueryKey(PRIMARY))).toEqual(OVERLAY);
   });
 
-  it('re-saving an id refreshes its recency (not evicted as oldest)', () => {
-    saveOverlayPayload('keep', { measures: ['x'] });
-    for (let i = 0; i < 19; i++) saveOverlayPayload(`f${i}`, { measures: [`f${i}`] });
-    saveOverlayPayload('keep', { measures: ['x2'] }); // bump recency
-    saveOverlayPayload('extra', { measures: ['e'] }); // pushes count past cap
-    expect(loadOverlayPayload('keep')).toEqual({ measures: ['x2'] });
+  it('returns null for an unknown primary', () => {
+    expect(loadOverlayForPrimary(primaryQueryKey({ measures: ['nope.m'], timeDimensions: [] }))).toBeNull();
+  });
+
+  it('caps retention to 20 — the oldest is evicted', () => {
+    for (let i = 0; i < 22; i++) saveOverlayForPrimary(`k${i}`, { measures: [`m${i}`] });
+    expect(loadOverlayForPrimary('k0')).toBeNull();
+    expect(loadOverlayForPrimary('k1')).toBeNull();
+    expect(loadOverlayForPrimary('k21')).toEqual({ measures: ['m21'] });
+    expect(loadOverlayForPrimary('k2')).toEqual({ measures: ['m2'] });
   });
 });

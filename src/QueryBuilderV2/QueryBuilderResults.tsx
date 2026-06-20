@@ -81,6 +81,7 @@ import { formatShare, shareColumnId, sumMeasure } from './utils/share-of-total';
 import { useCompareContext } from './compare/compare-context';
 import { formatDeltaAbs, formatDeltaPct, getDeltaTone } from './compare/format-delta';
 import type { MergedRow } from './compare/merge-by-dim-key';
+import { useOverlayColumn } from './use-overlay-column';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -745,6 +746,14 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   // delta columns sit beside the current values in the same row objects.
   const compareRows = isCompareActive ? (compareState.mergedRows as MergedRow[]) : null;
 
+  // ── Combined dual-axis overlay ────────────────────────────────────────────
+  // A chat "combined" artifact carries a second measure from another cube,
+  // loaded independently and aligned on the date value. Surface it as one extra
+  // column (matched per-row by date) so the merged numbers are diagnosable in
+  // the grid, not only the chart. Null on every normal session → no change.
+  const overlayCol = useOverlayColumn();
+  const hasOverlay = !!overlayCol;
+
   const isCompact = usedCubes.length === 1;
   const [selectedCell, setSelectedCell] = useState<[number, string] | null>(null);
   const dataRef = useRef<{ [k: string]: string | number }[] | undefined>(EMPTY_DATA);
@@ -813,16 +822,19 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
       const cmpCols = isCompareActive
         ? measures.flatMap((m) => [`${m}__cmp`, `${m}__delta`, `${m}__deltaPct`])
         : [];
+      // Overlay measure column (one), after compare deltas and before shares.
+      const overlayCols = hasOverlay ? [overlayCol.measure] : [];
       return [
         ...dimensions,
         ...timeDimensions.map((td) => td.dimension),
         ...measures,
         ...cmpCols,
+        ...overlayCols,
         ...shares,
       ];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey, isCompareActive]
+    [JSON.stringify(dimensions), JSON.stringify(timeDimensions.map((td) => td.dimension)), JSON.stringify(measures), shareKey, isCompareActive, hasOverlay, overlayCol?.measure]
   );
   const baseGridColumnsTemplate = getColumnTemplate(orderedColumnNames, livePreviewWidths);
 
@@ -1196,6 +1208,29 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
                     ];
                   })
                 : null}
+              {/* Overlay measure cell — matched to this row by date value */}
+              {overlayCol ? (
+                <div
+                  key={overlayCol.measure}
+                  data-row={rowId}
+                  data-name={overlayCol.measure}
+                  data-element="NumberCell"
+                >
+                  <div data-element="CellValue">
+                    {(() => {
+                      const td = timeDimensions[0];
+                      const dateVal = td ? row[`${td.dimension}.${td.granularity}`] : undefined;
+                      const date = String(dateVal ?? '').slice(0, 10);
+                      const ov = overlayCol!.valueByDate.get(date);
+                      return ov != null ? (
+                        renderValue(formatCellData(overlayCol!.measure, ov)[0])
+                      ) : (
+                        <StyledTag>—</StyledTag>
+                      );
+                    })()}
+                  </div>
+                </div>
+              ) : null}
               {measures.map((measure) => {
                 if (!shareOf.has(measure)) return null;
                 const total = measureTotals[measure] ?? 0;
@@ -1233,6 +1268,8 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     measureTotals,
     isCompareActive,
     compareRows,
+    hasOverlay,
+    overlayCol,
   ]);
 
   function addFilter(name: string) {
@@ -1511,6 +1548,30 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     });
   }, [measures, shareKey, memberViewType, isCompact]);
 
+  // Overlay measure header — one column, mirrors the compare/share header shape.
+  const overlayColumnHeader = useDeepMemo(() => {
+    if (!hasOverlay) return null;
+    const measure = overlayCol!.measure;
+    const member = members.measures[measure];
+    const cube = cubes.find((c) => c.name === measure.split('.')[0]);
+    return (
+      <ColumnHeader key={measure} data-member="measure" data-resize-anchor={measure}>
+        <MemberLabel
+          isMissing={!member}
+          name={measure}
+          memberName={member?.name ?? measure}
+          cubeName={cube?.name}
+          memberTitle={member?.shortTitle}
+          cubeTitle={cube?.title}
+          isCompact={isCompact}
+          memberViewType={memberViewType}
+          memberType="measure"
+          type={member?.type ?? 'number'}
+        />
+      </ColumnHeader>
+    );
+  }, [hasOverlay, overlayCol?.measure, meta, memberViewType, isCompact]);
+
   const timeDimensionsColumns = useDeepMemo(() => {
     if (!timeDimensions.length) {
       return null;
@@ -1696,6 +1757,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
               {timeDimensionsColumns}
               {measuresColumns}
               {compareColumns}
+              {overlayColumnHeader}
               {shareColumns}
               {tableData}
             </GridTable>

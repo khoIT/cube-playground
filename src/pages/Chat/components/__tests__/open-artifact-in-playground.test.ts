@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { openArtifactInPlayground } from '../open-artifact-in-playground';
-import { loadOverlayPayload } from '../../../../QueryBuilderV2/overlay-deeplink-store';
+import { loadOverlayForPrimary, primaryQueryKey } from '../../../../QueryBuilderV2/overlay-deeplink-store';
 import type { QueryArtifact } from '../../../../api/chat-sse-client';
 
 const PRIMARY_KEY = (id: string) => `gds-cube:pending-chat-deeplink:${id}`;
@@ -40,8 +40,9 @@ describe('openArtifactInPlayground', () => {
     openArtifactInPlayground(artifact, history);
 
     expect(JSON.parse(sessionStorage.getItem(PRIMARY_KEY('A1'))!)).toEqual({ measures: ['a.m'] });
-    // Overlay lives in the durable store (survives a /build refresh).
-    expect(loadOverlayPayload('A1')).toEqual({ measures: ['b.n'] });
+    // Overlay lives in the durable store keyed by the PRIMARY query identity
+    // (survives the builder's ?query= URL rewrite and a /build refresh).
+    expect(loadOverlayForPrimary(primaryQueryKey({ measures: ['a.m'] }))).toEqual({ measures: ['b.n'] });
     expect(history.push).toHaveBeenCalledTimes(1);
     expect(history.push.mock.calls[0][0]).toMatch(/^\/build\?from-chat-artifact=A1&combined=1&n=/);
   });
@@ -51,7 +52,7 @@ describe('openArtifactInPlayground', () => {
     openArtifactInPlayground(baseArtifact({}), history);
 
     expect(sessionStorage.getItem(PRIMARY_KEY('A1'))).toBeTruthy();
-    expect(loadOverlayPayload('A1')).toBeNull();
+    expect(loadOverlayForPrimary(primaryQueryKey({ measures: ['a.m'] }))).toBeNull();
   });
 
   it('combined but missing overlay: degrades to primary-only (nothing stored)', () => {
@@ -61,7 +62,7 @@ describe('openArtifactInPlayground', () => {
       history,
     );
     expect(sessionStorage.getItem(PRIMARY_KEY('A1'))).toBeTruthy();
-    expect(loadOverlayPayload('A1')).toBeNull();
+    expect(loadOverlayForPrimary(primaryQueryKey({ measures: ['a.m'] }))).toBeNull();
   });
 
   it('inline single: no sessionStorage writes', () => {
