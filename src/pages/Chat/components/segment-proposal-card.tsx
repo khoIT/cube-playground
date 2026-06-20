@@ -17,10 +17,12 @@ import { Users, ExternalLink, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { message } from 'antd';
 import { T, Icon } from '../../../shell/theme';
 import { segmentsClient } from '../../../api/segments-client';
+import { invalidateSegmentIds } from '../../Segments/use-segment-ids';
 import { SegmentApiError } from '../../../api/api-client';
 import type { SegmentProposalPayload } from '../../../api/segment-proposal';
 import type { SegmentVisibility, PredicateNode } from '../../../types/segment-api';
 import type { EditorLocationState } from '../../Segments/editor/editor-route-state';
+import { stashEditorPrefill } from '../../Segments/editor/editor-prefill-store';
 import { formatCompact } from '../../Segments/detail/cards/format-value';
 import {
   summarisePredicate,
@@ -58,6 +60,9 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
         tags: ['ai-generated'],
         visibility,
       });
+      // Drop the cached segment-id/row list so the sidebar nav surfaces the new
+      // segment on its next render (mirrors the editor's create path).
+      invalidateSegmentIds();
       // Segment enters status='refreshing' automatically — the server kicks the
       // first refresh cycle. Toast links directly to the new segment detail.
       void message.success(
@@ -93,6 +98,9 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
         predicateTree: predicate_tree as PredicateNode,
       },
     };
+    // Hash history drops location.state, so bridge it through sessionStorage;
+    // the state arg is kept for router setups that preserve it (tests).
+    stashEditorPrefill(state);
     history.push('/segments/new', state);
   };
 

@@ -47,6 +47,11 @@ function turnsToMessages(
       if (embeddedChartIds.has(ch.id)) continue;
       sections.push({ type: 'chart', artifact: ch });
     }
+    // Segment proposals persisted on the turn row — re-render the confirm card
+    // so the user can still create the segment from the side panel after reload.
+    for (const p of t.proposals ?? []) {
+      sections.push({ type: 'segment_proposal', proposal: p });
+    }
     return { role: 'assistant', id: t.id, sections };
   });
 }
@@ -133,6 +138,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     currentReasoning,
     currentArtifacts,
     currentCharts,
+    currentProposals,
     currentToolCalls,
     sendTurn,
     cancel,
@@ -157,6 +163,8 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
       if (embeddedChartIds.has(ch.id)) continue;
       s.push({ type: 'chart', artifact: ch });
     }
+    // Segment proposals rendered after charts — action cards, not data.
+    for (const p of currentProposals) s.push({ type: 'segment_proposal', proposal: p });
     return s;
   };
 

@@ -17,7 +17,8 @@ import { AdvisorMarkdown } from './advisor-markdown';
 import { fetchDriveArtifact, type DriveArtifact } from './drive-artifact';
 import { fetchCohortProposal, type CohortProposal, type AdvisorScope, type AdvisorGoal } from '../../api/advisor';
 import { segmentsClient } from '../../api/segments-client';
-import type { EditorReturnTo } from '../Segments/editor/editor-route-state';
+import type { EditorReturnTo, EditorLocationState } from '../Segments/editor/editor-route-state';
+import { stashEditorPrefill } from '../Segments/editor/editor-prefill-store';
 import type { StageKey } from './advisor-types';
 
 const ERROR_COPY: Record<string, string> = {
@@ -124,18 +125,23 @@ export function DrivePanel({
 
   function reviewProposalInEditor() {
     if (!proposal) return;
-    history.push('/segments/new', {
+    // Hash history drops location.state — bridge via sessionStorage.
+    const state: EditorLocationState = {
       advisorPrefill: {
         name: proposal.name,
         cube: proposal.primaryCube,
         predicateTree: proposal.predicateTree,
       },
       returnTo: buildReturnTo(),
-    });
+    };
+    stashEditorPrefill(state);
+    history.push('/segments/new', state);
   }
 
   function buildNewCohort() {
-    history.push('/segments/new', { advisorPrefill: null, returnTo: buildReturnTo() });
+    const state: EditorLocationState = { advisorPrefill: null, returnTo: buildReturnTo() };
+    stashEditorPrefill(state);
+    history.push('/segments/new', state);
   }
 
   async function handleCreateFromProposal() {

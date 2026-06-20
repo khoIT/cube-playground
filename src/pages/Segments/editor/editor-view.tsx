@@ -1,6 +1,6 @@
 /** Segment editor — 3-column workspace: rail · center · live preview. */
 
-import { ReactElement, useEffect, useState } from 'react';
+import { ReactElement, useEffect, useRef, useState } from 'react';
 import { useHistory, useParams } from 'react-router-dom';
 import { Button, Tooltip, message } from 'antd';
 import { ExternalLink } from 'lucide-react';
@@ -26,6 +26,7 @@ import { WorkspaceRail } from './workspace-rail';
 import { WorkspacePreview } from './workspace-preview';
 import { EditorStep, STEP_ORDER, useStep } from './use-step';
 import { resolveReturnPath, type EditorLocationState } from './editor-route-state';
+import { consumeEditorPrefill } from './editor-prefill-store';
 import type { Segment, SegmentType, SegmentVisibility, PredicateNode } from '../../../types/segment-api';
 import styles from '../segments.module.css';
 
@@ -115,15 +116,26 @@ export function EditorView(): ReactElement {
     };
   }, [id]);
 
-  // Pre-seed the builder when opened from another surface (the Advisor pushes a
-  // proposed cohort here for review/edit before approving the experiment). New
-  // mode only — an existing segment's own load wins. Runs once on mount.
-  const advisorPrefill = (history.location.state as EditorLocationState | undefined)?.advisorPrefill;
+  // Pre-seed the builder when opened from another surface (the Advisor / chat
+  // segment-proposal push a proposed cohort here for review/edit). The entry
+  // state arrives via the sessionStorage bridge because hash history drops
+  // location.state; we fall back to location.state for router setups that do
+  // preserve it (tests, browser history). Consumed once on mount and held in a
+  // ref so the save handler can also read returnTo. New mode only — an existing
+  // segment's own load wins.
+  const entryStateRef = useRef<EditorLocationState | null>(null);
   useEffect(() => {
-    if (id || !advisorPrefill) return;
-    if (advisorPrefill.name) setName(advisorPrefill.name);
-    if (advisorPrefill.cube) setCube(advisorPrefill.cube);
-    if (advisorPrefill.predicateTree) predicate.replaceTree(simplifyPredicate(advisorPrefill.predicateTree));
+    const state =
+      consumeEditorPrefill() ??
+      (history.location.state as EditorLocationState | undefined) ??
+      null;
+    entryStateRef.current = state;
+    if (id) return;
+    const prefill = state?.advisorPrefill;
+    if (!prefill) return;
+    if (prefill.name) setName(prefill.name);
+    if (prefill.cube) setCube(prefill.cube);
+    if (prefill.predicateTree) predicate.replaceTree(simplifyPredicate(prefill.predicateTree));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -165,7 +177,7 @@ export function EditorView(): ReactElement {
       };
       // Return target (e.g. the Advisor's cohort review / draft-cohort edit) →
       // go back there scoped to the saved segment; else the segment detail page.
-      const returnTo = (history.location.state as EditorLocationState | undefined)?.returnTo;
+      const returnTo = entryStateRef.current?.returnTo;
       if (id) {
         await segmentsClient.update(id, payload);
         message.success(t('segments.editor.success.updated', { defaultValue: 'Segment updated.' }));

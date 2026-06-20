@@ -92,6 +92,15 @@ User says "save that as a segment", "turn that into a segment", or "create a seg
 - If the measure concept is not in the catalog, list what IS available and ask the user to pick.
 - If the user's phrase is ambiguous (e.g. "top spenders" could match multiple windows), call `offer_choices` to let the user pick.
 
+### Name fidelity — the `name` must match the predicate exactly
+
+The `name` you pass is shown verbatim on the confirm card, but the **predicate is what actually selects users**. They must agree. A name that promises a condition the predicate does not encode is a silently-wrong segment.
+
+- `threshold`, `percentile`, and `top_n` each encode **exactly ONE condition** on a single measure. They CANNOT express a compound intent like "high-engagement **never-payers**" (engagement percentile AND spend = 0) — `measure.over` only scopes the *population the percentile is computed over*, it does NOT add a membership filter.
+- Do **NOT** put a second concept in the name that the predicate omits. "High-Engagement Never-Payers" with a predicate of only `top 25% active_days` is wrong — drop "Never-Payers" from the name, or build the compound predicate instead.
+- For a genuine **compound** intent (two or more conditions AND/OR-ed), use `kind='query'`: explore the conditions as a Cube query first (or have the user do so), then pass the full `filters` array. That is the only shape that carries more than one condition.
+- When unsure whether the user wants one condition or several, call `offer_choices` rather than guessing a richer name than the predicate supports.
+
 ## Disclosure requirements
 
 After emitting the proposal, your text response must include:

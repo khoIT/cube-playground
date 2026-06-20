@@ -27,6 +27,7 @@ import { Blueprint } from './blueprint';
 import { Btn, CARD_STYLE, EYEBROW_STYLE, MiniBars } from './advisor-primitives';
 import { useExperimentMonitor } from './use-experiment-monitor';
 import { segmentsClient } from '../../api/segments-client';
+import { stashEditorPrefill } from '../Segments/editor/editor-prefill-store';
 
 // ── Lifecycle steps ──────────────────────────────────────────────────────────
 
@@ -137,18 +138,21 @@ export function CommandCenter({
     }
     if (isFrozenExp) {
       // Clone: new segment (copy) → new experiment, original left comparable.
-      history.push('/segments/new', {
+      // Hash history drops location.state — bridge via sessionStorage.
+      const state = {
         advisorPrefill: { name: `${seg.name} v2`, cube: seg.cube, predicateTree: seg.predicate_tree },
         returnTo: { pathTemplate: '/advisor/:id', state: { monitorBoot: true } },
-      });
+      };
+      stashEditorPrefill(state);
+      history.push('/segments/new', state);
     } else {
       // Draft: edit the segment in place, return to this same draft's monitor.
       const ret = exp?.id
         ? `/advisor/${cohortSegmentId}?experiment=${exp.id}`
         : `/advisor/${cohortSegmentId}`;
-      history.push(`/segments/${cohortSegmentId}/edit`, {
-        returnTo: { pathTemplate: ret },
-      });
+      const state = { returnTo: { pathTemplate: ret } };
+      stashEditorPrefill(state);
+      history.push(`/segments/${cohortSegmentId}/edit`, state);
     }
   }
 

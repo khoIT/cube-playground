@@ -47,7 +47,7 @@ vi.mock('../../../pages/Chat/hooks/use-chat-stream', () => ({
 
 // useChatSession returns a controllable session value so we can simulate
 // the hydration race (stale session lingering after sessionId flips).
-let mockSession: { id: string; turns: Array<{ id: string; role: 'user' | 'assistant'; text: string; createdAt: string }> } | null = null;
+let mockSession: { id: string; turns: Array<{ id: string; role: 'user' | 'assistant'; text: string; createdAt: string; proposals?: unknown[] }> } | null = null;
 vi.mock('../../../pages/Chat/hooks/use-chat-session', () => ({
   useChatSession: (_sessionId: string | null) => ({
     session: mockSession,
@@ -101,6 +101,35 @@ describe('usePanelChatState — New chat reset', () => {
     // Sanity: re-render with sessionId still null should not re-add anything.
     rerender({ sid: null });
     expect(result.current.displayMessages).toEqual([]);
+  });
+
+  it('renders a segment_proposal section for proposals persisted on a turn', () => {
+    // Regression: the side panel previously dropped proposals when mapping
+    // persisted turns, so the confirm card never appeared in the panel.
+    mockSession = {
+      id: 'sess-p',
+      turns: [
+        { id: 't1', role: 'user', text: 'create a segment', createdAt: '2026-06-21T01:00:00Z' },
+        {
+          id: 't2',
+          role: 'assistant',
+          text: 'Proposed.',
+          createdAt: '2026-06-21T01:00:01Z',
+          proposals: [{ type: 'segment_proposal', name: 'Whales', game_id: 'ptg', cube: 'mf_users' }],
+        },
+      ],
+    };
+
+    const { result } = renderHook(
+      ({ sid }: { sid: string | null }) => usePanelChatState(sid),
+      { initialProps: { sid: 'sess-p' as string | null } },
+    );
+
+    const assistant = result.current.displayMessages.find((m) => m.role === 'assistant');
+    expect(assistant).toBeDefined();
+    const hasProposal = assistant?.role === 'assistant'
+      && assistant.sections.some((s) => s.type === 'segment_proposal');
+    expect(hasProposal).toBe(true);
   });
 
   it('does not re-hydrate cleared messages when session value is stale', () => {
