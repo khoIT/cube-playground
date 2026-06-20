@@ -1004,6 +1004,16 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ## Advisor & Diagnostic Rail
 
+> **Scope note (chat-service decoupled):** chat-service no longer depends on the
+> advisor lens/recommend engine or care. Its `advise`/`diagnose` skills now answer
+> from chat's own Cube-query loop — genre-informed hypotheses confirmed by real
+> `preview_cube_query`, conclusions anchored to `get_metric_benchmark` /
+> `get_topic_knowledge` — and the `decompose_metric` / `recommend_actions` /
+> `care_queue` tools were removed from chat. The server-side engine
+> (`server/src/advisor/*`, `/api/advisor/*`) and the lessons below still power the
+> **Advisor FE console** (`src/pages/Advisor/*`), which calls the server directly
+> — so the engine lessons remain valid there, just not for chat.
+
 ### Advisor data-gate compared SQL column names to exposed Cube member names — silently withholding levers whose data exists
 - **Rule:** a lever's `requiredCubes` token is a Cube **member** name (`cube.dimension` / `cube.measure` — the exposed name), NOT the raw SQL column it maps from. `user_gameplay_daily.yml` computes `clan_cur`/`ladder_level_cur` in SQL but exposes them as dimensions `clan_id`/`ladder_level`; `etl_lottery_shoot` exposes `distinct_players` not `unique_players`; `ccu_by_server` exposes `server`/`server_peak` not `server_id`/`peak_ccu`. The data-gate (`lever-library-index.ts` `resolveLeversForGame`) does `requiredCubes.filter(c => !members.has(c))` against the live `/meta` member set — so a token written as the SQL column never matches, the lever is withheld, and the advisor tells the user to "unlock the missing cube" for data that is already present and served.
 - **Why:** the FPS + MMORPG lever libraries were authored from the SQL/source schema, not the exposed Cube model, so 5 tokens across both libraries named non-existent members. The existing test built its member set FROM `requiredCubes` (`for (const c of lv.requiredCubes) s.add(c)`) — self-referential, so it could never detect the drift. Verified by probing live `/cube-api/v1/meta` for cfm_vn/jus_vn: the cubes and members existed; only the names mismatched. Fixing the tokens unlocked 4 cfm levers + the jus server-health lever.

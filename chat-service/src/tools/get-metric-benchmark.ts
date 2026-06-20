@@ -6,9 +6,9 @@
  * norm (only when fully sourced) and the INTERNAL portfolio percentile band
  * (from the nightly snapshot). Either side may be absent.
  *
- * Use after decompose_metric to put the top weak factor in context: state its
- * value against the internal band and external norm. When `available` is false
- * for both sides, say so explicitly — never invent a number.
+ * Use once a diagnosis has named the driving metric, to put it in context:
+ * state its value against the internal band and external norm. When `available`
+ * is false for both sides, say so explicitly — never invent a number.
  *
  * Known metric keys carried by the library include: arppu_vnd,
  * payer_conversion_rate, whale_revenue_share, vip_conversion_rate,
@@ -26,7 +26,7 @@ export const description =
   'norm for one metric key (e.g. "arppu_vnd", "payer_conversion_rate"). Returns ' +
   '{ available, external, internal } — either side may be null. External norms ' +
   'carry their source + citation; internal bands carry their computed-at date. ' +
-  'Call this for the metric behind the top opportunity from decompose_metric so ' +
+  'Call this for the metric a diagnosis has identified as the driver so ' +
   'the conclusion is benchmark-aware. If available is false, state plainly that ' +
   'no benchmark exists yet — do not fabricate one.';
 

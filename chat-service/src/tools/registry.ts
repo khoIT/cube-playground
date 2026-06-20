@@ -28,10 +28,7 @@ import * as getBusinessMetricHistory from './get-business-metric-history.js';
 import * as getTopicKnowledge from './get-topic-knowledge.js';
 import * as getSegmentableMeasures from './get-segmentable-measures.js';
 import * as proposeSegment from './propose-segment.js';
-import * as decomposeMetric from './decompose-metric.js';
 import * as getMetricBenchmark from './get-metric-benchmark.js';
-import * as recommendActions from './recommend-actions.js';
-import * as careQueue from './care-queue.js';
 import { config } from '../config.js';
 
 // ---------------------------------------------------------------------------
@@ -190,32 +187,11 @@ const REGISTRY: RegistryEntry[] = [
     handler: proposeSegment.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
   {
-    name: decomposeMetric.name,
-    description: decomposeMetric.description,
-    inputSchema: decomposeMetric.inputSchema,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler: decomposeMetric.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
-  },
-  {
     name: getMetricBenchmark.name,
     description: getMetricBenchmark.description,
     inputSchema: getMetricBenchmark.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: getMetricBenchmark.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
-  },
-  {
-    name: recommendActions.name,
-    description: recommendActions.description,
-    inputSchema: recommendActions.inputSchema,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler: recommendActions.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
-  },
-  {
-    name: careQueue.name,
-    description: careQueue.description,
-    inputSchema: careQueue.inputSchema,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handler: careQueue.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
 ];
 
