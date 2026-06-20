@@ -16,6 +16,12 @@ import type { CubeQuery } from '../types.js';
 
 const URL_LIMIT = 8000;
 export const STORAGE_KEY_PREFIX = 'gds-cube:pending-chat-deeplink:';
+/**
+ * Sibling key carrying a combined artifact's OVERLAY query. The primary stays on
+ * STORAGE_KEY_PREFIX (a runnable single CubeQuery), so a consumer that predates
+ * the combined feature reads only the primary and degrades gracefully.
+ */
+export const OVERLAY_STORAGE_KEY_PREFIX = 'gds-cube:pending-chat-deeplink-overlay:';
 
 export interface ChatDeeplinkResult {
   url: string;
@@ -41,4 +47,19 @@ export function buildChatDeeplink(query: CubeQuery): ChatDeeplinkResult {
   // Fallback: session-storage handoff for very large queries.
   const url = `#/build?from-chat-artifact=${encodeURIComponent(artifactId)}`;
   return { url, via: 'session-storage', artifactId, payload: query };
+}
+
+/**
+ * Build a deeplink for a COMBINED (dual-axis) artifact. Always session-storage,
+ * never inline: the URL carries `&combined=1`, `payload` stays the primary
+ * CubeQuery (so a pre-combined consumer runs the primary metric and degrades
+ * gracefully), and the overlay rides the sibling key the FE writes separately.
+ *
+ * Two small queries would otherwise pass the inline threshold and lose the
+ * `payload` field — forcing session-storage keeps the primary payload present.
+ */
+export function buildCombinedChatDeeplink(primary: CubeQuery): ChatDeeplinkResult {
+  const artifactId = uuidv4();
+  const url = `#/build?from-chat-artifact=${encodeURIComponent(artifactId)}&combined=1`;
+  return { url, via: 'session-storage', artifactId, payload: primary };
 }

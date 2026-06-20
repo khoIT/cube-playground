@@ -17,7 +17,7 @@
 import { z } from 'zod';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import { resolveMemberMeta } from '../core/cube-meta-capability.js';
-import { buildChatDeeplink } from '../utils/build-chat-deeplink.js';
+import { buildCombinedChatDeeplink } from '../utils/build-chat-deeplink.js';
 import { CubeQuerySchema } from './preview-cube-query.js';
 import { canMerge } from './can-merge-queries.js';
 import { mergeOnDateValue, resolveRowKey, MERGED_DATE_KEY } from './merge-on-date-value.js';
@@ -126,7 +126,9 @@ export async function handler(args: CombinedArgs, ctx: ToolContext): Promise<Res
   // Effective queries carry any snapped window so card + deeplink + chart agree.
   const primaryEffective = stripLoadLimit(pLoad.query);
   const overlayEffective = stripLoadLimit(oLoad.query);
-  const deeplink = buildChatDeeplink(primaryEffective);
+  // Combined deeplink: forced session-storage, payload=primary, &combined=1.
+  // The overlay rides a sibling sessionStorage key the FE writes on open.
+  const deeplink = buildCombinedChatDeeplink(primaryEffective);
   const chart = buildChartArtifact(spec, { artifactRef: deeplink.artifactId });
 
   // 8. Column descriptors: the synthetic date column labels from the primary's

@@ -20,6 +20,15 @@ export function openArtifactInPlayground(
         `gds-cube:pending-chat-deeplink:${artifact.id}`,
         JSON.stringify(artifact.payload),
       );
+      // Combined artifact: the overlay query rides a sibling key (the primary
+      // payload above stays a runnable single CubeQuery for graceful degrade).
+      // The deeplink URL already carries &combined=1 so /build reads this key.
+      if (artifact.combined && artifact.overlay !== undefined) {
+        sessionStorage.setItem(
+          `gds-cube:pending-chat-deeplink-overlay:${artifact.id}`,
+          JSON.stringify(artifact.overlay),
+        );
+      }
     } catch {
       // sessionStorage quota/unavailable — proceed anyway; /build will show stale toast.
     }
