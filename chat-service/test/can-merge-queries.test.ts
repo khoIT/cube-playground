@@ -64,6 +64,11 @@ describe('canMerge', () => {
     expect(canMerge(primary, o)).toMatchObject({ ok: false, reason: 'no_measures' });
   });
 
+  it('rejects a query carrying more than one measure (one-vs-one only)', () => {
+    const p = { ...primary, measures: ['active_daily.paying_dau', 'active_daily.dau'] };
+    expect(canMerge(p, overlay)).toMatchObject({ ok: false, reason: 'not_single_measure' });
+  });
+
   it('treats an equal relative phrase as a matching window', () => {
     const p = { ...primary, timeDimensions: [{ ...primary.timeDimensions![0], dateRange: 'last 7 days' }] };
     const o = { ...overlay, timeDimensions: [{ ...overlay.timeDimensions![0], dateRange: 'last 7 days' }] };

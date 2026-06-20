@@ -99,22 +99,13 @@ export async function handler(args: CombinedArgs, ctx: ToolContext): Promise<Res
   const oMeasure = (args.overlay.measures ?? [])[0];
   const pTimeDim = soleDatedTimeDim(args.primary);
   const oTimeDim = soleDatedTimeDim(args.overlay);
-  const merged = mergeOnDateValue(
-    {
-      rows: pLoad.rows,
-      dateKey: resolveRowKey(pLoad.rows, pTimeDim.dimension, pTimeDim.granularity),
-      valueKey: resolveRowKey(pLoad.rows, pMeasure),
-    },
-    {
-      rows: oLoad.rows,
-      dateKey: resolveRowKey(oLoad.rows, oTimeDim.dimension, oTimeDim.granularity),
-      valueKey: resolveRowKey(oLoad.rows, oMeasure),
-    },
-  );
-  if (merged.length === 0) return twoCardFallback(args, ctx, 'empty_merge');
-
   const valueKey = resolveRowKey(pLoad.rows, pMeasure);
   const seriesKey = resolveRowKey(oLoad.rows, oMeasure);
+  const merged = mergeOnDateValue(
+    { rows: pLoad.rows, dateKey: resolveRowKey(pLoad.rows, pTimeDim.dimension, pTimeDim.granularity), valueKey },
+    { rows: oLoad.rows, dateKey: resolveRowKey(oLoad.rows, oTimeDim.dimension, oTimeDim.granularity), valueKey: seriesKey },
+  );
+  if (merged.length === 0) return twoCardFallback(args, ctx, 'empty_merge');
 
   // 7. Build the dual-axis chart from the merged rows.
   const spec: ChartSpec = {

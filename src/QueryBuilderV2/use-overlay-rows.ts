@@ -48,7 +48,9 @@ export function useOverlayRows(
       setState(IDLE);
       return;
     }
-    const key = JSON.stringify({ q: overlayQuery, apiUrl, gameId });
+    // Key includes the token so a re-auth (new token, same query) reloads
+    // rather than short-circuiting on the prior load.
+    const key = JSON.stringify({ q: overlayQuery, apiUrl, gameId, token });
     if (keyRef.current === key) return; // already loaded this exact overlay
     keyRef.current = key;
 

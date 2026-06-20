@@ -25,6 +25,7 @@ export type MergeRejectReason =
   | 'granularity_mismatch' // the two date axes are at different grains
   | 'range_mismatch' // the two date windows differ (after normalization)
   | 'no_measures' // a query has no measure to plot
+  | 'not_single_measure' // a query plots >1 measure (dual-axis is one-vs-one)
   | 'measure_overlap'; // the two queries share a measure (nothing to contrast)
 
 export type CanMergeResult =
@@ -74,6 +75,12 @@ export function canMerge(primary: CubeQuery, overlay: CubeQuery): CanMergeResult
   const oMeasures = overlay.measures ?? [];
   if (pMeasures.length === 0 || oMeasures.length === 0) {
     return reject('no_measures', 'each query must plot at least one measure');
+  }
+  // A dual-axis overlay is one measure vs one measure. A query carrying >1
+  // measure would load all of them but plot only the first — silently dropping
+  // the rest. Refuse so it falls back to honest per-metric cards.
+  if (pMeasures.length > 1 || oMeasures.length > 1) {
+    return reject('not_single_measure', 'each query must plot exactly one measure for a dual-axis overlay');
   }
 
   const overlap = pMeasures.filter((m) => oMeasures.includes(m));
