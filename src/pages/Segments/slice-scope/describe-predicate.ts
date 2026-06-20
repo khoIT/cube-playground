@@ -24,6 +24,8 @@ const OP_LABEL: Record<string, string> = {
   inDateRange: 'in',
   beforeDate: 'before',
   afterDate: 'after',
+  percentileGte: '≥',
+  percentileLte: '≤',
 };
 
 /** Strip the `cube.` prefix for readability (`recharge.os_platform` → `os_platform`). */
@@ -35,6 +37,14 @@ function shortMember(member: string): string {
 function formatValues(node: LeafNode): string {
   if (node.op === 'set' || node.op === 'notSet') return '';
   const v = node.values;
+  // Percentile cutoffs carry a { p, over? } object (not a scalar) — render the
+  // percentile (and its reference population, when set) instead of [object Object].
+  if (node.op === 'percentileGte' || node.op === 'percentileLte') {
+    const pv = v[0] as { p?: number; over?: { table?: string; column?: string } } | undefined;
+    if (pv?.p == null) return '';
+    const col = pv.over?.column;
+    return col ? `P${pv.p} of ${col}` : `P${pv.p}`;
+  }
   // inDateRange carries [[start, end]] or [start, end] — render as a range.
   if (node.op === 'inDateRange') {
     const pair =
