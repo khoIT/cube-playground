@@ -275,9 +275,14 @@ const QueryBuilderInternals = memo(function QueryBuilderInternals() {
           {centerContent}
         </ResizablePanel>
         {chartCollapsed ? (
-          <AppPane id="chart-rail" order={3} defaultSize={3} minSize={2.5} maxSize={4}>
-            {chartContent}
-          </AppPane>
+          // Keep the --pane-gap separator before the collapsed Insights rail so
+          // it reads as its own pane (like the sidebar), not fused to the center.
+          <>
+            <AppResizeHandle />
+            <AppPane id="chart-rail" order={3} defaultSize={3} minSize={2.5} maxSize={4}>
+              {chartContent}
+            </AppPane>
+          </>
         ) : (
           <>
             <AppResizeHandle />
