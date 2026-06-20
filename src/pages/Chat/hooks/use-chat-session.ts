@@ -37,6 +37,12 @@ export interface ChatTurn {
     sourceRef?: { id: string; name?: string };
     /** Optional embedded chart from emit_query_artifact. */
     chart?: ChartArtifact;
+    /** Combined dual-axis artifact: the overlay (right-axis) query, and the
+     *  flag that tells "Open in Playground" to write the sibling overlay key.
+     *  Without these on the persisted-replay path the overlay is dropped on
+     *  reload and the playground renders only the primary metric. */
+    overlay?: unknown;
+    combined?: boolean;
   }>;
   /** Standalone charts emitted via emit_chart in this turn. */
   charts?: ChartArtifact[];

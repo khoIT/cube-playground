@@ -38,7 +38,7 @@ function turnsToMessages(
           deeplinkUrl: art.deeplinkUrl, deeplinkVia: art.deeplinkVia,
           source: art.source as 'business-metric' | 'segment' | 'raw',
           sourceRef: art.sourceRef, payload: art.payload, query: art.query,
-          chart: art.chart,
+          chart: art.chart, overlay: art.overlay, combined: art.combined,
         },
       });
     }
