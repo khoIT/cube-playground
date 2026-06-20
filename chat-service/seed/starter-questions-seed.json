@@ -1,5 +1,5 @@
 {
-  "version": "260620-7686-provisional",
+  "version": "260621-7686-liveops-aligned",
   "generatedAt": 1780772145446,
   "workspaceGenerated": "local",
   "games": {
@@ -928,25 +928,8 @@
     "jus_vn": {
       "questions": [
         {
-          "id": "online-time-by-role-class",
-          "text": "Average daily online time by role class this week",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "explore",
-            "compare"
-          ],
-          "targetCatalogIds": [
-            "active_daily.total_online_time_sec",
-            "active_daily.role_class",
-            "active_daily.log_date"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "dau-30day-trend",
-          "text": "DAU trend over the last 30 days",
+          "id": "liveops-activity-funnel",
+          "text": "DAU / WAU / MAU funnel — current activity ratios",
           "topicTags": [
             "liveops"
           ],
@@ -956,79 +939,128 @@
           ],
           "targetCatalogIds": [
             "active_daily.dau",
+            "active_daily.wau",
+            "active_daily.mau",
             "active_daily.log_date"
-          ],
-          "depth": "basic"
+          ]
         },
         {
-          "id": "online-time-by-os-platform",
-          "text": "Online time by OS platform",
+          "id": "liveops-playtime-by-server",
+          "text": "Daily playtime per active user by server",
           "topicTags": [
-            "liveops",
-            "monetization"
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "active_daily.total_online_time_sec",
+            "active_daily.dau",
+            "active_daily.server_id",
+            "active_daily.log_date"
+          ]
+        },
+        {
+          "id": "liveops-avg-session-by-role-class",
+          "text": "Average session length by role class",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_logout.avg_session_sec",
+            "etl_logout.role_class",
+            "etl_logout.log_date"
+          ]
+        },
+        {
+          "id": "liveops-currency-drain-by-reason-group",
+          "text": "Virtual currency drain by reason group",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "etl_money_flow.total_value",
+            "etl_money_flow.reason_group",
+            "etl_money_flow.currency_field",
+            "etl_money_flow.log_date"
+          ]
+        },
+        {
+          "id": "liveops-garden-harvest-by-crop-level",
+          "text": "Garden harvest activity by crop level",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_garden_harvest.harvests",
+            "etl_garden_harvest.active_users",
+            "etl_garden_harvest.crop_level",
+            "etl_garden_harvest.log_date"
+          ]
+        },
+        {
+          "id": "liveops-npc-intimacy-top",
+          "text": "Which NPCs drive the most intimacy interactions?",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "etl_npc_im_tour.interactions",
+            "etl_npc_im_tour.npc_rel_id",
+            "etl_npc_im_tour.log_date"
+          ]
+        },
+        {
+          "id": "liveops-active-servers-vs-dau",
+          "text": "Active server count vs DAU trend",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "active_daily.active_servers",
+            "active_daily.dau",
+            "active_daily.log_date"
+          ]
+        },
+        {
+          "id": "liveops-emulator-login-share",
+          "text": "Emulator login share over time",
+          "topicTags": [
+            "liveops"
           ],
           "categoryTags": [
             "diagnose",
             "explore"
           ],
           "targetCatalogIds": [
-            "active_daily.total_online_time_sec",
-            "active_daily.os_platform"
-          ],
-          "depth": "basic"
+            "etl_login.logins",
+            "etl_login.emulator_logins",
+            "etl_login.log_date"
+          ]
         },
         {
-          "id": "top-servers-by-dau",
-          "text": "Which servers have the highest DAU this week?",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "active_daily.dau",
-            "active_daily.server_id",
-            "active_daily.log_date"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "mau-by-os-platform-trend",
-          "text": "MAU by OS platform over the last 3 months",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "compare",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "active_daily.mau",
-            "active_daily.os_platform",
-            "active_daily.log_month"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "session-time-by-role-class",
-          "text": "Total session time by role class this week",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "compare",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "active_daily.total_online_time_sec",
-            "active_daily.role_class"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "cpi-installs-by-channel",
-          "text": "Installs and CPI by acquisition channel",
+          "id": "ua-cpi-roas-by-channel",
+          "text": "CPI and ROAS by media source — best and worst-performing channels",
           "topicTags": [
             "user_acquisition"
           ],
@@ -1036,35 +1068,14 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "game_key_metrics.installs",
             "game_key_metrics.cpi_vnd",
+            "game_key_metrics.roas",
             "game_key_metrics.media_source"
-          ],
-          "depth": "basic"
+          ]
         },
         {
-          "id": "retention-curve-may-cohort",
-          "text": "D1 → D30 retention curve for May's new-player cohort",
-          "topicTags": [
-            "user_acquisition"
-          ],
-          "categoryTags": [
-            "metric_explain",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "new_user_retention.rnru_d1",
-            "new_user_retention.rnru_d3",
-            "new_user_retention.rnru_d7",
-            "new_user_retention.rnru_d14",
-            "new_user_retention.rnru_d30",
-            "new_user_retention.report_month"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "d3-vs-d7-retention-by-cohort",
-          "text": "D3 vs D7 retention by recent monthly cohorts",
+          "id": "ua-retention-by-platform",
+          "text": "D1 / D7 / D30 retention by platform — iOS vs Android new-player quality",
           "topicTags": [
             "user_acquisition"
           ],
@@ -1072,31 +1083,46 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "new_user_retention.rnru_d3",
-            "new_user_retention.rnru_d7",
-            "new_user_retention.report_month"
-          ],
-          "depth": "basic"
+            "game_key_metrics.retention_d1",
+            "game_key_metrics.retention_d7",
+            "game_key_metrics.retention_d30",
+            "game_key_metrics.platform"
+          ]
         },
         {
-          "id": "cpi-ranking-by-channel",
-          "text": "CPI ranking by acquisition channel this month",
+          "id": "ua-emulator-rate-by-channel",
+          "text": "Emulator login rate by app channel — bot risk signal per acquisition source",
           "topicTags": [
             "user_acquisition"
           ],
           "categoryTags": [
-            "compare"
+            "diagnose"
           ],
           "targetCatalogIds": [
-            "game_key_metrics.cpi_vnd",
-            "game_key_metrics.media_source",
-            "game_key_metrics.report_month"
-          ],
-          "depth": "basic"
+            "etl_login.emulator_logins",
+            "etl_login.logins",
+            "etl_login.app_channel"
+          ]
         },
         {
-          "id": "payer-conversion-by-source",
-          "text": "New payer conversion rate by media source this month",
+          "id": "ua-guest-vs-account-login-ratio",
+          "text": "Guest vs full-account login ratio by day — how many players bind accounts?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore",
+            "metric_explain"
+          ],
+          "targetCatalogIds": [
+            "etl_login.logins",
+            "etl_login.is_guest",
+            "etl_login.log_date"
+          ]
+        },
+        {
+          "id": "ua-payer-rate-by-channel",
+          "text": "Payer conversion rate by acquisition channel — which sources drive payers?",
           "topicTags": [
             "user_acquisition",
             "monetization"
@@ -1106,64 +1132,86 @@
           ],
           "targetCatalogIds": [
             "game_key_metrics.payer_rate",
-            "game_key_metrics.media_source",
-            "game_key_metrics.report_month"
-          ],
-          "depth": "basic"
+            "game_key_metrics.media_source"
+          ]
         },
         {
-          "id": "d14-d30-retention-by-cohort",
-          "text": "D14 and D30 retention by install month",
+          "id": "ua-role-class-mix-registrations",
+          "text": "New registration breakdown by role class — which class do new players choose?",
           "topicTags": [
-            "user_acquisition",
-            "monetization"
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_register.registers",
+            "etl_register.role_class"
+          ]
+        },
+        {
+          "id": "ua-nru-vs-installs-by-country",
+          "text": "New user registrations vs installs by country — where is activation highest?",
+          "topicTags": [
+            "user_acquisition"
           ],
           "categoryTags": [
             "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "game_key_metrics.nru",
+            "game_key_metrics.installs",
+            "game_key_metrics.country_code"
+          ]
+        },
+        {
+          "id": "ua-registrations-by-login-channel",
+          "text": "Registrations by login channel — which app source drives the most new roles?",
+          "topicTags": [
+            "user_acquisition"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "etl_register.distinct_roles",
+            "etl_register.login_channel"
+          ]
+        },
+        {
+          "id": "mon-whale-ltv-concentration",
+          "text": "Whale count and their share of total lifetime spend — how top-heavy is revenue?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "explore",
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "new_user_retention.rnru_d14",
-            "new_user_retention.rnru_d30",
-            "new_user_retention.report_month"
-          ],
-          "depth": "basic"
+            "mf_users.whales_count",
+            "mf_users.ltv_total_vnd",
+            "mf_users.paying_users"
+          ]
         },
         {
-          "id": "revenue-by-os-platform",
-          "text": "Daily revenue by OS platform",
+          "id": "mon-gold-spend-by-reason-group",
+          "text": "Gold spent by reason group — which in-game systems drain the most virtual currency?",
           "topicTags": [
             "monetization"
           ],
           "categoryTags": [
-            "compare",
             "explore"
           ],
           "targetCatalogIds": [
-            "user_recharge_daily.revenue_vnd_total",
-            "user_recharge_daily.os_platform"
-          ],
-          "depth": "basic"
+            "etl_money_flow.total_value",
+            "etl_money_flow.reason_group"
+          ]
         },
         {
-          "id": "arppu-by-role-class",
-          "text": "Which character class has the highest ARPPU?",
-          "topicTags": [
-            "monetization"
-          ],
-          "categoryTags": [
-            "compare",
-            "explore"
-          ],
-          "targetCatalogIds": [
-            "recharge.arppu_vnd",
-            "recharge.role_class"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "daily-revenue-trend",
-          "text": "Daily revenue trend over the last 30 days",
+          "id": "mon-arppu-payer-rate-by-platform",
+          "text": "ARPPU and payer rate by platform — iOS vs Android monetization quality",
           "topicTags": [
             "monetization"
           ],
@@ -1171,68 +1219,85 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "user_recharge_daily.revenue_vnd_total",
-            "user_recharge_daily.log_date"
-          ],
-          "depth": "basic"
-        },
-        {
-          "id": "arppu-monthly-trend",
-          "text": "Monthly ARPPU trend over the last 6 months",
-          "topicTags": [
-            "monetization"
-          ],
-          "categoryTags": [
-            "metric_explain",
-            "explore"
-          ],
-          "targetCatalogIds": [
             "game_key_metrics.arppu_vnd",
-            "game_key_metrics.report_month"
-          ],
-          "depth": "basic"
+            "game_key_metrics.payer_rate",
+            "game_key_metrics.platform"
+          ]
         },
         {
-          "id": "revenue-by-role-class",
-          "text": "Total revenue by role class",
+          "id": "mon-session-length-by-vip-level",
+          "text": "Average session length by VIP level — do top spenders play longer?",
           "topicTags": [
             "monetization"
           ],
           "categoryTags": [
+            "compare",
             "explore"
           ],
           "targetCatalogIds": [
-            "recharge.revenue_vnd",
-            "recharge.role_class"
-          ],
-          "depth": "basic"
+            "etl_logout.avg_session_sec",
+            "etl_logout.vip_level"
+          ]
         },
         {
-          "id": "nnpu-by-channel-this-month",
-          "text": "Net-new paying users by acquisition channel this month",
+          "id": "mon-revenue-by-gateway",
+          "text": "Revenue by payment gateway — which channels drive the most gross income?",
           "topicTags": [
-            "monetization",
-            "user_acquisition"
+            "monetization"
           ],
           "categoryTags": [
-            "explore"
+            "explore",
+            "compare"
           ],
           "targetCatalogIds": [
-            "game_key_metrics.nnpu",
-            "game_key_metrics.media_source",
-            "game_key_metrics.report_month"
+            "billing_detail.cash_charged_gross",
+            "billing_detail.payment_gateway"
+          ]
+        },
+        {
+          "id": "mon-promo-vs-cash-by-promo-type",
+          "text": "Promo vs cash revenue share by promotion type",
+          "topicTags": [
+            "monetization"
           ],
-          "depth": "basic"
+          "categoryTags": [
+            "explore",
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "billing_detail.promo_charged_gross",
+            "billing_detail.cash_charged_gross",
+            "billing_detail.promotion_type"
+          ]
+        },
+        {
+          "id": "mon-currency-spend-by-role-class",
+          "text": "Virtual currency spent by role class — which class burns the most gold?",
+          "topicTags": [
+            "monetization"
+          ],
+          "categoryTags": [
+            "compare"
+          ],
+          "targetCatalogIds": [
+            "etl_money_flow.total_value",
+            "etl_money_flow.role_class"
+          ]
         }
       ],
       "coverage": {
-        "mf_users.install_date": "2026-06-05",
-        "new_user_retention.report_date": "2026-06-05",
-        "active_daily.log_date": "2026-06-05",
-        "game_key_metrics.report_date": "2026-06-06",
-        "recharge.recharge_time": "2026-06-05"
-      },
-      "verifiedAt": 1780770907570
+        "mf_users.install_date": "2026-06-16",
+        "new_user_retention.report_date": "2026-06-16",
+        "active_daily.log_date": "2026-06-16",
+        "game_key_metrics.report_date": "2026-06-18",
+        "etl_login.log_date": "2026-06-20",
+        "user_recharge_daily.log_date": "2026-06-16",
+        "etl_logout.log_date": "2026-06-20",
+        "etl_npc_im_tour.log_date": "2026-06-20",
+        "etl_register.log_date": "2026-06-20",
+        "etl_money_flow.log_date": "2026-05-15",
+        "billing_detail.order_date": "2026-06-20"
+      }
     },
     "muaw": {
       "questions": [
@@ -1861,8 +1926,8 @@
     "jus": {
       "questions": [
         {
-          "id": "liveops-peak-login-hour",
-          "text": "Peak login hour (VN time) — when does daily player traffic spike?",
+          "id": "liveops-activity-funnel",
+          "text": "DAU / WAU / MAU funnel — current activity ratios",
           "topicTags": [
             "liveops"
           ],
@@ -1871,29 +1936,15 @@
             "metric_explain"
           ],
           "targetCatalogIds": [
-            "etl_login.logins",
-            "etl_login.hour_of_day_vn"
+            "active_daily.dau",
+            "active_daily.wau",
+            "active_daily.mau",
+            "active_daily.log_date"
           ]
         },
         {
-          "id": "liveops-peak-ccu-by-server",
-          "text": "Peak CCU per server — which servers are overcrowded vs idle?",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "compare",
-            "diagnose"
-          ],
-          "targetCatalogIds": [
-            "ccu_by_server.server_peak",
-            "ccu_by_server.server_avg",
-            "ccu_by_server.server"
-          ]
-        },
-        {
-          "id": "liveops-session-band-distribution",
-          "text": "Session length distribution by session band — casual vs hardcore split",
+          "id": "liveops-playtime-by-server",
+          "text": "Daily playtime per active user by server",
           "topicTags": [
             "liveops"
           ],
@@ -1902,13 +1953,48 @@
             "compare"
           ],
           "targetCatalogIds": [
-            "etl_logout.sessions",
-            "etl_logout.session_band"
+            "active_daily.total_online_time_sec",
+            "active_daily.dau",
+            "active_daily.server_id",
+            "active_daily.log_date"
+          ]
+        },
+        {
+          "id": "liveops-avg-session-by-role-class",
+          "text": "Average session length by role class",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "compare",
+            "explore"
+          ],
+          "targetCatalogIds": [
+            "etl_logout.avg_session_sec",
+            "etl_logout.role_class",
+            "etl_logout.log_date"
+          ]
+        },
+        {
+          "id": "liveops-currency-drain-by-reason-group",
+          "text": "Virtual currency drain by reason group",
+          "topicTags": [
+            "liveops"
+          ],
+          "categoryTags": [
+            "explore",
+            "diagnose"
+          ],
+          "targetCatalogIds": [
+            "etl_money_flow.total_value",
+            "etl_money_flow.reason_group",
+            "etl_money_flow.currency_field",
+            "etl_money_flow.log_date"
           ]
         },
         {
           "id": "liveops-garden-harvest-by-crop-level",
-          "text": "Garden harvest volume by crop level — which farming tiers are most active?",
+          "text": "Garden harvest activity by crop level",
           "topicTags": [
             "liveops"
           ],
@@ -1917,28 +2003,14 @@
           ],
           "targetCatalogIds": [
             "etl_garden_harvest.harvests",
-            "etl_garden_harvest.crop_level"
+            "etl_garden_harvest.active_users",
+            "etl_garden_harvest.crop_level",
+            "etl_garden_harvest.log_date"
           ]
         },
         {
-          "id": "liveops-dau-by-platform",
-          "text": "DAU by OS platform over the last 30 days",
-          "topicTags": [
-            "liveops"
-          ],
-          "categoryTags": [
-            "explore",
-            "compare"
-          ],
-          "targetCatalogIds": [
-            "active_daily.dau",
-            "active_daily.os_platform",
-            "active_daily.log_date"
-          ]
-        },
-        {
-          "id": "liveops-npc-intimacy-by-role-class",
-          "text": "NPC intimacy interactions by role class — which classes engage the most?",
+          "id": "liveops-npc-intimacy-top",
+          "text": "Which NPCs drive the most intimacy interactions?",
           "topicTags": [
             "liveops"
           ],
@@ -1948,35 +2020,40 @@
           ],
           "targetCatalogIds": [
             "etl_npc_im_tour.interactions",
-            "etl_npc_im_tour.role_class"
+            "etl_npc_im_tour.npc_rel_id",
+            "etl_npc_im_tour.log_date"
           ]
         },
         {
-          "id": "liveops-session-time-by-role-class",
-          "text": "Average daily online time by role class — which class plays the longest?",
+          "id": "liveops-active-servers-vs-dau",
+          "text": "Active server count vs DAU trend",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
+            "explore",
             "compare"
           ],
           "targetCatalogIds": [
-            "active_daily.total_online_time_sec",
-            "active_daily.role_class"
+            "active_daily.active_servers",
+            "active_daily.dau",
+            "active_daily.log_date"
           ]
         },
         {
-          "id": "liveops-lapsed-player-count",
-          "text": "How many players went lapsed this month?",
+          "id": "liveops-emulator-login-share",
+          "text": "Emulator login share over time",
           "topicTags": [
             "liveops"
           ],
           "categoryTags": [
-            "diagnose"
+            "diagnose",
+            "explore"
           ],
           "targetCatalogIds": [
-            "mf_users.lapsed_this_month_count",
-            "mf_users.user_count"
+            "etl_login.logins",
+            "etl_login.emulator_logins",
+            "etl_login.log_date"
           ]
         },
         {
@@ -2149,8 +2226,7 @@
           "id": "mon-session-length-by-vip-level",
           "text": "Average session length by VIP level — do top spenders play longer?",
           "topicTags": [
-            "monetization",
-            "liveops"
+            "monetization"
           ],
           "categoryTags": [
             "compare",
