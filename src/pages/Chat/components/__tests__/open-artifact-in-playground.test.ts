@@ -35,6 +35,7 @@ describe('openArtifactInPlayground', () => {
     const artifact = baseArtifact({
       combined: true,
       overlay: { measures: ['b.n'] },
+      game: 'cfm_vn',
       deeplinkUrl: '#/build?from-chat-artifact=A1&combined=1',
     });
     openArtifactInPlayground(artifact, history);
@@ -44,7 +45,24 @@ describe('openArtifactInPlayground', () => {
     // (survives the builder's ?query= URL rewrite and a /build refresh).
     expect(loadOverlayForPrimary(primaryQueryKey({ measures: ['a.m'] }))).toEqual({ measures: ['b.n'] });
     expect(history.push).toHaveBeenCalledTimes(1);
-    expect(history.push.mock.calls[0][0]).toMatch(/^\/build\?from-chat-artifact=A1&combined=1&n=/);
+    // game pinned in the URL so the overlay /load is scoped (not game-less).
+    expect(history.push.mock.calls[0][0]).toMatch(/^\/build\?from-chat-artifact=A1&combined=1&game=cfm_vn&n=/);
+  });
+
+  it('pins the artifact game in the URL when present', () => {
+    const history = { push: vi.fn() };
+    openArtifactInPlayground(baseArtifact({ game: 'jus_vn' }), history);
+    expect(history.push.mock.calls[0][0]).toMatch(/[?&]game=jus_vn(&|$)/);
+  });
+
+  it('does not duplicate game when the deeplink already carries it', () => {
+    const history = { push: vi.fn() };
+    openArtifactInPlayground(
+      baseArtifact({ game: 'cfm_vn', deeplinkUrl: '#/build?from-chat-artifact=A1&game=cfm_vn' }),
+      history,
+    );
+    const url = history.push.mock.calls[0][0] as string;
+    expect(url.match(/game=/g)?.length).toBe(1);
   });
 
   it('single artifact: writes only the primary key, no overlay stored', () => {

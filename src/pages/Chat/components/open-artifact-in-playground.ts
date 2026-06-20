@@ -35,9 +35,20 @@ export function openArtifactInPlayground(
     }
   }
   // deeplinkUrl is "#/build?..." — strip the leading '#' for react-router-dom v5.
-  const path = artifact.deeplinkUrl.startsWith('#')
+  let path = artifact.deeplinkUrl.startsWith('#')
     ? artifact.deeplinkUrl.slice(1)
     : artifact.deeplinkUrl;
+  // Pin the artifact's game in the URL. The game context resolves URL-override
+  // first, so this scopes the WHOLE page — primary query, overlay, and chart —
+  // to the game the artifact was emitted for. Without it the page falls back to
+  // whatever game sits in localStorage/server-pref, which can be null or stale;
+  // the combined overlay then loads game-less and the multi-tenant cube rejects
+  // it ("Missing game claim"), leaving the overlay measure empty. On boot the
+  // game also write-throughs to storage, so it survives the builder's later
+  // ?query= URL rewrite and a page refresh.
+  if (artifact.game && !/[?&]game=/.test(path)) {
+    path += `${path.includes('?') ? '&' : '?'}game=${encodeURIComponent(artifact.game)}`;
+  }
   const nonce = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const sep = path.includes('?') ? '&' : '?';
   history.push(`${path}${sep}n=${nonce}`);
