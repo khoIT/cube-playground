@@ -67,6 +67,22 @@ export function saveOverlayForPrimary(primaryKey: string, overlay: unknown): voi
   }
 }
 
+/**
+ * Remove the overlay stored for `primaryKey` (the user dismissed it from the
+ * Results chip) and drop it from the FIFO index. Idempotent — a no-op when the
+ * key isn't present. Persisting the removal means a refresh keeps it gone;
+ * re-opening the combined artifact writes it back under the same key.
+ */
+export function removeOverlayForPrimary(primaryKey: string): void {
+  try {
+    localStorage.removeItem(PREFIX + primaryKey);
+    const index = readIndex().filter((k) => k !== primaryKey);
+    localStorage.setItem(INDEX_KEY, JSON.stringify(index));
+  } catch {
+    // quota/unavailable — non-fatal.
+  }
+}
+
 /** Read the overlay query stored for `primaryKey`, or null if absent/unparseable. */
 export function loadOverlayForPrimary(primaryKey: string): Query | null {
   try {

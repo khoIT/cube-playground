@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import {
   saveOverlayForPrimary,
   loadOverlayForPrimary,
+  removeOverlayForPrimary,
   primaryQueryKey,
 } from '../overlay-deeplink-store';
 
@@ -50,6 +51,30 @@ describe('overlay-deeplink-store (keyed by primary identity)', () => {
 
   it('returns null for an unknown primary', () => {
     expect(loadOverlayForPrimary(primaryQueryKey({ measures: ['nope.m'], timeDimensions: [] }))).toBeNull();
+  });
+
+  it('remove clears the overlay (dismiss keeps it gone on re-read) and is idempotent', () => {
+    const key = primaryQueryKey(PRIMARY);
+    saveOverlayForPrimary(key, OVERLAY);
+    expect(loadOverlayForPrimary(key)).toEqual(OVERLAY);
+    removeOverlayForPrimary(key);
+    expect(loadOverlayForPrimary(key)).toBeNull();
+    // Idempotent: removing an absent key is a safe no-op.
+    expect(() => removeOverlayForPrimary(key)).not.toThrow();
+    // Re-opening the artifact (save again under the same key) restores it.
+    saveOverlayForPrimary(key, OVERLAY);
+    expect(loadOverlayForPrimary(key)).toEqual(OVERLAY);
+  });
+
+  it('remove frees a retention slot (removed key no longer counts toward the cap)', () => {
+    saveOverlayForPrimary('keep', { measures: ['mk'] });
+    removeOverlayForPrimary('keep-not-present'); // no-op on absent key
+    removeOverlayForPrimary('keep');
+    // 20 fresh saves fill the cap exactly; 'keep' was removed so it isn't the
+    // evicted oldest — proving remove pulled it from the index, not just storage.
+    for (let i = 0; i < 20; i++) saveOverlayForPrimary(`x${i}`, { measures: [`mx${i}`] });
+    expect(loadOverlayForPrimary('x0')).toEqual({ measures: ['mx0'] });
+    expect(loadOverlayForPrimary('x19')).toEqual({ measures: ['mx19'] });
   });
 
   it('caps retention to 20 — the oldest is evicted', () => {

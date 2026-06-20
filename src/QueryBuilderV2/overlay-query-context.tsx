@@ -7,22 +7,41 @@
  * the center renders exactly as before.
  */
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { Query } from '@cubejs-client/core';
 
-const OverlayQueryContext = createContext<Query | null>(null);
+interface OverlayContextValue {
+  /** The overlay query for the current builder session, or null when not combined. */
+  query: Query | null;
+  /** Dismiss the overlay (remove it from the durable store + hide it now). No-op when none. */
+  clear: () => void;
+}
+
+const NOOP = () => {};
+const OverlayQueryContext = createContext<OverlayContextValue>({ query: null, clear: NOOP });
 
 export function OverlayQueryProvider({
   overlayQuery,
+  onClear,
   children,
 }: {
   overlayQuery: Query | null;
+  onClear?: () => void;
   children: ReactNode;
 }) {
-  return <OverlayQueryContext.Provider value={overlayQuery}>{children}</OverlayQueryContext.Provider>;
+  const value = useMemo<OverlayContextValue>(
+    () => ({ query: overlayQuery, clear: onClear ?? NOOP }),
+    [overlayQuery, onClear],
+  );
+  return <OverlayQueryContext.Provider value={value}>{children}</OverlayQueryContext.Provider>;
 }
 
 /** The overlay query for the current builder session, or null when not combined. */
 export function useOverlayQuery(): Query | null {
-  return useContext(OverlayQueryContext);
+  return useContext(OverlayQueryContext).query;
+}
+
+/** Dismiss the active overlay from the Results chip. No-op when there's no overlay. */
+export function useClearOverlay(): () => void {
+  return useContext(OverlayQueryContext).clear;
 }

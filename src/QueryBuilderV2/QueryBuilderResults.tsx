@@ -82,6 +82,8 @@ import { useCompareContext } from './compare/compare-context';
 import { formatDeltaAbs, formatDeltaPct, getDeltaTone } from './compare/format-delta';
 import type { MergedRow } from './compare/merge-by-dim-key';
 import { useOverlayColumn } from './use-overlay-column';
+import { useClearOverlay } from './overlay-query-context';
+import { FilterLabel } from './components/FilterLabel';
 
 const StyledTag = tasty(Tag, {
   styles: {
@@ -753,6 +755,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
   // the grid, not only the chart. Null on every normal session → no change.
   const overlayCol = useOverlayColumn();
   const hasOverlay = !!overlayCol;
+  const clearOverlay = useClearOverlay();
 
   const isCompact = usedCubes.length === 1;
   const [selectedCell, setSelectedCell] = useState<[number, string] | null>(null);
@@ -1737,14 +1740,69 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
     </div>
   ) : null;
 
+  // Overlay chip: labels the extra dual-axis column as an overlay and lets the
+  // user dismiss it. Rendered only when an overlay is active, so a normal
+  // session's layout is byte-identical. Reuses FilterLabel (measure chip with a
+  // CloseIcon remove) so it matches the member chips elsewhere.
+  const overlayChipBar = hasOverlay
+    ? (() => {
+        const measure = overlayCol!.measure;
+        const member = members.measures[measure];
+        const cube = cubes.find((c) => c.name === measure.split('.')[0]);
+        return (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderBottom: '1px solid var(--border-card)',
+              background: 'var(--bg-card)',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: 11,
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              + overlay
+            </span>
+            <FilterLabel
+              type={member?.type ?? 'number'}
+              member="measure"
+              isMissing={!member}
+              name={measure}
+              memberName={member?.name ?? measure}
+              memberTitle={member?.shortTitle}
+              cubeName={cube?.name}
+              cubeTitle={cube?.title}
+              memberViewType={memberViewType}
+              size="small"
+              onRemove={async () => clearOverlay()}
+            />
+          </div>
+        );
+      })()
+    : null;
+
   return (
     <Panel
       qa="QueryBuilderResults"
       flow="column"
-      gridRows="minmax(0, 1fr) min-content min-content"
+      gridRows={
+        hasOverlay
+          ? 'min-content minmax(0, 1fr) min-content min-content'
+          : 'minmax(0, 1fr) min-content min-content'
+      }
       overflow="clip"
       height={forceMinHeight ? 'min 31x' : 'initial'}
     >
+      {overlayChipBar}
       {isColumnsSelected ? (
         <Panel gridRows="minmax(0, 1fr)">
           <TableContainer ref={tableRef} onClick={onTableClick} onTouchStart={onTableClick}>

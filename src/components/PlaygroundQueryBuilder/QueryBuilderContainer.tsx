@@ -3,7 +3,7 @@ import { validateQuery } from '@cubejs-client/core';
 import { CubeProvider } from '@cubejs-client/react';
 import { Card, message } from 'antd';
 import equals from 'fast-deep-equal';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -20,7 +20,11 @@ import { applyGameFilter } from '../../shared/game-scoping/apply-game-filter';
 import { normalizeQueryRelativeDateRanges } from '../../QueryBuilderV2/utils/normalize-relative-date-range';
 import { ChartRendererStateProvider } from '../QueryTabs/ChartRendererStateProvider';
 import { OverlayQueryProvider } from '../../QueryBuilderV2/overlay-query-context';
-import { loadOverlayForPrimary, primaryQueryKey } from '../../QueryBuilderV2/overlay-deeplink-store';
+import {
+  loadOverlayForPrimary,
+  primaryQueryKey,
+  removeOverlayForPrimary,
+} from '../../QueryBuilderV2/overlay-deeplink-store';
 import { QueryTabs, QueryTabsProps } from '../QueryTabs/QueryTabs';
 import {
   QueryBuilder,
@@ -490,10 +494,23 @@ function QueryTabsRenderer({
   // tab's query re-attaches the overlay whenever that primary is shown, surviving
   // the URL rewrite, refresh, and tab switches. Normalized + game-filtered to
   // match the primary's window/scope. Null leaves the center single-series.
-  const rawOverlay = query ? loadOverlayForPrimary(primaryQueryKey(query)) : null;
+  // The durable overlay store is external to React; clearing it must force a
+  // re-render so the recomputed overlayQuery (now null) propagates. The counter
+  // value is unused — only the state change matters.
+  const [, bumpOverlayClear] = useState(0);
+  const overlayKey = query ? primaryQueryKey(query) : null;
+  const rawOverlay = overlayKey ? loadOverlayForPrimary(overlayKey) : null;
   const overlayQuery = rawOverlay
     ? applyGameFilter(normalizeQueryRelativeDateRanges(rawOverlay), gameId, cubeHasGameDim)
     : null;
+  // Dismiss the active overlay: drop it from the durable store (so a refresh
+  // keeps it gone) and re-render so the chart/grid column disappear at once.
+  // Re-opening the combined artifact rewrites the same key and it returns.
+  const clearOverlay = useCallback(() => {
+    if (!overlayKey) return;
+    removeOverlayForPrimary(overlayKey);
+    bumpOverlayClear((n) => n + 1);
+  }, [overlayKey]);
 
   // --------------------------------------------------------------------------
   // Deeplink auto-run: remember which query the current navigation delivered
@@ -541,7 +558,7 @@ function QueryTabsRenderer({
   }, [queryParam, wasNormalized, chatArtifactId, editSegmentId, navNonce]);
 
   return (
-   <OverlayQueryProvider overlayQuery={overlayQuery}>
+   <OverlayQueryProvider overlayQuery={overlayQuery} onClear={clearOverlay}>
     <QueryTabs
       // Remount on workspace change so the per-(workspace, game) storage key
       // is read fresh instead of carrying the prior workspace's tabs in memory.
