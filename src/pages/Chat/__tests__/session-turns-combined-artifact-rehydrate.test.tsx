@@ -40,6 +40,7 @@ const combinedTurn: Turn = {
       query: primaryQuery,
       overlay: overlayQuery,
       combined: true,
+      game: 'cfm_vn',
     },
   ],
 };
@@ -52,6 +53,9 @@ describe('sessionTurnsToMessages — combined artifact rehydrate', () => {
     if (!section || section.type !== 'query_artifact') throw new Error('expected query_artifact section');
     expect(section.artifact.combined).toBe(true);
     expect(section.artifact.overlay).toEqual(overlayQuery);
+    // Game must survive replay so the deeplink can pin it (else the overlay
+    // /load goes out game-less and the multi-tenant cube rejects it).
+    expect(section.artifact.game).toBe('cfm_vn');
     // Primary stays a runnable single CubeQuery for graceful degrade.
     expect(section.artifact.query).toEqual(primaryQuery);
   });

@@ -43,6 +43,10 @@ export interface ChatTurn {
      *  reload and the playground renders only the primary metric. */
     overlay?: unknown;
     combined?: boolean;
+    /** Game the artifact targets. Carried so "Open in Playground" can pin it in
+     *  the deeplink — without it the playground falls back to a possibly-null
+     *  active game and the overlay /load goes out game-less (cube 500s). */
+    game?: string;
   }>;
   /** Standalone charts emitted via emit_chart in this turn. */
   charts?: ChartArtifact[];

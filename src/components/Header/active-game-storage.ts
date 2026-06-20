@@ -11,7 +11,7 @@
  * event, depending only on the prefs store.
  */
 
-import { getPref } from '../../hooks/server-prefs-store';
+import { getPref, setPref } from '../../hooks/server-prefs-store';
 
 /** localStorage / server-pref key holding the active game id. */
 export const GAME_STORAGE_KEY = 'gds-cube:active-game';
@@ -36,4 +36,16 @@ export const GAME_CHANGE_EVENT = 'gds-cube:game-change';
  */
 export function getActiveGameId(): string | null {
   return getPref(GAME_STORAGE_KEY);
+}
+
+/**
+ * Set the active game id without importing the React context. Writes through
+ * the prefs store, so the GameContextProvider's subscription updates
+ * useActiveGameId() reactively AND it survives a refresh. Used by chat's
+ * "Open in Playground" to scope the builder (primary + overlay /load) to the
+ * artifact's game — the deeplink's ?game= alone is read only on a full boot,
+ * so SPA navigation needs this push to the prefs channel.
+ */
+export function setActiveGameId(id: string): void {
+  if (id) setPref(GAME_STORAGE_KEY, id);
 }

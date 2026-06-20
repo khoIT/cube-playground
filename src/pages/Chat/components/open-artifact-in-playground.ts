@@ -10,11 +10,20 @@
  */
 import type { QueryArtifact } from '../../../api/chat-sse-client';
 import { saveOverlayForPrimary, primaryQueryKey } from '../../../QueryBuilderV2/overlay-deeplink-store';
+import { setActiveGameId } from '../../../components/Header/active-game-storage';
 
 export function openArtifactInPlayground(
   artifact: QueryArtifact,
   history: { push: (path: string) => void },
 ): void {
+  // Scope the builder to the artifact's game BEFORE navigating. The builder is a
+  // SPA route — GameContextProvider reads the URL's ?game= only at boot, so on
+  // in-app navigation the deeplink param alone never reaches it and the page
+  // falls back to the default game. The primary AND overlay /load then go out
+  // with the wrong game (overlay 500s on the multi-tenant cube). Pushing through
+  // the prefs store updates useActiveGameId() reactively and persists for refresh.
+  if (artifact.game) setActiveGameId(artifact.game);
+
   if (artifact.deeplinkVia === 'session-storage') {
     try {
       sessionStorage.setItem(

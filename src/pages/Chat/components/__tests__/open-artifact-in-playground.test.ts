@@ -49,10 +49,12 @@ describe('openArtifactInPlayground', () => {
     expect(history.push.mock.calls[0][0]).toMatch(/^\/build\?from-chat-artifact=A1&combined=1&game=cfm_vn&n=/);
   });
 
-  it('pins the artifact game in the URL when present', () => {
+  it('pins the artifact game in the URL AND the active-game pref when present', () => {
     const history = { push: vi.fn() };
     openArtifactInPlayground(baseArtifact({ game: 'jus_vn' }), history);
     expect(history.push.mock.calls[0][0]).toMatch(/[?&]game=jus_vn(&|$)/);
+    // Pref-store push scopes the SPA builder (URL ?game= is read only at boot).
+    expect(localStorage.getItem('gds-cube:active-game')).toBe('jus_vn');
   });
 
   it('does not duplicate game when the deeplink already carries it', () => {

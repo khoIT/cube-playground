@@ -12,7 +12,7 @@
  * shared cache keeps it to ONE Cube /load instead of two.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Query, ResultSet } from '@cubejs-client/core';
 import type { CubeRow } from '../charts/merge-on-date-value';
 
@@ -78,19 +78,25 @@ export function useOverlayRows(
   gameId: string | null,
 ): OverlayRowsState {
   const [state, setState] = useState<OverlayRowsState>(IDLE);
-  const keyRef = useRef<string | null>(null);
+
+  // Depend on this STABLE content string — NOT the overlayQuery object. The
+  // container re-derives overlayQuery every render (JSON.parse from the durable
+  // store + a fresh game-filter), so its reference changes each render. An
+  // object-identity dep made this effect re-run on every render: its cleanup
+  // aborted the in-flight /load while a same-key ref-guard blocked the restart,
+  // so the load was aborted and never resumed (overlay rows stayed null, the
+  // chart/grid showed no overlay). A string dep re-runs only on real change.
+  // Token is in the key so a re-auth (new token, same query) reloads.
+  const key =
+    overlayQuery && apiUrl && token
+      ? JSON.stringify({ q: overlayQuery, apiUrl, gameId, token })
+      : null;
 
   useEffect(() => {
-    if (!overlayQuery || !apiUrl || !token) {
-      keyRef.current = null;
+    if (!key || !overlayQuery || !apiUrl || !token) {
       setState(IDLE);
       return;
     }
-    // Key includes the token so a re-auth (new token, same query) reloads
-    // rather than short-circuiting on the prior load.
-    const key = JSON.stringify({ q: overlayQuery, apiUrl, gameId, token });
-    if (keyRef.current === key) return; // already loaded this exact overlay
-    keyRef.current = key;
 
     const cached = resultCache.get(key);
     if (cached) {
@@ -112,7 +118,10 @@ export function useOverlayRows(
       });
 
     return () => controller.abort();
-  }, [overlayQuery, apiUrl, token, gameId]);
+    // key encodes overlayQuery/apiUrl/token/gameId; depending on it alone keeps
+    // the effect stable across the container's per-render overlayQuery rederive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   return state;
 }
