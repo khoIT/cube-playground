@@ -16,12 +16,6 @@ import type { CubeQuery } from '../types.js';
 
 const URL_LIMIT = 8000;
 export const STORAGE_KEY_PREFIX = 'gds-cube:pending-chat-deeplink:';
-/**
- * Sibling key carrying a combined artifact's OVERLAY query. The primary stays on
- * STORAGE_KEY_PREFIX (a runnable single CubeQuery), so a consumer that predates
- * the combined feature reads only the primary and degrades gracefully.
- */
-export const OVERLAY_STORAGE_KEY_PREFIX = 'gds-cube:pending-chat-deeplink-overlay:';
 
 export interface ChatDeeplinkResult {
   url: string;

@@ -20,6 +20,7 @@ import { applyGameFilter } from '../../shared/game-scoping/apply-game-filter';
 import { normalizeQueryRelativeDateRanges } from '../../QueryBuilderV2/utils/normalize-relative-date-range';
 import { ChartRendererStateProvider } from '../QueryTabs/ChartRendererStateProvider';
 import { OverlayQueryProvider } from '../../QueryBuilderV2/overlay-query-context';
+import { loadOverlayPayload } from '../../QueryBuilderV2/overlay-deeplink-store';
 import { QueryTabs, QueryTabsProps } from '../QueryTabs/QueryTabs';
 import {
   QueryBuilder,
@@ -306,13 +307,13 @@ function QueryTabsRenderer({
   // serve the cached payload silently instead of a spurious "expired" toast.
   const chatPayloadCacheRef = useRef<{ id: string; payload: Record<string, unknown> } | null>(null);
 
-  // Combined artifact (?combined=1): the OVERLAY query rides a sibling
-  // sessionStorage key. The primary payload above stays a runnable single
-  // CubeQuery, so a pre-combined build still works; the overlay only enriches
-  // the center chart into a dual-axis view (Phase: builder overlay mode).
+  // Combined artifact (?combined=1): the OVERLAY query is read from a DURABLE
+  // store keyed by artifact id (localStorage), so a page refresh re-derives the
+  // dual-axis instead of dropping to primary-only. The primary payload above
+  // stays a runnable single CubeQuery, so a pre-combined build still works; the
+  // overlay only enriches the center chart into a dual-axis view.
   const isCombined = params.get('combined') === '1';
   const overlayPayloadRef = useRef<Record<string, unknown> | null>(null);
-  const overlayCacheRef = useRef<{ id: string; payload: Record<string, unknown> } | null>(null);
 
   if (chatArtifactId && processedArtifactRef.current !== chatProcessKey) {
     // Mark as processed immediately (synchronous, before any render side-effects).
@@ -347,23 +348,11 @@ function QueryTabsRenderer({
       );
     }
 
-    // Read the overlay sibling key alongside the primary (combined links only).
+    // Read the overlay from the durable store (combined links only). It is NOT
+    // consumed/removed, so a refresh under the same artifact id re-reads it.
     // Its absence is non-fatal: the center degrades to the primary single chart.
     if (isCombined) {
-      const overlayKey = `gds-cube:pending-chat-deeplink-overlay:${chatArtifactId}`;
-      const overlayRaw =
-        typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(overlayKey) : null;
-      if (overlayRaw) {
-        sessionStorage.removeItem(overlayKey);
-        try {
-          overlayPayloadRef.current = JSON.parse(overlayRaw) as Record<string, unknown>;
-          overlayCacheRef.current = { id: chatArtifactId, payload: overlayPayloadRef.current };
-        } catch {
-          overlayPayloadRef.current = null;
-        }
-      } else if (overlayCacheRef.current?.id === chatArtifactId) {
-        overlayPayloadRef.current = overlayCacheRef.current.payload;
-      }
+      overlayPayloadRef.current = loadOverlayPayload(chatArtifactId);
     }
   }
 

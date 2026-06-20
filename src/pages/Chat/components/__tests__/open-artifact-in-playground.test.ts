@@ -1,15 +1,16 @@
 /**
  * Tests for openArtifactInPlayground — the shared deeplink writer. Verifies a
- * combined artifact writes BOTH the primary and the sibling overlay key, a
+ * combined artifact writes the primary (one-shot sessionStorage) AND the overlay
+ * (durable localStorage store, so a /build refresh keeps the dual-axis), a
  * single artifact writes only the primary, and a combined artifact missing its
  * overlay degrades to primary-only (graceful, no crash).
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { openArtifactInPlayground } from '../open-artifact-in-playground';
+import { loadOverlayPayload } from '../../../../QueryBuilderV2/overlay-deeplink-store';
 import type { QueryArtifact } from '../../../../api/chat-sse-client';
 
 const PRIMARY_KEY = (id: string) => `gds-cube:pending-chat-deeplink:${id}`;
-const OVERLAY_KEY = (id: string) => `gds-cube:pending-chat-deeplink-overlay:${id}`;
 
 function baseArtifact(overrides: Partial<QueryArtifact>): QueryArtifact {
   return {
@@ -25,10 +26,11 @@ function baseArtifact(overrides: Partial<QueryArtifact>): QueryArtifact {
 
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
 });
 
 describe('openArtifactInPlayground', () => {
-  it('combined: writes the primary AND the sibling overlay key + navigates', () => {
+  it('combined: writes the primary key AND the durable overlay store + navigates', () => {
     const history = { push: vi.fn() };
     const artifact = baseArtifact({
       combined: true,
@@ -38,27 +40,28 @@ describe('openArtifactInPlayground', () => {
     openArtifactInPlayground(artifact, history);
 
     expect(JSON.parse(sessionStorage.getItem(PRIMARY_KEY('A1'))!)).toEqual({ measures: ['a.m'] });
-    expect(JSON.parse(sessionStorage.getItem(OVERLAY_KEY('A1'))!)).toEqual({ measures: ['b.n'] });
+    // Overlay lives in the durable store (survives a /build refresh).
+    expect(loadOverlayPayload('A1')).toEqual({ measures: ['b.n'] });
     expect(history.push).toHaveBeenCalledTimes(1);
     expect(history.push.mock.calls[0][0]).toMatch(/^\/build\?from-chat-artifact=A1&combined=1&n=/);
   });
 
-  it('single artifact: writes only the primary key, no overlay sibling', () => {
+  it('single artifact: writes only the primary key, no overlay stored', () => {
     const history = { push: vi.fn() };
     openArtifactInPlayground(baseArtifact({}), history);
 
     expect(sessionStorage.getItem(PRIMARY_KEY('A1'))).toBeTruthy();
-    expect(sessionStorage.getItem(OVERLAY_KEY('A1'))).toBeNull();
+    expect(loadOverlayPayload('A1')).toBeNull();
   });
 
-  it('combined but missing overlay: degrades to primary-only (no sibling key)', () => {
+  it('combined but missing overlay: degrades to primary-only (nothing stored)', () => {
     const history = { push: vi.fn() };
     openArtifactInPlayground(
       baseArtifact({ combined: true, overlay: undefined, deeplinkUrl: '#/build?from-chat-artifact=A1&combined=1' }),
       history,
     );
     expect(sessionStorage.getItem(PRIMARY_KEY('A1'))).toBeTruthy();
-    expect(sessionStorage.getItem(OVERLAY_KEY('A1'))).toBeNull();
+    expect(loadOverlayPayload('A1')).toBeNull();
   });
 
   it('inline single: no sessionStorage writes', () => {
