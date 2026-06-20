@@ -10,7 +10,8 @@
 import { ReactElement, useMemo, useState } from 'react';
 import { Button, Popover, Input, Tag as AntTag, message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Tags, Download, Trash2, X, Plus } from 'lucide-react';
+import { useHistory } from 'react-router-dom';
+import { RefreshCw, Tags, Download, Trash2, X, Plus, GitCompareArrows } from 'lucide-react';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import type { Segment } from '../../../types/segment-api';
@@ -59,6 +60,7 @@ async function runBatch<T>(
 
 export function BulkActionsToolbar({ selected, onClear, onChanged, knownTags }: Props): ReactElement {
   const { t } = useTranslation();
+  const history = useHistory();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [busy, setBusy] = useState<'delete' | 'refresh' | 'tag' | 'export' | null>(null);
@@ -225,6 +227,26 @@ export function BulkActionsToolbar({ selected, onClear, onChanged, knownTags }: 
           </button>
         </div>
         <div className={styles.bulkToolbarActions}>
+          {count === 2 && (
+            <Button
+              icon={<GitCompareArrows size={14} />}
+              disabled={selected[0].game_id !== selected[1].game_id}
+              title={
+                selected[0].game_id !== selected[1].game_id
+                  ? t('segments.actions.bulk.compareCrossGame', {
+                      defaultValue: 'Pick two segments from the same game to compare',
+                    })
+                  : undefined
+              }
+              onClick={() =>
+                history.push(
+                  `/segments/compare?a=${encodeURIComponent(selected[0].id)}&b=${encodeURIComponent(selected[1].id)}`,
+                )
+              }
+            >
+              {t('segments.actions.bulk.compare', { defaultValue: 'Compare' })}
+            </Button>
+          )}
           <Button
             icon={<RefreshCw size={14} />}
             onClick={handleRefresh}

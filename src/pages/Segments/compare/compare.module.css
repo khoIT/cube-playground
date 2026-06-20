@@ -1,0 +1,230 @@
+/* Segment-compare surface — Venn + delta tiles + per-region metric table.
+   Tokens only (theme/tokens.css); no inline hex. Mirrors the snapshot-coverage
+   page header and the stat-tile shapes used across Segments detail. */
+
+.pickerRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.pickerCell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pickerSwatch {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.swatchA { background: var(--chart-1); }
+.swatchB { background: var(--chart-2); }
+
+/* Two-column shell: Venn on the left, delta tiles on the right. Collapses to a
+   single column on narrow widths. */
+.overlapGrid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.9fr) 1.4fr;
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 760px) {
+  .overlapGrid { grid-template-columns: 1fr; }
+}
+
+.vennCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.vennLegend {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.vennLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tilesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Region accent — a top hairline tinted by which set the region belongs to. */
+.tileAOnly { border-top: 2px solid var(--chart-1); }
+.tileBoth { border-top: 2px solid var(--brand); }
+.tileBOnly { border-top: 2px solid var(--chart-2); }
+.tileJaccard { border-top: 2px solid var(--border-strong); }
+
+.tileLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.tileValue {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.tileSub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.tileSaveBtn {
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 3px 10px;
+  cursor: pointer;
+}
+
+.tileSaveBtn:hover { background: var(--bg-muted); }
+.tileSaveBtn:disabled { opacity: 0.55; cursor: default; }
+
+/* Staleness callout — warning tones from the semantic token pair. */
+.staleCallout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 12.5px;
+  margin-bottom: 16px;
+}
+
+/* Per-region metric table */
+.metricSection {
+  margin-top: 20px;
+}
+
+.metricHeadRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.metricTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.metricTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+
+.metricTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.metricTable th,
+.metricTable td {
+  padding: 8px 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.metricTable th:first-child,
+.metricTable td:first-child {
+  text-align: left;
+  color: var(--text-secondary);
+}
+
+.metricTable thead th {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  background: var(--bg-muted);
+}
+
+.metricTable tbody tr:last-child td { border-bottom: none; }
+
+.metricCellValue {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.metricCellMedian {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.metricSampled {
+  font-size: 11.5px;
+  color: var(--warning-ink);
+  margin-top: 8px;
+}
+
+.loadMetricsBtn {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+.loadMetricsBtn:hover { background: var(--bg-muted); }
+.loadMetricsBtn:disabled { opacity: 0.55; cursor: default; }

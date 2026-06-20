@@ -652,12 +652,12 @@ function AssistantMessageImpl({
         {groupToolCallRuns(bodyUnits).map((unit, i) =>
           unit.kind === 'tool_run' ? (
             unit.calls.length === 1 ? (
-              <SectionRenderer key={i} section={unit.calls[0]} />
+              <SectionRenderer key={i} section={unit.calls[0]} onRefine={onFollowupPick} />
             ) : (
               <ToolCallGroup key={i} calls={unit.calls} />
             )
           ) : (
-            <SectionRenderer key={i} section={unit.section} />
+            <SectionRenderer key={i} section={unit.section} onRefine={onFollowupPick} />
           ),
         )}
         {disambigOptions && disambigOptions.options.length > 0 ? (
@@ -761,7 +761,13 @@ function mergeToolSections(sections: AssistantSection[]): AssistantSection[] {
 // Per-section renderer
 // ---------------------------------------------------------------------------
 
-function SectionRenderer({ section }: { section: AssistantSection }) {
+function SectionRenderer({
+  section,
+  onRefine,
+}: {
+  section: AssistantSection;
+  onRefine?: (text: string) => void;
+}) {
   switch (section.type) {
     case 'text':
       return <TextParagraph text={section.text} />;
@@ -784,7 +790,7 @@ function SectionRenderer({ section }: { section: AssistantSection }) {
       );
 
     case 'query_artifact':
-      return <QueryArtifactCard artifact={section.artifact} />;
+      return <QueryArtifactCard artifact={section.artifact} onRefine={onRefine} />;
 
     case 'chart':
       return <AssistantChartSection artifact={section.artifact} />;

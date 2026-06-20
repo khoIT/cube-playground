@@ -16,6 +16,8 @@ import { BarChart2, ExternalLink } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 import { AssistantChartSection } from './assistant-chart-section';
 import { ChartSectionMenu, preferDualAxis, preferTableView } from './chart-section-menu';
+import { ComparisonViewToggle, isComparisonChart, type ComparisonView } from './comparison-view-toggle';
+import { QueryRefineRow } from './query-refine-row';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import { buildLabelMap } from './chart-column-labels';
 import { openArtifactInPlayground } from './open-artifact-in-playground';
@@ -24,6 +26,8 @@ import type { QueryArtifact, ChartSpec } from '../../../api/chat-sse-client';
 interface QueryArtifactCardProps {
   artifact: QueryArtifact;
   onClick?: () => void;
+  /** Send a refinement as a follow-up turn. When omitted, the refine row is hidden. */
+  onRefine?: (text: string) => void;
 }
 
 const SOURCE_LABEL: Record<QueryArtifact['source'], string> = {
@@ -41,7 +45,7 @@ const SOURCE_COLOR: Record<QueryArtifact['source'], string> = {
   raw: 'var(--muted-ink)',
 };
 
-export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps) {
+export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifactCardProps) {
   const history = useHistory();
   // Table-first for table-shaped results (leaderboards / wide multi-column);
   // small categorical charts open on the chart.
@@ -50,6 +54,7 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
   );
   const [overrideType, setOverrideType] = useState<ChartSpec['type'] | undefined>(undefined);
   const [overrideEncoding, setOverrideEncoding] = useState<ChartSpec['encoding'] | undefined>(undefined);
+  const [comparisonView, setComparisonView] = useState<ComparisonView>('overlaid');
 
   function handleOpen() {
     openArtifactInPlayground(artifact, history);
@@ -66,6 +71,15 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
   const activeType = overrideType ?? (autoDualAxis ? 'dual-axis' : chart?.spec.type);
   const activeEncoding = overrideEncoding ?? chart?.spec.encoding;
   const chartLabels = buildLabelMap(chart?.columns);
+
+  // The comparison toggle appears only for ≥2-series artifacts. It drives the
+  // rendered shape: grouped → grouped-bar, indexed → rebased multi-line, and
+  // overlaid → whatever the type menu/auto-dual-axis picks.
+  const comparisonEligible =
+    !!chart && !!activeType && isComparisonChart(activeType, chart.spec.data, activeEncoding?.series);
+  const indexed = comparisonEligible && comparisonView === 'indexed';
+  const effectiveOverrideType =
+    comparisonEligible && comparisonView === 'grouped' ? 'grouped-bar' : overrideType;
 
   return (
     <div
@@ -122,6 +136,9 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
         >
           {sourceLabel}
         </span>
+        {comparisonEligible && view === 'chart' && (
+          <ComparisonViewToggle value={comparisonView} onChange={setComparisonView} />
+        )}
         {chart && activeType && (
           <ChartSectionMenu
             spec={chart.spec}
@@ -167,12 +184,20 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
             <AssistantChartSection
               artifact={chart}
               embedded
-              overrideType={overrideType}
+              overrideType={effectiveOverrideType}
               overrideEncoding={overrideEncoding}
+              indexed={indexed}
             />
           ) : (
             <ChartSectionDataTable rows={chart.spec.data} spec={chart.spec} labels={chartLabels} />
           )}
+        </div>
+      )}
+
+      {/* Refine row — context-aware chips + free-text, sent as a follow-up turn. */}
+      {onRefine && (
+        <div style={{ padding: '4px 24px 12px' }}>
+          <QueryRefineRow query={artifact.query} onRefine={onRefine} />
         </div>
       )}
 

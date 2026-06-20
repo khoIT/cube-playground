@@ -17,6 +17,7 @@ import cubeProxyRoutes from './routes/cube-proxy.js';
 import userPrefsRoutes from './routes/user-prefs.js';
 import cubeAliasesRoutes from './routes/cube-aliases.js';
 import segmentsRoutes from './routes/segments.js';
+import segmentCompareRoutes from './routes/segment-compare-routes.js';
 import segmentMember360Routes from './routes/segment-member360.js';
 import segmentBriefRoutes from './routes/segment-brief.js';
 import segmentTrajectoryRoutes from './routes/segment-trajectory.js';
@@ -115,6 +116,7 @@ export async function buildApp() {
   await app.register(userPrefsRoutes);
   await app.register(cubeAliasesRoutes);
   await app.register(segmentsRoutes);
+  await app.register(segmentCompareRoutes);
   await app.register(segmentMember360Routes);
   await app.register(segmentBriefRoutes);
   await app.register(segmentTrajectoryRoutes);

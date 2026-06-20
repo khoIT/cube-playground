@@ -45,7 +45,7 @@ Compare two subjects on the same metric. Common patterns: segment A vs segment B
 4. **Compute the delta + ratio** in your reasoning. State the winner and the magnitude in plain English.
 5. **Emit the artifact(s)**:
    - `compareDateRange` path → one `emit_query_artifact` with a `summary` calling out both periods.
-   - Two-query path → emit two artifacts in sequence, titled with the subject name; the user can open either side in /build.
+   - Two-query path → **prefer `emit_combined_artifact`** when both subjects share a date axis: it overlays the two metrics on one chart (the card then offers overlaid · grouped · indexed views, the last rebasing each series to 100 so a magnitude gap doesn't flatten the smaller one). Falls back to two cards automatically when the series can't be merged. Emit two separate `emit_query_artifact`s only when there is no shared date axis to overlay on.
 
 ## Guard rails
 

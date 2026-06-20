@@ -10,6 +10,7 @@ import { LibraryView } from './library/library-view';
 import { DetailView } from './detail/detail-view';
 import { IdentityMapSection } from './identity-map/identity-map-section';
 import { SnapshotCoveragePage } from './snapshot-coverage';
+import { CompareView } from './compare/compare-view';
 import { EditorView } from './editor/editor-view';
 import { FunnelBuilder } from './funnel-builder';
 import { Member360View } from './member360/member-360-view';
@@ -26,6 +27,7 @@ export function SegmentsPage(): ReactElement {
       <Route exact path="/segments" component={LibraryView} />
       <Route exact path="/segments/identity-map" component={IdentityMapSection} />
       <Route exact path="/segments/snapshot-coverage" component={SnapshotCoveragePage} />
+      <Route exact path="/segments/compare" component={CompareView} />
       {/* /segments/new/funnel must come before /segments/new to avoid partial match */}
       <Route exact path="/segments/new/funnel" component={FunnelBuilder} />
       <Route exact path="/segments/new" component={EditorView} />

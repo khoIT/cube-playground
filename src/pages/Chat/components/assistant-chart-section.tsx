@@ -44,6 +44,7 @@ import {
 } from './format-chart-value';
 import { buildLabelMap, labelOf, type LabelMap } from './chart-column-labels';
 import { ChartHeatmap } from './chart-heatmap';
+import { rebaseSeriesToIndex } from './rebase-series-to-index';
 import {
   formatChartDateTooltip,
   makeTimeTickFormatter,
@@ -80,6 +81,13 @@ interface AssistantChartSectionProps {
    * still lets the user toggle to the table.
    */
   defaultView?: 'chart' | 'table';
+  /**
+   * Render the "indexed" comparison view: rebase every series to 100 at the
+   * first point (compares shape, not magnitude). Wins over the chart type — the
+   * rebased data always renders as multi-line. Used for combined/multi-series
+   * artifacts via the ComparisonViewToggle in the card header.
+   */
+  indexed?: boolean;
 }
 
 export function AssistantChartSection({
@@ -89,6 +97,7 @@ export function AssistantChartSection({
   overrideEncoding: externalEncoding,
   headerAction,
   defaultView,
+  indexed,
 }: AssistantChartSectionProps) {
   const { spec, truncated, originalRowCount } = artifact;
   // Table-first for table-shaped results (leaderboards / wide multi-column);
@@ -126,11 +135,15 @@ export function AssistantChartSection({
           ? toDualAxisSpec(spec)
           : ({ ...spec, type: overrideType } as ChartSpec);
 
+  // Indexed view rebases whatever would otherwise render to 100 at t0 (handles
+  // both wide dual-axis and long multi-line), always emitting multi-line.
+  const finalSpec = indexed ? rebaseSeriesToIndex(activeSpec) : activeSpec;
+
   // Embedded mode keeps the original minimal rendering — no header, no menu.
   if (embedded) {
     return (
       <div style={{ marginTop: 12, marginBottom: 0, padding: 0 }}>
-        <ChartBody spec={activeSpec} labels={labels} />
+        <ChartBody spec={finalSpec} labels={labels} />
         {(spec.caption || truncated) && (
           <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
         )}
@@ -201,7 +214,7 @@ export function AssistantChartSection({
       {/* Body: chart or table — symmetric horizontal padding so content reads centered */}
       <div style={{ padding: '16px 24px' }}>
         {view === 'chart' ? (
-          <ChartBody spec={activeSpec} labels={labels} />
+          <ChartBody spec={finalSpec} labels={labels} />
         ) : (
           <ChartSectionDataTable rows={spec.data} spec={spec} labels={labels} />
         )}

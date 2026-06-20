@@ -11,11 +11,20 @@
  * into natural time order — "top N cells by value" queries arrive value-sorted,
  * which would otherwise scramble them (e.g. Sun before Fri).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { T } from '../../../shell/theme';
 import type { ChartSpec } from '../../../api/chat-sse-client';
 import { labelOf, type LabelMap } from './chart-column-labels';
 import { canonicalAxisOrder, padTimeAxis } from './chart-heatmap-axis-order';
+import { HeatmapDrilldownPopover } from './heatmap-drilldown-popover';
+import { heatmapCellToPredicate, cubeOfMember } from './heatmap-cell-to-predicate';
+
+interface SelectedCell {
+  y: string | number;
+  x: string | number;
+  v: number;
+  rect: DOMRect;
+}
 
 interface ChartHeatmapProps {
   spec: ChartSpec;
@@ -107,13 +116,17 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
   const cells = new Map<string, number>();
   let min = Infinity;
   let max = -Infinity;
+  let total = 0;
   for (const row of spec.data) {
     const v = Number(row[value]) || 0;
+    total += v;
     cells.set(`${String(row[series])}\u0000${String(row[category])}`, v);
     if (v < min) min = v;
     if (v > max) max = v;
   }
   if (!Number.isFinite(min)) min = max = 0; // empty-data guard
+
+  const [selected, setSelected] = useState<SelectedCell | null>(null);
 
   // Cell values stay visible up to ~30 columns — wide grids get a real
   // per-column min width and the container scrolls horizontally instead of
@@ -187,11 +200,24 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
                 );
               }
               const { bg, text } = heatColor(v, min, max);
+              const isSelected =
+                selected != null && String(selected.y) === String(y) && String(selected.x) === String(x);
               return (
                 <div
                   key={String(x)}
                   role="cell"
+                  tabIndex={0}
+                  aria-label={`${String(y)} × ${String(x)}: ${formatValue(v)} — open details`}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelected({ y, x, v, rect: e.currentTarget.getBoundingClientRect() });
+                    }
+                  }}
                   title={`${labelOf(labels, series)}: ${String(y)}\n${labelOf(labels, category)}: ${String(x)}\n${labelOf(labels, value)}: ${formatValue(v)}`}
+                  onClick={(e) =>
+                    setSelected({ y, x, v, rect: e.currentTarget.getBoundingClientRect() })
+                  }
                   style={{
                     background: bg,
                     color: text,
@@ -202,9 +228,11 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
                     justifyContent: 'center',
                     fontSize: cellFont,
                     fontVariantNumeric: 'tabular-nums',
-                    cursor: 'default',
+                    cursor: 'pointer',
                     userSelect: 'none',
                     overflow: 'hidden',
+                    outline: isSelected ? '2px solid var(--brand)' : 'none',
+                    outlineOffset: isSelected ? -1 : 0,
                   }}
                 >
                   {showCellText ? formatValue(v) : null}
@@ -214,6 +242,28 @@ export function ChartHeatmap({ spec, labels, formatValue }: ChartHeatmapProps) {
           </React.Fragment>
         ))}
       </div>
+
+      {selected && (
+        <HeatmapDrilldownPopover
+          rect={selected.rect}
+          seriesLabel={labelOf(labels, series)}
+          seriesValue={String(selected.y)}
+          categoryLabel={labelOf(labels, category)}
+          categoryValue={String(selected.x)}
+          valueLabel={labelOf(labels, value)}
+          valueFormatted={formatValue(selected.v)}
+          pctOfTotal={total > 0 ? selected.v / total : 0}
+          cube={cubeOfMember(series)}
+          predicate={heatmapCellToPredicate({
+            seriesDim: series,
+            seriesValue: selected.y,
+            categoryDim: category,
+            categoryValue: selected.x,
+          })}
+          segmentName={`${String(selected.y)} × ${String(selected.x)}`}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }
