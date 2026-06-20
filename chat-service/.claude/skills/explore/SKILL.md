@@ -24,6 +24,7 @@ trigger_keywords:
 allowed_tools:
   - get_cube_meta
   - get_topic_knowledge
+  - get_company_context
   - resolve_query_terms
   - list_dimension_values
   - get_time_coverage

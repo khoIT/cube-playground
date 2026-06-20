@@ -1,0 +1,105 @@
+{
+  "version": "260621-0121",
+  "source": "VNGGames Game Publishing Platform (GPP) Confluence — curated overview",
+  "company": {
+    "name": "VNGGames",
+    "summary": "VNGGames is the game-publishing arm of VNG Corporation: it publishes and operates games across Vietnam, Southeast Asia, and select global markets. It runs both self-published titles and licensed/channeled titles on behalf of game studios, and operates a large MMORPG portfolio plus FPS, sports, and casual titles.",
+    "operating_model": "VNGGames provides the publishing platform, live-operations, payments, customer support, marketing, and data so that Game Studios (GS) can focus on the game. Leaders here own publishing P&L, live-ops performance, monetization, retention, and player experience across the portfolio.",
+    "audience_note": "This assistant serves VNGGames leaders and operators (live-ops, monetization, product, data, business). Use their vocabulary: titles, studios (GS), markets (VN / SEA / Global), and the platform products below.",
+    "markets": ["Vietnam", "Southeast Asia", "Global (US, TR, and others)"]
+  },
+  "platform": {
+    "name": "Game Publishing Platform (GPP)",
+    "summary": "GPP is VNGGames' unified suite of products that publish and operate every title. It is organized into domains, each owning part of the publishing stack — identity, payments, engagement, support, segmentation, and data. The internal goal is a single platform (Nexus) servicing 75+ titles across ~8 domains.",
+    "domains": [
+      {
+        "key": "nexus",
+        "name": "Nexus",
+        "aka": ["Home", "Hub", "GPP platform"],
+        "what": "The single internal platform / entry point that unifies all GPP tools for VNGGames teams and Game Studios: access management (AM2 / permissions), ticket management, approval flows, notification orchestration (email & Zalo OA), and a game-launching checklist. Holds GPI (Game Product Info) as the single source of truth synced across mini-apps (GDS, Play, Pay, Launch, Grow).",
+        "for_leaders": "When a leader says 'on Nexus' / 'the platform', they mean this self-service hub. Most other products are migrating their operation tooling into Nexus."
+      },
+      {
+        "key": "level_up",
+        "name": "Level Up",
+        "aka": ["LVU", "Play"],
+        "what": "The platform for exclusively operating MMORPG titles (12+ live titles such as the Võ Lâm Truyền Kỳ / Kiếm Thế / Thiên Long lines, Công Thành Chiến, Phong Thần). Provides a studio self-service CMS (update content, create events, send notifications), studio performance dashboards, and game code distribution/redemption.",
+        "for_leaders": "Drives in-game MAU/MAD growth for the MMORPG portfolio. 'Play' / 'Level Up titles' refers to these games.",
+        "data_note": "Per-title KPIs for these games (active, retention, recharge) are queryable in this workspace via the per-game cubes."
+      },
+      {
+        "key": "vga",
+        "name": "VGA (VNGGames Account)",
+        "aka": ["VNGGames Account", "account", "One Passport", "Account Center"],
+        "what": "The player identity / account backbone: login & SSO, One Passport System (centralizing DC-Form PII profiles), Account Center 2.0 (unified experience for Zing and VGA users across id.zing.vn and myaccount.vnggames.com), Sign-In-With-Apple (SIWA) management, SMS/OTP, and consent management (PDPL 2025).",
+        "for_leaders": "The canonical player identity. Game UID resolves to a VGA ID; cross-product player joins (CS, Club, Promotion) hang off VGA."
+      },
+      {
+        "key": "club",
+        "name": "Club",
+        "aka": ["Connect — Club", "Loyalty", "Code", "Gift"],
+        "what": "The cross-title loyalty & engagement web product (Club page, Code redemption, Gift redemption). Targets ~200K MAU loyalty members, runs GameFest-style campaigns, member tiers, and is building VIP Management (VIP segmentation by behavior/spend, 1-1 and 1-n communication).",
+        "for_leaders": "Loyalty / retention lever that spans titles. Metrics leaders cite: Club MAU/DAU, redemption success rate, tier counts."
+      },
+      {
+        "key": "cs_platform",
+        "name": "CS Platform (VNGGames Support)",
+        "aka": ["CS", "Customer Support", "Connect — CS", "support.vnggames.com"],
+        "what": "Centralized customer-support tooling: tickets & tasks across channels (Facebook, Discord, Zalo OA, TikTok, WhatsApp/Line, web portal), AI-assisted support via the GiGi vendor (ticket labelling, response suggestions, sentiment), a User Master Profile (UMP), and VIP conversation. Strong PII-compliance focus.",
+        "for_leaders": "Owns first-response time, SLA, ticket volume, and 'AI Jobs Done'. CS data feeds support analytics.",
+        "data_note": "CS ticket data is available in this workspace (cs_ticket); joining tickets to a game UID is partial — page-scoped Facebook/AIHelp identities often cannot be resolved to a game account."
+      },
+      {
+        "key": "pay",
+        "name": "Pay",
+        "aka": ["Payment", "Webshop", "WSOT", "Billing"],
+        "what": "The payment & webshop systems for IAP and out-of-store web shop across markets (VN, SEA, US, TR). Integrates many payment methods (Google/Apple Pay, PayPal/Coda, Adyen cards, Payermax, ZaloPay, ZingCard, direct billing gateway), runs fraud protection (reCAPTCHA, the SPP secure programme), vouchers/promotions, and operation tooling (OPTool / WSOT) migrating onto Nexus.",
+        "for_leaders": "Owns payment success rate, channel cost, and the IAP→webshop shift. Business metrics here: ARPPU, PU/NPU, revenue, channel-cost reduction.",
+        "data_note": "Revenue / recharge / payment KPIs are queryable per-game in this workspace (e.g. recharge and payment cubes)."
+      },
+      {
+        "key": "apollo",
+        "name": "Apollo",
+        "aka": ["Grow — Apollo", "segmentation", "CRM", "Live Segment"],
+        "what": "The user-analysis & engagement engine within the Grow domain: Live Segment (real-time segmentation), RFM segmentation, push-notification campaigns, in-app messaging, recurring notifications, and CDP profile integration. Delivers bulk notifications for other products (e.g. Club VIP).",
+        "for_leaders": "The CRM / segmentation lever — how players are grouped and reached. 'Apollo' or 'Live Segment' refers to this."
+      },
+      {
+        "key": "promotion",
+        "name": "Promotion",
+        "aka": ["Grow — Promotion", "promo platform", "campaign"],
+        "what": "The promotion / campaign platform: promo templates (e.g. Lucky Draw types), segment-based promotion customization, and self-serve promotion setup for Game Studios and the Ops team on Nexus.",
+        "for_leaders": "How live-ops campaigns and rewards are configured and run; increasingly self-served by studios."
+      },
+      {
+        "key": "gds",
+        "name": "GDS (Game Data Studio)",
+        "aka": ["Analytics", "Game Data", "Data Portal", "Monitoring Hub"],
+        "what": "The data backbone. Mission: improve all VNGGames business processes (decision-making, reporting, marketing) using data. Runs the Monitoring Hub (real-time dashboard alerts, resolve-log), real-time and Tableau dashboards, and data import/export (migrating from the GDS Data Portal into Nexus).",
+        "for_leaders": "GDS is the source of the analytics in this playground. The per-game cubes and KPIs this assistant queries are built on GDS data.",
+        "data_note": "The Cube models this assistant queries are grounded on GDS-managed data."
+      }
+    ]
+  },
+  "glossary": [
+    { "term": "GS", "expansion": "Game Studio(s)", "meaning": "The game developers/partners whose titles VNGGames publishes or operates; the platform's internal 'customers'." },
+    { "term": "GMT", "expansion": "Group Management Team", "meaning": "Senior leadership / approval body that signs off strategy and major launches." },
+    { "term": "GPI", "expansion": "Game Product Info", "meaning": "Centralized product-info record on Nexus, synced across mini-apps as the single source of truth for a title." },
+    { "term": "AM2", "expansion": "Access Management v2", "meaning": "Nexus permission/access-granting system." },
+    { "term": "Zalo OA", "expansion": "Zalo Official Account", "meaning": "Notification/outbound channel used by Nexus and CS in Vietnam." },
+    { "term": "SIWA", "expansion": "Sign In With Apple", "meaning": "Apple login; VGA manages SIWA identity, incl. Apple Team ID migration between stores." },
+    { "term": "Zing", "expansion": "Zing account ecosystem", "meaning": "Legacy VNG account system (id.zing.vn) being unified with VGA in Account Center 2.0." },
+    { "term": "PDPL 2025", "expansion": "Vietnam Personal Data Protection Law (Decree 15/2020/ND-CP and 2025 updates)", "meaning": "The PII-compliance regime driving consent management across VGA, CS, Club, and Promotion." },
+    { "term": "CDP", "expansion": "Customer Data Platform", "meaning": "Player-profile store feeding Apollo segmentation and VIP management." },
+    { "term": "UMP", "expansion": "User Master Profile", "meaning": "CS-side unified player profile (history, Club, login by email/phone)." },
+    { "term": "GiGi", "expansion": "GiGi AI assistant (vendor)", "meaning": "AI vendor powering CS automation (ticket labelling, response suggestions, analytics)." },
+    { "term": "IAP", "expansion": "In-App Purchase", "meaning": "Store-billed purchases (Apple/Google); Pay drives players from IAP toward webshop to cut channel cost." },
+    { "term": "Webshop / WSOT", "expansion": "Web shop / Web Shop Operation Tool", "meaning": "Out-of-store web payment surface and its operation tooling." },
+    { "term": "PSP", "expansion": "Payment Service Provider", "meaning": "Third-party payment processors integrated by Pay (Adyen, Payermax, Coda, etc.)." },
+    { "term": "ZingCard", "expansion": "ZingCard", "meaning": "VNG prepaid-card payment method handled by Pay." },
+    { "term": "ARPPU / PU / NPU", "expansion": "Avg Revenue Per Paying User / Paying Users / New Paying Users", "meaning": "Core monetization metrics leaders track on Pay and across titles." },
+    { "term": "MAU / MAD", "expansion": "Monthly Active Users / Monthly Active Devices", "meaning": "Top-line engagement metrics, e.g. Level Up's in-game MAU target." },
+    { "term": "OPTool", "expansion": "Operation Tool", "meaning": "Operations/admin tooling (e.g. Pay's OPTool) being consolidated onto Nexus." },
+    { "term": "DC Form", "expansion": "DC Form", "meaning": "User profile form for old channeling games, being centralized into the One Passport System (VGA)." }
+  ]
+}

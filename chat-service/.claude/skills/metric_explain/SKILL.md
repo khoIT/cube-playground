@@ -15,6 +15,7 @@ trigger_keywords:
 allowed_tools:
   - get_cube_meta
   - get_topic_knowledge
+  - get_company_context
   - list_business_metrics
   - get_business_metric
   - emit_query_artifact

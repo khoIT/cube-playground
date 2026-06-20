@@ -18,6 +18,7 @@ allowed_tools:
   - get_metric_benchmark
   - get_cube_meta
   - get_topic_knowledge
+  - get_company_context
   - list_business_metrics
   - get_business_metric
   - list_segments
