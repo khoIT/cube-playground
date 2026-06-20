@@ -191,19 +191,22 @@ export function QueryArtifactCard({ artifact, onClick }: QueryArtifactCardProps)
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 5,
-            padding: '6px 14px',
-            borderRadius: 6,
+            gap: 6,
+            // Shared height + radius with the disambig action chips so all chat
+            // action buttons read as one consistent family.
+            height: 34,
+            padding: '0 14px',
+            borderRadius: 'var(--radius-md)',
             background: 'var(--shell-brand)',
             border: 'none',
             cursor: 'pointer',
             fontFamily: T.fSans,
-            fontSize: 12,
-            fontWeight: 500,
+            fontSize: 13,
+            fontWeight: 600,
             color: 'var(--text-on-brand)',
           }}
         >
-          <Icon icon={ExternalLink} size={13} color="var(--text-on-brand)" />
+          <Icon icon={ExternalLink} size={14} color="var(--text-on-brand)" />
           Open in Playground
         </button>
       </div>

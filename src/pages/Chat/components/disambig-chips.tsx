@@ -15,6 +15,7 @@
  * the next-step actions stand out as the primary affordance of the turn.
  */
 import React from 'react';
+import { Play, Check } from 'lucide-react';
 import { T } from '../../../shell/theme';
 import { postChatAudit } from '../../../api/chat-audit-client';
 import type { DisambigOption } from '../../../api/chat-sse-client';
@@ -112,10 +113,10 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
           // choice-chip selection without the solid fill the choice slot uses.
           const neutralSelectedStyle = isSelected
             ? {
-                border: '1px solid var(--brand)',
-                background: 'var(--brand-soft)',
-                color: 'var(--brand-hover)',
-              }
+              border: '1px solid var(--brand)',
+              background: 'var(--brand-soft)',
+              color: 'var(--brand-hover)',
+            }
             : {};
           return (
             <button
@@ -134,38 +135,51 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
               style={
                 isChoice
                   ? {
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 16px 8px 13px',
-                      borderRadius: 'var(--radius-md)',
-                      cursor: 'pointer',
-                      fontFamily: T.fSans,
-                      fontSize: 13.5,
-                      fontWeight: 600,
-                      transition:
-                        'background .13s ease, color .13s ease, transform .13s ease, box-shadow .13s ease, border-color .13s ease',
-                    }
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    // Fixed height (matches the artifact's "Open in Playground"
+                    // CTA) with horizontal-only padding so all action buttons
+                    // share one height; vertical centering does the rest.
+                    height: 34,
+                    padding: '0 16px 0 13px',
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    fontFamily: T.fSans,
+                    fontSize: 13.5,
+                    fontWeight: 600,
+                    transition:
+                      'background .13s ease, color .13s ease, transform .13s ease, box-shadow .13s ease, border-color .13s ease',
+                  }
                   : {
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      border: `1px solid var(--shell-border-strong)`,
-                      background: 'var(--surface-raised)',
-                      color: 'var(--shell-text-emphasis)',
-                      cursor: 'pointer',
-                      fontFamily: T.fSans,
-                      fontSize: 12.5,
-                      ...neutralSelectedStyle,
-                    }
+                    padding: '6px 12px',
+                    borderRadius: 999,
+                    border: `1px solid var(--shell-border-strong)`,
+                    background: 'var(--surface-raised)',
+                    color: 'var(--shell-text-emphasis)',
+                    cursor: 'pointer',
+                    fontFamily: T.fSans,
+                    fontSize: 12.5,
+                    ...neutralSelectedStyle,
+                  }
               }
             >
               {isChoice && (
+                // SVG icon (not a unicode glyph): centers cleanly via flex with
+                // no font baseline offset, and inherits the chip's text color via
+                // currentColor — so on the solid-brand hover/selected fill it
+                // turns white instead of vanishing into the background. No inline
+                // color: that would override the hover/selected color cascade.
                 <span
                   aria-hidden
                   className={CHOICE_ARROW_CLASS}
-                  style={{ fontSize: 15, lineHeight: 1, color: 'var(--brand)' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 0 }}
                 >
-                  {isSelected ? '✓' : '▸'}
+                  {isSelected ? (
+                    <Check size={14} strokeWidth={2.5} />
+                  ) : (
+                    <Play size={14} fill="currentColor" stroke="currentColor" strokeWidth={1} />
+                  )}
                 </span>
               )}
               {opt.label}
