@@ -8,8 +8,10 @@
  *
  * Redaction parity with the members API: sensitive monetization/VIP column
  * values are removed from unauthenticated callers in the state-distribution
- * endpoints. Parity reference: segments.ts:589 uses `Boolean(req.user)` as the
- * authenticated signal — we do the same here.
+ * endpoints, gated on `Boolean(req.user)`. Under AUTH_DISABLED (local + the
+ * VPN-gated playground) req.user is the bootstrap admin for every request, so the
+ * gate is intentionally open there — those are trusted admin contexts where the
+ * operator is meant to see full data. The members-pull uses the same gate.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -85,12 +87,36 @@ function cacheGet(key: string): unknown | null {
   return hit.payload;
 }
 
+/**
+ * Last-good read for the stale-on-error fallback — returns the entry IGNORING the
+ * fresh TTL. The fresh-path short-circuit (cacheGet) only reaches a catch block
+ * once the fresh entry has expired; a TTL-bound stale read would have expired at
+ * the same instant (same write, same TTL), making the fallback unreachable. The
+ * `:stale` mirror must therefore outlive the fresh window — it persists until
+ * overwritten by the next success or evicted by the MAX_CACHE cap.
+ */
+function cacheGetStale(key: string): unknown | null {
+  return cache.get(key)?.payload ?? null;
+}
+
 function cacheSet(key: string, payload: unknown): void {
   if (cache.size >= MAX_CACHE) {
     const oldest = cache.keys().next().value;
     if (oldest !== undefined) cache.delete(oldest);
   }
   cache.set(key, { at: Date.now(), payload });
+}
+
+/**
+ * Write both the TTL'd fresh entry AND the last-good `:stale` mirror that catch
+ * blocks read when the lakehouse is unavailable. Every endpoint with a
+ * stale-on-error catch MUST set its success payload through this — writing only
+ * the bare key (as four endpoints previously did) leaves the `:stale` lookup
+ * reading a key nobody populates, so the documented degradation silently 502s.
+ */
+function cacheSetWithStale(key: string, payload: unknown): void {
+  cacheSet(key, payload);
+  cacheSet(key + ':stale', payload);
 }
 
 /** Test hook */
@@ -257,10 +283,10 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         captureEras,
         asOf: rows.length > 0 ? rows[rows.length - 1].ts : null,
       };
-      cacheSet(cacheKey, payload);
+      cacheSetWithStale(cacheKey, payload);
       return payload;
     } catch (err) {
-      const stale = cacheGet(cacheKey + ':stale');
+      const stale = cacheGetStale(cacheKey + ':stale');
       if (stale) return { ...(stale as Record<string, unknown>), stale: true };
       return reply.status(502).send({
         error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
@@ -343,10 +369,10 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         captureEras,
         asOf: points.length > 0 ? points[points.length - 1].ts : null,
       };
-      cacheSet(cacheKey, payload);
+      cacheSetWithStale(cacheKey, payload);
       return payload;
     } catch (err) {
-      const stale = cacheGet(cacheKey + ':stale');
+      const stale = cacheGetStale(cacheKey + ':stale');
       if (stale) return { ...(stale as Record<string, unknown>), stale: true };
       return reply.status(502).send({
         error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
@@ -389,9 +415,9 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
     }
 
     // Gate redaction on req.user, NOT req.principal: principal is populated for ALL
-    // callers (anonymous requests carry a default sub), so it can't distinguish a
-    // tokenless caller. req.user is set only when a real token verified. Mirrors the
-    // tokenless members-pull, which redacts on Boolean(req.user).
+    // callers (anonymous requests carry a default sub). Under AUTH_DISABLED (local +
+    // the VPN-gated playground) req.user is the bootstrap admin for every request, so
+    // the gate is open there by design — those are trusted admin contexts.
     const authenticated = Boolean(req.user);
     const cacheKey = `state-dist:${id}:${snapshotTs}:${dimension}:${authenticated}`;
     const hit = cacheGet(cacheKey);
@@ -413,10 +439,10 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         rows,
         redacted: !authenticated && SENSITIVE_DIMENSIONS.has(dimension),
       };
-      cacheSet(cacheKey, payload);
+      cacheSetWithStale(cacheKey, payload);
       return payload;
     } catch (err) {
-      const stale = cacheGet(cacheKey + ':stale');
+      const stale = cacheGetStale(cacheKey + ':stale');
       if (stale) return { ...(stale as Record<string, unknown>), stale: true };
       return reply.status(502).send({
         error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
@@ -536,10 +562,10 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         asOf: points.length > 0 ? points[points.length - 1].ts : null,
         redacted: false,
       };
-      cacheSet(cacheKey, payload);
+      cacheSetWithStale(cacheKey, payload);
       return payload;
     } catch (err) {
-      const stale = cacheGet(cacheKey + ':stale');
+      const stale = cacheGetStale(cacheKey + ':stale');
       if (stale) return { ...(stale as Record<string, unknown>), stale: true };
       return reply.status(502).send({
         error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
@@ -606,11 +632,10 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         count: rows.length,
         asOf: rows.length > 0 ? rows[0].ts : null,
       };
-      cacheSet(cacheKey, payload);
-      cacheSet(cacheKey + ':stale', payload);
+      cacheSetWithStale(cacheKey, payload);
       return payload;
     } catch (err) {
-      const stale = cacheGet(cacheKey + ':stale');
+      const stale = cacheGetStale(cacheKey + ':stale');
       if (stale) return { ...(stale as Record<string, unknown>), stale: true };
       return reply.status(502).send({
         error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
@@ -694,11 +719,10 @@ export default async function segmentMovementRoutes(app: FastifyInstance): Promi
         windowDays: COVERAGE_WINDOW_DAYS,
         rows,
       };
-      cacheSet(cacheKey, payload);
-      cacheSet(cacheKey + ':stale', payload);
+      cacheSetWithStale(cacheKey, payload);
       return payload;
     } catch (err) {
-      const stale = cacheGet(cacheKey + ':stale');
+      const stale = cacheGetStale(cacheKey + ':stale');
       if (stale) return { ...(stale as Record<string, unknown>), stale: true };
       return reply.status(502).send({
         error: { code: 'LAKEHOUSE_UNAVAILABLE', message: (err as Error).message },
