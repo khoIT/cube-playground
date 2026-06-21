@@ -220,7 +220,23 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
       const next = new Map(st.streams);
       const e = st.streams.get(key);
       if (!e) return st;
-      next.set(key, { ...makeIdleEntry(e.sessionId), refCount: e.refCount });
+      // Keep whatever the turn produced before the user hit Stop, marked
+      // `aborted` so the consumer commits the partial answer (matching how a
+      // server-side abort surfaces). Drop the cancel handle so a second click
+      // is a no-op. If nothing was generated yet (early cancel during loading),
+      // fall back to a clean idle entry so we don't commit an empty bubble.
+      const hasPartial =
+        e.currentText.length > 0 ||
+        e.currentReasoning.length > 0 ||
+        e.currentToolCalls.length > 0 ||
+        e.currentArtifacts.length > 0;
+      const { cancel: _drop, ...rest } = e;
+      next.set(
+        key,
+        hasPartial
+          ? { ...rest, status: 'aborted', abort: { reason: 'user_cancel' } }
+          : { ...makeIdleEntry(e.sessionId), refCount: e.refCount },
+      );
       return { streams: next };
     });
   },
@@ -241,7 +257,10 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
       const key = resolveKey(s, sessionId);
       const cur = s.streams.get(key);
       const next = new Map(s.streams);
-      next.set(key, makeIdleEntry(sessionId));
+      // Preserve refCount: callers (New chat, reconnect, zombie reconciliation)
+      // reset an entry while their view is still mounted, so the subscription
+      // must survive — otherwise a later prune could drop a watched entry.
+      next.set(key, { ...makeIdleEntry(sessionId), refCount: cur?.refCount ?? 0 });
       if (cur) cur.cancel?.();
       return { streams: next };
     });
@@ -336,14 +355,22 @@ async function runDispatchLoop(
       set((s) => {
         const cur = s.streams.get(key);
         if (!cur) return s;
-        // Preserve terminal states the server already reported:
+        // Preserve terminal states the entry already reached:
         //   - 'idle' → user-initiated cancel/reset; not a disconnect.
+        //   - 'aborted' → user Stop / server abort already classified this turn;
+        //     the socket then closing without `done` must not re-stamp it as a
+        //     disconnect (would swap the kept partial for a Connection-lost banner).
         //   - 'error' / 'rate_limited' → server sent an explicit error event
         //     (e.g. upstream proxy 403 "Failed to authenticate"); the SSE
         //     stream then closes without a `done` event. Without this
         //     check we'd overwrite the actionable error message with the
         //     generic "Connection lost" disconnect banner.
-        if (cur.status === 'idle' || cur.status === 'error' || cur.status === 'rate_limited') {
+        if (
+          cur.status === 'idle' ||
+          cur.status === 'aborted' ||
+          cur.status === 'error' ||
+          cur.status === 'rate_limited'
+        ) {
           return s;
         }
         const next = new Map(s.streams);

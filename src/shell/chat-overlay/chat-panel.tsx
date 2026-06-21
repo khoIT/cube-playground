@@ -202,6 +202,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             onComposerChange={setComposerValue}
             onSubmit={handleSubmit}
             onFollowupPick={sendFollowup}
+            onDisambigPick={sendFollowup}
             compact
             bypassCache={bypassCache}
             onToggleBypassCache={onToggleBypassCache}

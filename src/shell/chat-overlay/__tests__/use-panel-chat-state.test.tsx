@@ -30,19 +30,31 @@ vi.mock('../../../components/Header/use-game-context', () => ({
 
 const cancelSpy = vi.fn();
 const sendTurnSpy = vi.fn();
-vi.mock('../../../pages/Chat/hooks/use-chat-stream', () => ({
-  useChatStream: () => ({
-    status: 'idle',
-    sessionId: null,
+const resetStreamSpy = vi.fn();
+const clearBuffersSpy = vi.fn();
+
+// Mutable stream slice so tests can drive status transitions (e.g. → aborted).
+function idleStream() {
+  return {
+    status: 'idle' as string,
+    sessionId: null as string | null,
+    turnId: null as string | null,
     currentText: '',
     currentReasoning: '',
-    currentArtifacts: [],
-    currentCharts: [],
-    currentToolCalls: [],
+    currentArtifacts: [] as unknown[],
+    currentCharts: [] as unknown[],
+    currentProposals: [] as unknown[],
+    currentToolCalls: [] as unknown[],
+    disambigOptions: null as unknown,
     sendTurn: sendTurnSpy,
     cancel: cancelSpy,
-    clearStreamBuffers: vi.fn(),
-  }),
+    clearStreamBuffers: clearBuffersSpy,
+    resetStream: resetStreamSpy,
+  };
+}
+let streamSlice = idleStream();
+vi.mock('../../../pages/Chat/hooks/use-chat-stream', () => ({
+  useChatStream: () => streamSlice,
 }));
 
 // useChatSession returns a controllable session value so we can simulate
@@ -61,8 +73,11 @@ import { usePanelChatState } from '../use-panel-chat-state';
 
 beforeEach(() => {
   mockSession = null;
+  streamSlice = idleStream();
   cancelSpy.mockClear();
   sendTurnSpy.mockClear();
+  resetStreamSpy.mockClear();
+  clearBuffersSpy.mockClear();
 });
 
 afterEach(() => {
@@ -97,7 +112,9 @@ describe('usePanelChatState — New chat reset', () => {
     expect(result.current.displayMessages).toEqual([]);
     expect(result.current.firstUserMessage).toBeNull();
     expect(result.current.composerValue).toBe('');
-    expect(cancelSpy).toHaveBeenCalled();
+    // New chat fully wipes via reset() (not cancel) — cancel now keeps a
+    // partial as 'aborted', which the commit effect would re-add post-wipe.
+    expect(resetStreamSpy).toHaveBeenCalled();
     // Sanity: re-render with sessionId still null should not re-add anything.
     rerender({ sid: null });
     expect(result.current.displayMessages).toEqual([]);
@@ -147,6 +164,101 @@ describe('usePanelChatState — New chat reset', () => {
     const hasProposal = assistant?.role === 'assistant'
       && assistant.sections.some((s) => s.type === 'segment_proposal');
     expect(hasProposal).toBe(true);
+  });
+
+  it('attaches disambigOptions + selected pin from persisted turns (panel parity)', () => {
+    // Regression: the docked panel dropped the choice-chip set when mapping
+    // persisted turns, so disambiguation chips never rendered in the panel.
+    mockSession = {
+      id: 'sess-d',
+      turns: [
+        { id: 't1', role: 'user', text: 'show revenue', createdAt: '2026-06-21T01:00:00Z' },
+        {
+          id: 't2',
+          role: 'assistant',
+          text: 'Which revenue?',
+          createdAt: '2026-06-21T01:00:01Z',
+          disambig: {
+            prompt: 'Which revenue?',
+            slot: 'revenue_kind',
+            options: [
+              { label: 'Gross', pinText: 'gross revenue' },
+              { label: 'Net', pinText: 'net revenue' },
+            ],
+          },
+        },
+        { id: 't3', role: 'user', text: 'net revenue', createdAt: '2026-06-21T01:00:05Z' },
+      ],
+    } as typeof mockSession;
+
+    const { result } = renderHook(
+      ({ sid }: { sid: string | null }) => usePanelChatState(sid),
+      { initialProps: { sid: 'sess-d' as string | null } },
+    );
+
+    const assistant = result.current.displayMessages.find((m) => m.id === 't2');
+    expect(assistant?.role).toBe('assistant');
+    if (assistant?.role === 'assistant') {
+      expect(assistant.disambigOptions?.options).toHaveLength(2);
+      // The following user turn ("net revenue") matches an option's pinText.
+      expect(assistant.disambigSelectedPinText).toBe('net revenue');
+    }
+  });
+
+  it('keeps committed messages on the null → new-id promotion (no wipe)', () => {
+    // session_created promotes a brand-new chat: sessionId flips null → real id.
+    // committedMessages already holds the user msg + answer — must not be wiped.
+    const { result, rerender } = renderHook(
+      ({ sid }: { sid: string | null }) => usePanelChatState(sid),
+      { initialProps: { sid: null } },
+    );
+
+    act(() => {
+      result.current.setComposerValue('Total revenue');
+    });
+    act(() => {
+      result.current.handleSubmit();
+    });
+    expect(result.current.displayMessages).toHaveLength(1);
+
+    // session_created → parent re-renders with the freshly minted id.
+    rerender({ sid: 'sess-new-1' });
+
+    // The user bubble survives the promotion (would be [] without the guard).
+    expect(result.current.displayMessages).toHaveLength(1);
+    expect(result.current.displayMessages[0].role).toBe('user');
+  });
+
+  it('commits the partial answer when the turn ends in "aborted" (Stop / timeout)', () => {
+    const { result, rerender } = renderHook(
+      ({ sid }: { sid: string | null }) => usePanelChatState(sid),
+      { initialProps: { sid: null } },
+    );
+
+    // Mid-stream: tokens arriving.
+    act(() => {
+      streamSlice = { ...idleStream(), status: 'streaming', currentText: 'partial answer' };
+      rerender({ sid: null });
+    });
+    // Live preview shows the partial.
+    expect(
+      result.current.displayMessages.some((m) => m.id === '__streaming__'),
+    ).toBe(true);
+
+    // Turn aborts (user Stop or server timeout) — status flips to 'aborted'.
+    act(() => {
+      streamSlice = { ...idleStream(), status: 'aborted', currentText: 'partial answer' };
+      rerender({ sid: null });
+    });
+
+    // The partial is committed (not dropped) and buffers cleared.
+    const committed = result.current.displayMessages.filter((m) => m.id !== '__streaming__');
+    const assistant = committed.find((m) => m.role === 'assistant');
+    expect(assistant?.role).toBe('assistant');
+    if (assistant?.role === 'assistant') {
+      expect(assistant.sections.some((s) => s.type === 'text' && s.text === 'partial answer')).toBe(true);
+    }
+    expect(clearBuffersSpy).toHaveBeenCalled();
   });
 
   it('does not re-hydrate cleared messages when session value is stale', () => {

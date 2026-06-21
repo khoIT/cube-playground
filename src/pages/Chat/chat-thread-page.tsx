@@ -250,7 +250,12 @@ export function ChatThreadPage() {
 
   const prevStatusRef = useRef(status);
   useEffect(() => {
-    if (prevStatusRef.current !== 'done' && status === 'done') {
+    // Commit the streamed turn into history when it reaches a terminal,
+    // answer-bearing state — `done` (clean finish) OR `aborted` (user Stop /
+    // server timeout). Without committing on `aborted`, a partial answer
+    // vanishes the instant the status flips, since `isStreaming` excludes it.
+    const isCommittable = (st: typeof status) => st === 'done' || st === 'aborted';
+    if (!isCommittable(prevStatusRef.current) && isCommittable(status)) {
       const sections = buildStreamingSections();
       if (sections.length > 0) {
         // Snapshot cache + disambig flags before clearStreamBuffers runs —
@@ -351,9 +356,10 @@ export function ChatThreadPage() {
         ...prev,
         { role: 'user', id: `user-${Date.now()}`, text: trimmed, ts: new Date().toISOString() },
       ]);
-      sendTurn(trimmed);
+      sendTurn(trimmed, bypassCache, webSearch, researchMode);
+      if (bypassCache) setBypassCache(false);
     },
-    [isStreaming, sendTurn],
+    [isStreaming, sendTurn, bypassCache, webSearch, researchMode],
   );
 
   /**
@@ -370,9 +376,10 @@ export function ChatThreadPage() {
         ...prev,
         { role: 'user', id: `user-${Date.now()}`, text: trimmed, ts: new Date().toISOString() },
       ]);
-      sendTurn(trimmed);
+      sendTurn(trimmed, bypassCache, webSearch, researchMode);
+      if (bypassCache) setBypassCache(false);
     },
-    [isStreaming, sendTurn],
+    [isStreaming, sendTurn, bypassCache, webSearch, researchMode],
   );
 
   // Loading splash for direct visits to an existing /chat/:id before the

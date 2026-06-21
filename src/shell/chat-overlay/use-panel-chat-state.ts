@@ -15,7 +15,7 @@ import type { AssistantSection } from '../../pages/Chat/components/assistant-mes
 function turnsToMessages(
   turns: NonNullable<ReturnType<typeof useChatSession>['session']>['turns'],
 ): ChatMessage[] {
-  return turns.map((t) => {
+  return turns.map((t, idx, arr) => {
     if (t.role === 'user') {
       return { role: 'user', id: t.id, text: t.text, ts: t.createdAt };
     }
@@ -52,7 +52,16 @@ function turnsToMessages(
     for (const p of t.proposals ?? []) {
       sections.push({ type: 'segment_proposal', proposal: p });
     }
-    return { role: 'assistant', id: t.id, sections };
+    // Persisted choice-chip set + which option was already picked (the next
+    // user turn whose text equals an option's pinText). Mirrors the main page
+    // so disambiguation chips render identically in the docked panel.
+    const disambig = t.disambig ?? null;
+    const nextTurn = arr[idx + 1];
+    const disambigSelectedPinText =
+      disambig && nextTurn?.role === 'user'
+        ? disambig.options.find((o) => o.pinText === nextTurn.text)?.pinText ?? null
+        : null;
+    return { role: 'assistant', id: t.id, sections, disambigOptions: disambig, disambigSelectedPinText };
   });
 }
 
@@ -95,14 +104,20 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   const [researchMode, setResearchMode] = useState(false);
   const hydratedRef = useRef(false);
 
-  // Reset committed state when sessionId changes (new chat or different session).
+  // Reset committed state when sessionId changes (new chat or different
+  // session). Skip the synthetic `null → <new id>` transition that fires when
+  // session_created promotes a brand-new chat — committedMessages already holds
+  // the user msg + streamed answer we want to keep (mirrors the main page).
   const prevSessionRef = useRef(sessionId);
   useEffect(() => {
     if (prevSessionRef.current !== sessionId) {
+      const isPromoteAfterCreate = !prevSessionRef.current && !!sessionId;
       prevSessionRef.current = sessionId;
-      setCommittedMessages([]);
-      setFirstUserMessage(null);
-      hydratedRef.current = false;
+      if (!isPromoteAfterCreate) {
+        setCommittedMessages([]);
+        setFirstUserMessage(null);
+        hydratedRef.current = false;
+      }
     }
   }, [sessionId]);
 
@@ -142,6 +157,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     currentCharts,
     currentProposals,
     currentToolCalls,
+    disambigOptions: streamDisambigOptions,
     sendTurn,
     cancel,
     clearStreamBuffers,
@@ -176,16 +192,30 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   if (isStreaming) {
     const sections = buildStreamingSections();
     if (sections.length > 0) {
-      displayMessages.push({ role: 'assistant', id: '__streaming__', sections });
+      displayMessages.push({
+        role: 'assistant',
+        id: '__streaming__',
+        sections,
+        disambigOptions: streamDisambigOptions,
+      });
     }
   }
 
   const prevStatusRef = useRef(status);
   useEffect(() => {
-    if (prevStatusRef.current !== 'done' && status === 'done') {
+    // Commit on a terminal, answer-bearing status — `done` OR `aborted` (Stop /
+    // server timeout). Mirrors the main page so a partial answer survives an
+    // abort in the docked panel too.
+    const isCommittable = (st: typeof status) => st === 'done' || st === 'aborted';
+    if (!isCommittable(prevStatusRef.current) && isCommittable(status)) {
       const sections = buildStreamingSections();
       if (sections.length > 0) {
-        setCommittedMessages((prev) => [...prev, { role: 'assistant', id: `${Date.now()}`, sections }]);
+        // Snapshot disambig before clearStreamBuffers resets it.
+        const committedDisambig = streamDisambigOptions;
+        setCommittedMessages((prev) => [
+          ...prev,
+          { role: 'assistant', id: `${Date.now()}`, sections, disambigOptions: committedDisambig },
+        ]);
       }
       // Clear stream buffers so the live preview doesn't render alongside the
       // committed turn. React 18 batches this with setCommittedMessages above.
@@ -251,13 +281,16 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
   // is already null is a no-op for the sessionId-change effect, leaving the
   // locally-pushed user bubble visible until session_created arrives.
   const resetChat = useCallback(() => {
-    cancel();
+    // Full wipe to idle (not cancel()) — cancel now preserves a partial answer
+    // as `aborted`, which the commit effect would re-add right after we clear
+    // committedMessages here. reset() aborts the fetch and leaves a clean entry.
+    resetStream();
     setCommittedMessages([]);
     setFirstUserMessage(null);
     setComposerValue('');
     setBypassCache(false);
     hydratedRef.current = false;
-  }, [cancel]);
+  }, [resetStream]);
 
   return {
     displayMessages,

@@ -154,7 +154,7 @@ describe('done lifecycle', () => {
 });
 
 describe('cancel does not surface as "disconnected"', () => {
-  it('user-initiated cancel mid-stream leaves status at idle, not disconnected', async () => {
+  it('user-initiated cancel mid-stream keeps the partial as "aborted" (never disconnected)', async () => {
     // Wire the mock's cancel handle to actually end the fake stream — matches
     // how openChatTurn aborts its underlying fetch when cancel() runs.
     const sseClient = await import('../../api/chat-sse-client');
@@ -173,8 +173,31 @@ describe('cancel does not surface as "disconnected"', () => {
     s.cancel('sess-1');
     await flush();
 
-    // Before the fix this was 'disconnected' (Connection lost banner).
-    expect(useChatStreamStore.getState().getEntry('sess-1').status).toBe('idle');
+    // Keep what was generated when the user hit Stop, marked aborted so the
+    // consumer commits it. Must never be 'disconnected' (Connection-lost banner).
+    const entry = useChatStreamStore.getState().getEntry('sess-1');
+    expect(entry.status).toBe('aborted');
+    expect(entry.currentText).toBe('partial');
+    expect(entry.abort).toEqual({ reason: 'user_cancel' });
+  });
+
+  it('cancel before any output falls back to a clean idle entry', async () => {
+    const sseClient = await import('../../api/chat-sse-client');
+    const openChatTurnMock = sseClient.openChatTurn as unknown as ReturnType<typeof vi.fn>;
+    openChatTurnMock.mockImplementationOnce(() => ({
+      stream: fakeStream(),
+      cancel: () => close(),
+    }));
+
+    const s = useChatStreamStore.getState();
+    void s.startTurn({ sessionId: 'sess-early', message: 'hi', game: 'g' });
+    await flush();
+    // No token/tool/reasoning arrived — cancel during 'loading'.
+    s.cancel('sess-early');
+    await flush();
+
+    // Nothing to keep → idle (no empty 'aborted' bubble to commit).
+    expect(useChatStreamStore.getState().getEntry('sess-early').status).toBe('idle');
   });
 
   it('genuine premature close (no cancel) still stamps disconnected', async () => {

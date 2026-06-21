@@ -826,6 +826,42 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       // finally below still runs on return, so timers/mutex/stream are cleaned.
       if (controller.signal.aborted) {
         const entry = registry.get(turnId);
+        // Persist whatever the model produced before the abort, mirroring the
+        // graceful-abort path's appendTurn. Without this, a thrown AbortError
+        // returns here before the persist block ever runs, so the partial
+        // answer is lost on refresh — the two abort paths would behave
+        // differently for the same user-visible event.
+        try {
+          chatStore.appendTurn(opts.db, {
+            id: turnId,
+            sessionId,
+            turnIndex: userTurnIndex + 1,
+            role: 'assistant',
+            assistantText,
+            reasoningJson: reasoningText || undefined,
+            artifacts: collectedArtifacts,
+            charts: collectedCharts,
+            proposals: collectedProposals,
+            inputTokens,
+            outputTokens,
+            costUsd,
+            cacheCreationTokens,
+            cacheReadTokens,
+            stopReason: entry?.abortReason ?? 'server_error',
+            skill: intent.skill,
+            systemPromptText: systemPrompt,
+            model: resolvedModel,
+            llmAuthLabel,
+            disambigJson: lastDisambig ? JSON.stringify(lastDisambig) : undefined,
+            startedAt,
+            endedAt: Date.now(),
+          });
+          // chat_turns row now exists → buffered observability FKs resolve.
+          bufferedRecorder?.flush();
+          chatStore.incrementTurnCount(opts.db, sessionId, inputTokens, outputTokens);
+        } catch (persistErr) {
+          fastify.log.warn({ err: persistErr, turnId }, '[turn] aborted-turn persist failed (non-fatal)');
+        }
         emit({
           type: 'turn_aborted',
           data: {
