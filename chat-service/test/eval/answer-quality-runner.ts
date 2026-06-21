@@ -137,6 +137,21 @@ async function main(): Promise<void> {
   if (GROUP) cases = cases.filter((c) => c.curationGroup === GROUP);
   if (Number.isFinite(LIMIT)) cases = cases.slice(0, LIMIT);
 
+  // Resume support: the subscription window can't always finish a big batch in
+  // one go (it caps), so RESUME=1 reloads a prior snapshot, keeps cases that
+  // already answered, and only re-runs the rest — windowed runs converge.
+  const outPathEarly = process.env['SNAPSHOT_OUT']
+    ? resolve(process.env['SNAPSHOT_OUT']) : join(__dir, `${GAME}-aq-snapshot.json`);
+  let priorOk = new Map<string, AqResult>();
+  if (process.env['RESUME'] === '1') {
+    try {
+      const prev = JSON.parse(readFileSync(outPathEarly, 'utf8')) as { results: AqResult[] };
+      for (const r of prev.results) if (r.status === 'ok') priorOk.set(r.caseId, r);
+      cases = cases.filter((c) => !priorOk.has(c.id));
+      console.log(`[runner] RESUME: ${priorOk.size} already ok, ${cases.length} remaining`);
+    } catch { /* no prior snapshot — full run */ }
+  }
+
   console.log(`[runner] ${GAME} | ${cases.length} cases | ${CHAT_BASE} | ws=${WORKSPACE}`);
   await setSubscriptionLane();
 
@@ -170,17 +185,20 @@ async function main(): Promise<void> {
     if (i < cases.length - 1) await sleep(PACE_MS);
   }
 
-  const out = process.env['SNAPSHOT_OUT']
-    ? resolve(process.env['SNAPSHOT_OUT'])
-    : join(__dir, `${GAME}-aq-snapshot.json`);
-  writeFileSync(out, JSON.stringify({
-    capturedAt: new Date().toISOString(), gameId: GAME, workspace: WORKSPACE,
-    chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, results,
-  }, null, 2), 'utf8');
+  // Merge resumed-ok results with this run's results (this run wins on caseId).
+  const merged = new Map<string, AqResult>(priorOk);
+  for (const r of results) merged.set(r.caseId, r);
+  const allResults = [...merged.values()];
 
-  const okN = results.filter((r) => r.status === 'ok').length;
-  const resolved = results.filter((r) => r.expectedRef && r.resolvedRef === r.expectedRef).length;
-  const withGolden = results.filter((r) => r.expectedRef).length;
+  writeFileSync(outPathEarly, JSON.stringify({
+    capturedAt: new Date().toISOString(), gameId: GAME, workspace: WORKSPACE,
+    chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, results: allResults,
+  }, null, 2), 'utf8');
+  const out = outPathEarly;
+
+  const okN = allResults.filter((r) => r.status === 'ok').length;
+  const resolved = allResults.filter((r) => r.expectedRef && r.resolvedRef === r.expectedRef).length;
+  const withGolden = allResults.filter((r) => r.expectedRef).length;
   console.log(`\n[runner] answered ${okN}/${results.length} · resolution ${resolved}/${withGolden} golden · → ${out}`);
 }
 
