@@ -5,6 +5,10 @@
 **Result:** 40 fresh findings → **19 confirmed** (13 high / 4 med / 2 low) across D1, D2, D3, D4, D9.
 **D5–D8 re-run (`wo1smm888`, 2026-06-21):** 7 rounds · 280 agents · 24.7M tokens → 84 fresh → **38 confirmed** (2 crit / 15 high / 18 med / 3 low). Combined hunt total: **57 confirmed.** See [§ D5–D8 re-run results](#d5d8-re-run-results-confirmed).
 
+## 🏁 Status — CLOSED (2026-06-21)
+
+Bug hunt closed. **Shipped & committed:** Clusters A/B/F (D1–D4 batch) + I/J/K + the 6 deferred K items (K\*) — 25 findings fixed across chat-service + FE + cube, all with adversarially-verified root causes, regression tests (FE 217 + chat-service 65 green), and huashu illustrations. **Accepted as posture (not bugs):** D6 cluster H (R1–R13, incl. 2 crit cross-tenant) — prod single-trusted-admin, see decision box + [[prod-cross-tenant-reads-accepted]]. **Consciously left open** (not authorized; available if revisited): clusters D (#5 #16), E (#6 #7 #17), G (#8 #9), standalone #15/#18/#19, and D6 token-hardening R8–R12. The abort-path asymmetry root cause is captured in `docs/lessons-learned.md` for future short-circuiting.
+
 ## ✅ Coverage caveat — RESOLVED (D5–D8 re-run complete)
 
 The original run hit the session limit at 4:50pm (Asia/Saigon) mid-run; D5/D6/D7/D8 were dropped unverified and re-run separately (`wo1smm888`). **All four seams now tested** — 38 additional confirmed findings folded in below.
