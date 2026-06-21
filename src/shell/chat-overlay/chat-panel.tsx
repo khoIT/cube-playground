@@ -38,6 +38,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     composerValue,
     setComposerValue,
     handleSubmit,
+    sendFollowup,
     cancel,
     resetChat,
     status,
@@ -200,6 +201,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
             composerValue={composerValue}
             onComposerChange={setComposerValue}
             onSubmit={handleSubmit}
+            onFollowupPick={sendFollowup}
             compact
             bypassCache={bypassCache}
             onToggleBypassCache={onToggleBypassCache}

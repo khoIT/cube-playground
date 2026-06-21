@@ -15,7 +15,10 @@
 
 export interface RefineChip {
   id: string;
+  /** Full natural-language instruction sent to the agent on click. */
   text: string;
+  /** Terse label for narrow surfaces (e.g. the docked panel); `text` is the tooltip. */
+  shortText: string;
 }
 
 interface CubeQueryish {
@@ -26,6 +29,7 @@ interface CubeQueryish {
 }
 
 const GRAIN_LABEL: Record<string, string> = { day: 'daily', week: 'weekly', month: 'monthly' };
+const GRAIN_SHORT: Record<string, string> = { day: 'Daily', week: 'Weekly', month: 'Monthly' };
 
 function asQuery(query: unknown): CubeQueryish | null {
   return query && typeof query === 'object' ? (query as CubeQueryish) : null;
@@ -45,7 +49,7 @@ export function generateRefineChips(query: unknown): RefineChip[] {
   const currentGrain = td?.granularity;
   if (td) {
     for (const g of ['day', 'week', 'month']) {
-      if (g !== currentGrain) chips.push({ id: `grain-${g}`, text: `Show this ${GRAIN_LABEL[g]} instead` });
+      if (g !== currentGrain) chips.push({ id: `grain-${g}`, text: `Show this ${GRAIN_LABEL[g]} instead`, shortText: GRAIN_SHORT[g] });
     }
   }
 
@@ -53,19 +57,19 @@ export function generateRefineChips(query: unknown): RefineChip[] {
   const rangeStr = typeof td?.dateRange === 'string' ? (td.dateRange as string).toLowerCase() : '';
   for (const days of [30, 90]) {
     if (!rangeStr.includes(`${days} day`)) {
-      chips.push({ id: `range-${days}`, text: `Limit to the last ${days} days` });
+      chips.push({ id: `range-${days}`, text: `Limit to the last ${days} days`, shortText: `Last ${days} days` });
     }
   }
 
   const dims = Array.isArray(q.dimensions) ? (q.dimensions as string[]) : [];
   if (dims.length > 0) {
-    chips.push({ id: 'rollup', text: `Roll this up — remove the ${shortName(dims[dims.length - 1])} breakdown` });
+    chips.push({ id: 'rollup', text: `Roll this up — remove the ${shortName(dims[dims.length - 1])} breakdown`, shortText: `Roll up ${shortName(dims[dims.length - 1])}` });
   }
 
   const filters = Array.isArray(q.filters) ? q.filters : [];
   const hasPayerFilter = filters.some((f) => /payer|user_type|ltv|spend|recharge/i.test(f.member ?? f.dimension ?? ''));
   if (!hasPayerFilter) {
-    chips.push({ id: 'payers', text: 'Limit to paying users only' });
+    chips.push({ id: 'payers', text: 'Limit to paying users only', shortText: 'Payers only' });
   }
 
   // Keep the row compact — the free-text input covers anything beyond these.

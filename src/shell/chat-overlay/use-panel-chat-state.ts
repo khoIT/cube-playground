@@ -62,6 +62,8 @@ export interface PanelChatState {
   composerValue: string;
   setComposerValue: (v: string) => void;
   handleSubmit: () => void;
+  /** Send an arbitrary text as a follow-up turn (refine chips / follow-up chips). */
+  sendFollowup: (text: string) => void;
   cancel: () => void;
   /** Cancel + wipe committed messages and composer. Used by "New chat". */
   resetChat: () => void;
@@ -232,6 +234,19 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     // Web search and research mode are intentionally kept ON between turns (sticky toggles).
   }, [composerValue, sendTurn, firstUserMessage, bypassCache, webSearch, researchMode, forgetSessionFocus]);
 
+  // Follow-up / refine send: same path as handleSubmit but for a supplied text
+  // (a refine chip, the refine free-text, or a follow-up chip) instead of the
+  // composer. Guarded on isStreaming so it can't fire mid-turn, matching the
+  // main chat page's handleFollowupPick. Respects the panel's sticky toggles.
+  const sendFollowup = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isStreaming) return;
+    if (!firstUserMessage) setFirstUserMessage(trimmed);
+    setCommittedMessages((prev) => [...prev, { role: 'user', id: `user-${Date.now()}`, text: trimmed, ts: new Date().toISOString() }]);
+    sendTurn(trimmed, bypassCache, webSearch, researchMode);
+    if (bypassCache) setBypassCache(false);
+  }, [isStreaming, firstUserMessage, sendTurn, bypassCache, webSearch, researchMode]);
+
   // Explicit reset for "New chat" — needed because clicking + when sessionId
   // is already null is a no-op for the sessionId-change effect, leaving the
   // locally-pushed user bubble visible until session_created arrives.
@@ -250,6 +265,7 @@ export function usePanelChatState(sessionId: string | null): PanelChatState {
     composerValue,
     setComposerValue,
     handleSubmit,
+    sendFollowup,
     cancel,
     resetChat,
     status,

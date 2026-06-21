@@ -1,0 +1,38 @@
+/*
+ * Width-aware refine row. The same component renders in the full-width main
+ * chat and in the resizable docked panel (360–720px). We make the chip labels
+ * adapt to the available width rather than the surface identity: terse labels
+ * when the column is narrow, the full natural-language labels once there's room.
+ *
+ * Driven by a container query on the row itself (container-type: inline-size),
+ * so it tracks the live panel width as the user drags — no JS measurement and
+ * no surface-specific prop. Below the threshold the short label shows; at/above
+ * it the full label shows and the short one is hidden.
+ */
+
+.row {
+  container-type: inline-size;
+  container-name: refine;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Default (narrow column): terse label, full text carried in the tooltip. */
+.labelFull {
+  display: none;
+}
+.labelShort {
+  display: inline;
+}
+
+/* Wide enough for the full natural-language labels (matches main chat). */
+@container refine (min-width: 520px) {
+  .labelFull {
+    display: inline;
+  }
+  .labelShort {
+    display: none;
+  }
+}

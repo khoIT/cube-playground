@@ -103,6 +103,23 @@ describe('usePanelChatState — New chat reset', () => {
     expect(result.current.displayMessages).toEqual([]);
   });
 
+  it('sendFollowup pushes a user bubble and sends the turn (refine-chip parity)', () => {
+    // The docked panel must reach the same refine/follow-up behavior as the
+    // main chat page: a chip click sends arbitrary text as a new turn.
+    const { result } = renderHook(
+      ({ sid }: { sid: string | null }) => usePanelChatState(sid),
+      { initialProps: { sid: null } },
+    );
+
+    act(() => {
+      result.current.sendFollowup('Show this weekly instead');
+    });
+
+    expect(result.current.displayMessages).toHaveLength(1);
+    expect(result.current.displayMessages[0]).toMatchObject({ role: 'user', text: 'Show this weekly instead' });
+    expect(sendTurnSpy).toHaveBeenCalledWith('Show this weekly instead', false, false, false);
+  });
+
   it('renders a segment_proposal section for proposals persisted on a turn', () => {
     // Regression: the side panel previously dropped proposals when mapping
     // persisted turns, so the confirm card never appeared in the panel.
