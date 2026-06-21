@@ -24,7 +24,7 @@ fan-out per `(game × cube)` → diff vs oracle / canonical → **verify each fi
 **Track A — audit engine + fixes** (the CLI/data spine)
 | Phase | File | Status |
 |-------|------|--------|
-| 0 · Audit harness + parity-matrix scaffolding | [phase-00](phase-00-audit-harness-and-parity-matrix.md) | ☐ pending |
+| 0 · Audit harness + parity-matrix scaffolding | [phase-00](phase-00-audit-harness-and-parity-matrix.md) | ✅ done (8 games, 373 findings; runtime oracle-availability) |
 | 1 · Oracle-backed structural audit (cfm,jus,ballistar,cros,tf) | [phase-01](phase-01-oracle-backed-structural-audit.md) | ☐ pending |
 | 2 · Oracle-less audit (muaw,ptg,pubg) | [phase-02](phase-02-oracle-less-internal-consistency-audit.md) | ☐ pending |
 | 3 · Metric-layer parity audit | [phase-03](phase-03-metric-layer-parity-audit.md) | ☐ pending |
@@ -35,7 +35,7 @@ fan-out per `(game × cube)` → diff vs oracle / canonical → **verify each fi
 **Track B — persistent audit console UI** (consumes Track A; buildable in parallel after Phase 0)
 | Phase | File | Status |
 |-------|------|--------|
-| 7 · Persistence: audit runs + findings + YAML snapshots | [phase-07](phase-07-persistence-audit-runs-findings-yaml-snapshots.md) | ☐ pending |
+| 7 · Persistence: audit runs + findings + YAML snapshots | [phase-07](phase-07-persistence-audit-runs-findings-yaml-snapshots.md) | ✅ done (migration 067 + recorder, 6 tests, e2e verified) |
 | 8 · Diff engine: dev↔prod-clone + version-to-version + upstream-staleness | [phase-08](phase-08-diff-engine-dev-vs-prod-and-versions.md) | ☐ pending |
 | 9 · Model Audit page (findings · diffs · trend) | [phase-09](phase-09-model-audit-ui-page.md) | ☐ pending |
 

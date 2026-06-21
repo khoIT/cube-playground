@@ -5,8 +5,8 @@ Grounding facts gathered before planning (3 parallel Explore sweeps + spot-check
 ## Dev → prod oracle mapping rule
 - Dev file: `cube-dev/cube/model/cubes/{game}/{entity}.yml`, cube `name: {entity}` (bare).
 - Prod file: `/cube-prod/cube/model/cubes/{game_id}/{entity}.yml`, cube `name: {game_id}__{entity}` (prefixed).
-- Game-id map: cfm→cfm_vn, jus→jus_vn, ballistar→ballistar_vn, cros→cros, tf→tf.
-- **No oracle:** muaw, ptg, pubg (different payment infra / newer / different publisher). vga prod dir is empty.
+- Game-id map: cfm→cfm_vn, jus→jus_vn, ballistar→ballistar_vn, cros→cros, tf→tf, **muaw→muaw, ptg→ptg, pubg→pubgm**.
+- **CORRECTION (verified by Phase-0 harness run):** ALL 8 dev games have a populated oracle in cube-prod — muaw (23 cubes), ptg (27), pubgm (23), in addition to cfm_vn (41), jus_vn (29), ballistar_vn (20), cros (26), tf (26). The earlier "no oracle for muaw/ptg/pubg" premise was WRONG. The harness determines oracle availability per (game,cube) at runtime, so Phase 1 (oracle-backed) now covers all 8 games and Phase 2 reduces to dev-only cubes with no oracle counterpart. vga prod dir IS empty.
 
 ## Per-game cube counts (dev)
 ballistar 17 · cfm 32–34 · cros 18 · jus 33 · muaw 17 · ptg 19 · pubg 17 · tf 18.
@@ -33,6 +33,14 @@ ballistar 17 · cfm 32–34 · cros 18 · jus 33 · muaw 17 · ptg 19 · pubg 17
 - cros `mf_users` missing `lapsed_this_month_count`; cros/tf missing trailing_wpu/trailing_mpu.
 - `revenue_vnd_real` cfm-only — verify measure parity across per-game recharge/user_recharge cubes.
 - Globally blocked metric refs (no source): gacha (etl_lottery_shoot, cfm-only), tutorial (etl_newbie_tutorial, cfm-only), money_flow diamonds (etl_money_flow, cfm-only), funnel cvr_* (AppsFlyer not ingested). These → mark N/A, not "fix".
+
+## Phase-0 harness run — real leads found (2026-06-21)
+First run: 8 games, 373 findings (🔴 0 correctness · 🟡 121 parity · ⚪ 252 cosmetic). Ledger `cube-dev/scripts/reports/parity-findings.jsonl`; matrix `parity-matrix.md`. Top fix candidates (verify file-by-file in Phase 1, fix in Phase 5):
+- **PK fan-out (HIGH):** muaw/ptg/pubg `recharge` declare `primary_key = transaction_id`, but each game's oracle uses a `composite_pk` — the SAME class fixed in jus (transid not unique at source grain → SUM inflation). Labeled `parity` by the harness (dev/oracle divergence is often intentional); escalate to correctness only after confirming transaction_id is non-unique at each game's source grain.
+- **Ratio truncation:** jus `role_recharge_daily.arppu_vnd` = `SUM(...) / NULLIF(COUNT(DISTINCT user_id),0)` with no double cast → integer-division truncation (class already fixed in ballistar mf_users via `CAST(... AS DOUBLE)`).
+- 118 `measure-missing-vs-oracle` (oracle measures dev lacks — parity gaps) + 140 `measure-dev-ahead` (dev-only measures, incl. leftover wizard junk like ballistar mf_users `asd`/`test`) + 91 `no-oracle-counterpart` (dev-only cubes) + 20 `identity-bridge` tags.
+
+Harness false-positive caught + fixed during build: `{cubeName}.col` is valid Cube self/cross-cube column syntax, NOT a dangling measure ref — the detector now only flags `{name}` not followed by a dot. (Trust files, not the detector's first pass.)
 
 ## Existing checkers to REUSE (do not rebuild)
 - `npm run audit:metric-trust` (server/) → `server/src/scripts/audit-and-promote-metric-trust.ts` — buckets metrics CERTIFIED/READY/GAP/N-A per game; `--promote` auto-certifies READY.
