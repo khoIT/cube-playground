@@ -6,7 +6,7 @@
  */
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { MessageSquare, LayoutDashboard, BarChart3, Users, Boxes, Radio, LayoutTemplate, Heart, Gauge, Lightbulb } from 'lucide-react';
+import { MessageSquare, LayoutDashboard, BarChart3, Users, Boxes, Radio, LayoutTemplate, Heart, Gauge, Lightbulb, ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { T } from '../theme';
 import { SidebarSection } from './sidebar-section';
@@ -19,6 +19,7 @@ import { getCollapsed, onCollapsedChange } from './sidebar-collapsed-store';
 import { getSidebarSectionForPath, setSectionExpanded } from './sidebar-section-store';
 import { useVisibleNavItems } from '../../pages/Settings/use-visible-nav-items';
 import { useHasFeature } from '../../auth/feature-access';
+import { useAuthUser } from '../../auth/auth-context';
 import {
   useSegmentRows,
   selectSharedSegments,
@@ -36,6 +37,8 @@ export function Sidebar() {
   const [collapsed, setCollapsedState] = React.useState<boolean>(() => getCollapsed());
   const { isVisible } = useVisibleNavItems();
   const hasFeature = useHasFeature();
+  const authUser = useAuthUser();
+  const isAdmin = authUser?.role === 'admin';
   // A section shows only when the user both has the feature granted (access)
   // AND hasn't hidden it via the sidebar preference (cosmetic). The nav ids
   // are 1:1 with feature keys, so the id doubles as the feature key.
@@ -256,6 +259,19 @@ export function Sidebar() {
             icon={Lightbulb}
             label={t('nav.advisor')}
             to="/advisor"
+            collapsed={collapsed}
+            flat
+          />
+        )}
+
+        {/* Internal model-engineering console — admin-only, off the visibility
+            registry (not user-toggleable). Mirrors the server admin gate. */}
+        {isAdmin && (
+          <SidebarSection
+            id="model-audit"
+            icon={ShieldCheck}
+            label={t('nav.modelAudit', { defaultValue: 'Model Audit' })}
+            to="/model-audit"
             collapsed={collapsed}
             flat
           />

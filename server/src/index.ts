@@ -68,6 +68,7 @@ import announcementsRoutes from './routes/announcements.js';
 import advisorRoutes from './routes/advisor.js';
 import advisorRunHistoryRoutes from './routes/advisor-run-history.js';
 import experimentsRoutes from './routes/experiments.js';
+import cubeParityRoutes from './routes/cube-parity.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -167,6 +168,7 @@ export async function buildApp() {
   await app.register(advisorRoutes);
   await app.register(advisorRunHistoryRoutes);
   await app.register(experimentsRoutes);
+  await app.register(cubeParityRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.

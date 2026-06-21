@@ -104,6 +104,10 @@ const DriftCenterPage = loadable(() =>
   import('./pages/DriftCenter').then((m) => ({ default: m.DriftCenterPage }))
 );
 
+const ModelAuditShell = loadable(() =>
+  import('./pages/ModelAudit/model-audit-shell').then((m) => ({ default: m.ModelAuditShell }))
+);
+
 const OpsConsolePage = loadable(() =>
   import('./pages/OpsConsole').then((m) => ({ default: m.OpsConsolePage }))
 );
@@ -133,6 +137,15 @@ function AdminHubRoute() {
   const user = useAuthUser();
   if (user?.role !== 'admin') return <Redirect to="/" />;
   return <AdminHub />;
+}
+
+// Model Audit is an internal model-engineering console (exposes Cube model
+// structure + git metadata, no player data). Admin-only, mirroring the server's
+// requireRole('admin') gate on /api/cube-parity/*.
+function ModelAuditRoute() {
+  const user = useAuthUser();
+  if (user?.role !== 'admin') return <Redirect to="/" />;
+  return <ModelAuditShell />;
 }
 
 
@@ -263,6 +276,7 @@ ReactDOM.render(
               <Route key="advisor" path="/advisor/:id?" component={AdvisorPage} />
               <Route key="ops-console" exact path="/ops" component={OpsConsolePage} />
               <Route key="drift-center" exact path="/drift-center" component={DriftCenterPage} />
+              <Route key="model-audit" path="/model-audit" component={ModelAuditRoute} />
               <Route key="data-hub" exact path="/data" component={DataHubPage} />
               <Route key="settings" exact path="/settings" component={SettingsPage} />
               {/*

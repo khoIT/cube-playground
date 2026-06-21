@@ -36,8 +36,8 @@ fan-out per `(game × cube)` → diff vs oracle / canonical → **verify each fi
 | Phase | File | Status |
 |-------|------|--------|
 | 7 · Persistence: audit runs + findings + YAML snapshots | [phase-07](phase-07-persistence-audit-runs-findings-yaml-snapshots.md) | ✅ done (migration 067 + recorder, 6 tests, e2e verified) |
-| 8 · Diff engine: dev↔prod-clone + version-to-version + upstream-staleness | [phase-08](phase-08-diff-engine-dev-vs-prod-and-versions.md) | ☐ pending |
-| 9 · Model Audit page (findings · diffs · trend) | [phase-09](phase-09-model-audit-ui-page.md) | ☐ pending |
+| 8 · Diff engine: dev↔prod-clone + version-to-version + upstream-staleness | [phase-08](phase-08-diff-engine-dev-vs-prod-and-versions.md) | ✅ done (cube-model-diff service + admin-gated /api/cube-parity routes; 9 diff tests; snapshot-backed) |
+| 9 · Model Audit page (findings · diffs · trend) | [phase-09](phase-09-model-audit-ui-page.md) | ✅ done (4-tab page at /model-audit; heatmap + drawer + diff viewer + upstream + trend; lint clean; e2e smoke OK) |
 
 Findings seed + cross-cutting constraints: [reports/audit-seed-and-constraints.md](reports/audit-seed-and-constraints.md)
 
