@@ -124,6 +124,74 @@ cubes:
         sql: ingame_total_recharge_transaction_id_web
         type: number
 
+      - name: gds_bundle_code
+        sql: gds_bundle_code
+        type: string
+
+      - name: ingame_first_recharge_date
+        sql: ingame_first_recharge_date
+        type: time
+
+      - name: ingame_last_recharge_date
+        sql: ingame_last_recharge_date
+        type: time
+
+      - name: ingame_first_recharge_time
+        sql: ingame_first_recharge_time
+        type: string
+
+      - name: ingame_last_recharge_time
+        sql: ingame_last_recharge_time
+        type: string
+
+      - name: ingame_first_recharge_month
+        sql: ingame_first_recharge_month
+        type: string
+
+      - name: ingame_last_recharge_month
+        sql: ingame_last_recharge_month
+        type: string
+
+      - name: first_currency_code
+        sql: first_currency_code
+        type: string
+
+      - name: last_currency_code
+        sql: last_currency_code
+        type: string
+
+      - name: ingame_first_recharge_role_id
+        sql: ingame_first_recharge_role_id
+        type: string
+
+      - name: ingame_last_recharge_role_id
+        sql: ingame_last_recharge_role_id
+        type: string
+
+      - name: ingame_first_recharge_client_ip
+        sql: ingame_first_recharge_client_ip
+        type: string
+
+      - name: ingame_last_recharge_client_ip
+        sql: ingame_last_recharge_client_ip
+        type: string
+
+      - name: ingame_first_recharge_transaction_id
+        sql: ingame_first_recharge_transaction_id
+        type: string
+
+      - name: ingame_last_recharge_transaction_id
+        sql: ingame_last_recharge_transaction_id
+        type: string
+
+      - name: ingame_first_recharge_product_id
+        sql: ingame_first_recharge_product_id
+        type: string
+
+      - name: ingame_last_recharge_product_id
+        sql: ingame_last_recharge_product_id
+        type: string
+
     measures:
       - name: rows
         type: count
@@ -158,6 +226,82 @@ cubes:
         sql: "{revenue_vnd_total} * 1.0 / NULLIF({paying_users_monthly}, 0)"
         type: number
         description: Monthly ARPPU (revenue per paying user)
+
+      - name: recharge_days
+        sql: recharge_days
+        type: sum
+
+      - name: ingame_first_recharge_role_level
+        sql: ingame_first_recharge_role_level
+        type: sum
+
+      - name: ingame_last_recharge_role_level
+        sql: ingame_last_recharge_role_level
+        type: sum
+
+      - name: ingame_min_recharge_role_level
+        sql: ingame_min_recharge_role_level
+        type: sum
+
+      - name: ingame_max_recharge_role_level
+        sql: ingame_max_recharge_role_level
+        type: sum
+
+      - name: ingame_first_recharge_vip_level
+        sql: ingame_first_recharge_vip_level
+        type: sum
+
+      - name: ingame_last_recharge_vip_level
+        sql: ingame_last_recharge_vip_level
+        type: sum
+
+      - name: ingame_min_recharge_vip_level
+        sql: ingame_min_recharge_vip_level
+        type: sum
+
+      - name: ingame_max_recharge_vip_level
+        sql: ingame_max_recharge_vip_level
+        type: sum
+
+      - name: ingame_total_recharge_transaction_id_iap
+        sql: ingame_total_recharge_transaction_id_iap
+        type: sum
+
+      - name: ingame_total_recharge_transaction_id_web
+        sql: ingame_total_recharge_transaction_id_web
+        type: sum
+
+      - name: first_recharged_value
+        sql: first_recharged_value
+        type: sum
+
+      - name: last_recharged_value
+        sql: last_recharged_value
+        type: sum
+
+      - name: ingame_first_recharge_value_vnd
+        sql: ingame_first_recharge_value_vnd
+        type: sum
+
+      - name: ingame_last_recharge_value_vnd
+        sql: ingame_last_recharge_value_vnd
+        type: sum
+
+      - name: ingame_first_recharge_value_usd
+        sql: ingame_first_recharge_value_usd
+        type: sum
+
+      - name: ingame_last_recharge_value_usd
+        sql: ingame_last_recharge_value_usd
+        type: sum
+
+      - name: ingame_total_recharged_value_usd_iap
+        sql: ingame_total_recharged_value_usd_iap
+        type: sum
+
+      - name: ingame_total_recharged_value_usd_web
+        sql: ingame_total_recharged_value_usd_web
+        type: sum
 
     segments:
       - name: this_month

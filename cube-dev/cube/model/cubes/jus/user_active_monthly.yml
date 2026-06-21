@@ -162,6 +162,82 @@ cubes:
           else:
             label: other
 
+      - name: gds_bundle_code
+        sql: gds_bundle_code
+        type: string
+
+      - name: ingame_first_recharge_date
+        sql: ingame_first_recharge_date
+        type: time
+
+      - name: ingame_last_recharge_date
+        sql: ingame_last_recharge_date
+        type: time
+
+      - name: ingame_first_active_date
+        sql: ingame_first_active_date
+        type: time
+
+      - name: ingame_last_active_date
+        sql: ingame_last_active_date
+        type: time
+
+      - name: ingame_first_active_time
+        sql: ingame_first_active_time
+        type: string
+
+      - name: ingame_last_active_time
+        sql: ingame_last_active_time
+        type: string
+
+      - name: ingame_first_active_month
+        sql: ingame_first_active_month
+        type: string
+
+      - name: ingame_last_active_month
+        sql: ingame_last_active_month
+        type: string
+
+      - name: ingame_first_active_role_id
+        sql: ingame_first_active_role_id
+        type: string
+
+      - name: ingame_last_active_role_id
+        sql: ingame_last_active_role_id
+        type: string
+
+      - name: ingame_first_active_role_name
+        sql: ingame_first_active_role_name
+        type: string
+
+      - name: ingame_last_active_role_name
+        sql: ingame_last_active_role_name
+        type: string
+
+      - name: ingame_first_active_channel
+        sql: ingame_first_active_channel
+        type: string
+
+      - name: ingame_last_active_channel
+        sql: ingame_last_active_channel
+        type: string
+
+      - name: ingame_first_active_client_ip
+        sql: ingame_first_active_client_ip
+        type: string
+
+      - name: ingame_last_active_client_ip
+        sql: ingame_last_active_client_ip
+        type: string
+
+      - name: ingame_first_active_device_id
+        sql: ingame_first_active_device_id
+        type: string
+
+      - name: ingame_last_active_device_id
+        sql: ingame_last_active_device_id
+        type: string
+
     measures:
       - name: rows
         type: count
@@ -185,6 +261,38 @@ cubes:
         sql: user_id
         filters:
           - sql: "{CUBE}.is_recharge = 1"
+
+      - name: is_recharge
+        sql: is_recharge
+        type: sum
+
+      - name: recharge_days
+        sql: recharge_days
+        type: sum
+
+      - name: ingame_first_active_role_level
+        sql: ingame_first_active_role_level
+        type: sum
+
+      - name: ingame_last_active_role_level
+        sql: ingame_last_active_role_level
+        type: sum
+
+      - name: ingame_min_active_role_level
+        sql: ingame_min_active_role_level
+        type: sum
+
+      - name: ingame_max_active_role_level
+        sql: ingame_max_active_role_level
+        type: sum
+
+      - name: ingame_last_active_fighting_power
+        sql: ingame_last_active_fighting_power
+        type: sum
+
+      - name: ingame_max_active_fighting_power
+        sql: ingame_max_active_fighting_power
+        type: sum
 
     segments:
       - name: this_month
