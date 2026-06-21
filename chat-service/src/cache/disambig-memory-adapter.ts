@@ -68,6 +68,13 @@ export interface DisambigResolutions {
    * prompt-rendered (token bloat); `phrase` carries the artifact title.
    */
   lastQuery?: SlotMemory<string>;
+  /**
+   * Cube the assistant referenced via {{field:cube.member}} in a reply it never
+   * charted. Lets the NEXT turn anchor an otherwise-unresolvable follow-up
+   * ("show inflow vs outflow") to that cube instead of a canned clarify menu.
+   * `phrase` holds the full suggested member ref for provenance.
+   */
+  suggestedCube?: SlotMemory<string>;
   updatedAt?: number;
 }
 
@@ -162,6 +169,7 @@ function normalise(raw: unknown): DisambigResolutions {
   }
   if (r.concept != null) out.concept = wrap<string>(r.concept);
   if (r.lastQuery != null) out.lastQuery = wrap<string>(r.lastQuery);
+  if (r.suggestedCube != null) out.suggestedCube = wrap<string>(r.suggestedCube);
   if (r.entity != null) {
     const wrapped = wrap<EntityValue>(r.entity);
     if (wrapped && isEntityValue(wrapped.value)) out.entity = wrapped;

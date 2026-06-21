@@ -45,6 +45,7 @@ import { maybeSummariseTitle } from './turn/maybe-summarise-title.js';
 import { salvageTimeoutAnswer } from './turn/salvage-timeout-answer.js';
 import { isHeavyAnalysisQuestion } from './turn/heavy-question-timeout.js';
 import { writeSessionFocus } from './turn/write-session-focus.js';
+import { writeSuggestedCube } from './turn/write-suggested-cube.js';
 import { precheckAutoCompact } from './turn/precheck-auto-compact.js';
 import { maybeWriteResponseCache } from '../cache/response-cache-write.js';
 import { tryResponseCacheHit } from './turn/try-response-cache-hit.js';
@@ -731,6 +732,17 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         ownerId: body.owner_id,
         skill: intent.skill,
         collectedArtifacts,
+        logger: fastify.log,
+      });
+
+      // Remember an assistant-suggested cube the turn talked about but never
+      // charted, so the next turn can anchor an unresolvable follow-up to it.
+      writeSuggestedCube({
+        db: opts.db,
+        sessionId,
+        ownerId: body.owner_id,
+        assistantText,
+        artifactCount: collectedArtifacts.length,
         logger: fastify.log,
       });
 

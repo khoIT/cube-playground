@@ -16,6 +16,12 @@ import { disambiguate, composeQuery } from '../nl-to-query/index.js';
 import type { DisambiguationResult, Clarification } from '../nl-to-query/index.js';
 import { detectAdditiveFollowUp, isFollowUpShaped } from '../nl-to-query/additive-follow-up.js';
 import { resolveAgainstAnchorCube } from '../nl-to-query/cube-anchored-metric-fallback.js';
+import {
+  knownCubeNames,
+  firstNamedCube,
+  anchorCubeMeasureOptions,
+  findAnchorDimensionInMessage,
+} from '../nl-to-query/message-anchored-resolution.js';
 import type { MemberMatch } from '../nl-to-query/member-resolution.js';
 import { getResolutions, mergeResolution } from '../cache/disambig-memory-adapter.js';
 import { fillResultFromMemory, writeMemoryFromResult } from './disambiguate-memory-merge.js';
@@ -234,6 +240,60 @@ export async function handler(
     }
   }
 
+  // Explicit-cube anchor (independent of follow-up shape): when the metric is
+  // still unresolved, resolve the remaining phrase against a cube the user
+  // NAMED in this message ("… using etl_money_flow") or, failing that, a cube
+  // the assistant referenced via {{field:}} on the prior turn but never
+  // charted. Without this, a full-sentence question that names a cube falls
+  // through to a canned, cross-cube clarify menu and a stale dimension from a
+  // prior turn leaks in unscoped (a gacha turn's lottery_id surviving into a
+  // money-flow question).
+  let messageAnchoredCube: string | null = null;
+  if (meta && !anchorCube && !result.slots.metric.value && !result.slots.ratio) {
+    const cubeNames = knownCubeNames(meta);
+    const named = firstNamedCube(args.message, cubeNames);
+    const suggested = memoryParams
+      ? getResolutions(memoryParams.db, memoryParams.sessionId).suggestedCube?.value ?? null
+      : null;
+    const explicitCube =
+      named ?? (suggested && cubeNames.includes(suggested) ? suggested : null);
+    if (explicitCube) {
+      anchorCube = explicitCube;
+      messageAnchoredCube = explicitCube;
+      anchorCandidates = anchorCubeMeasureOptions(meta, explicitCube, args.message);
+      const best = anchorCandidates[0];
+      if (best && best.confidence >= config.chatGlossaryAutorouteThreshold) {
+        // Persist the measure's own label, not the whole sentence — the alias
+        // lands in cross-session prefs and chart titles (mirrors the sibling
+        // memory-anchor block's residual-phrase discipline).
+        result.slots.metric = { value: best.member, confidence: best.confidence, alias: best.label };
+        anchoredFill = best;
+        assumption = {
+          slot: 'metric',
+          chosen: best.member,
+          phrase: args.message,
+          confidence: best.confidence,
+          alternatives: anchorCandidates.slice(1).map((c) => ({ id: c.member, score: c.confidence })),
+        };
+      }
+      result.warnings.push(
+        `metric unresolved — anchored to cube ${explicitCube} (${named ? 'named in message' : 'assistant-suggested field'})`,
+      );
+      // Bind a dimension the message names on THIS cube ("by money type" →
+      // money_type); a stale cross-cube dimension is dropped by the scope guard
+      // after the memory fill below.
+      const anchorDim = findAnchorDimensionInMessage(args.message, explicitCube, meta);
+      if (anchorDim) {
+        result.slots.dimension = {
+          value: anchorDim.member,
+          confidence: anchorDim.confidence,
+          alias: anchorDim.label,
+        };
+        result.warnings.push(`dimension anchored to ${anchorDim.member} on cube ${explicitCube}`);
+      }
+    }
+  }
+
   // Additive merge: "add in X" extends the session's last executed query
   // (one artifact, both series) instead of composing a standalone one.
   if (additive.isAdditive && lastQuery && (lastQuery.measures?.length ?? 0) > 0) {
@@ -244,6 +304,22 @@ export async function handler(
   // below) see the user's prior context (e.g. timeRange or concept set on a
   // previous turn).
   if (memoryParams) fillResultFromMemory(result, memoryParams);
+
+  // Anchor scope guard: a dimension carried from a prior turn that lives on a
+  // different cube than the one THIS message anchored to is stale cross-topic
+  // context (the gacha turn's lottery_id re-filled into a money-flow question).
+  // Drop it so the clarify/query stays scoped to the anchor cube. Gated to the
+  // message-anchored path so the existing memory-anchor flow is untouched.
+  if (
+    messageAnchoredCube &&
+    result.slots.dimension?.value &&
+    cubeNameOf(result.slots.dimension.value) !== messageAnchoredCube
+  ) {
+    result.warnings.push(
+      `dropped memory dimension ${result.slots.dimension.value} — not on anchor cube ${messageAnchoredCube}`,
+    );
+    result.slots.dimension = { value: undefined, confidence: 0 };
+  }
 
   // The engine composed the query before the anchored metric existed —
   // recompose with the anchor cube's partition time dimension so the auto

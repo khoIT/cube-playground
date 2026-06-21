@@ -91,6 +91,12 @@ function allMembers(meta: any): MetaMember[] {
 const TOKEN_EQUIV: Record<string, string> = {
   user: 'player', users: 'player', gamer: 'player', gamers: 'player',
   count: 'distinct', number: 'distinct', unique: 'distinct', num: 'distinct',
+  // Currency-flow phrasing → the `in`/`out` leaf tokens of total_in/total_out,
+  // in_events/out_events ("diamond inflow vs outflow", "how much do they spend").
+  inflow: 'in', inflows: 'in', earn: 'in', earned: 'in', earning: 'in',
+  gain: 'in', gained: 'in', gains: 'in', income: 'in',
+  outflow: 'out', outflows: 'out', spend: 'out', spends: 'out',
+  spent: 'out', spending: 'out', outgo: 'out',
 };
 
 /** Canonicalise one token: equivalence class first, then naive plural stem. */
