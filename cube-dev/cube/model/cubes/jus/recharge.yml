@@ -291,7 +291,11 @@ cubes:
         build_range_start:
           sql: "SELECT MIN(pay_time) FROM etl_ingame_recharge"
         build_range_end:
-          sql: "SELECT MAX(pay_time) FROM etl_ingame_recharge"
+          # Cap at current_timestamp: pay_time is tz-aware, and queries arrive in
+          # Asia/Saigon (UTC+7), so an uncapped MAX puts the open partition's end
+          # ahead of UTC now — CubeStore then rejects it ("second time provided was
+          # later than self") and the current month never seals.
+          sql: "SELECT LEAST(MAX(pay_time), current_timestamp) FROM etl_ingame_recharge"
       - name: revenue_daily_by_channel
         type: rollup_lambda
         union_with_source_data: true

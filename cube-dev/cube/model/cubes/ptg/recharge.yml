@@ -219,7 +219,11 @@ cubes:
         build_range_start:
           sql: "SELECT date_add('day', -120, current_timestamp)"
         build_range_end:
-          sql: "SELECT COALESCE(MAX(rechargetime), CAST('2025-01-01' AS timestamp)) FROM etl_ingame_recharge"
+          # Cap MAX at current_timestamp: rechargetime is tz-aware, and queries
+          # arrive in Asia/Saigon (UTC+7), so an uncapped MAX puts the open
+          # partition's end ahead of UTC now — CubeStore rejects it and the current
+          # month never seals. Cap inside COALESCE so the empty-table fallback stays.
+          sql: "SELECT COALESCE(LEAST(MAX(rechargetime), current_timestamp), CAST('2025-01-01' AS timestamp)) FROM etl_ingame_recharge"
       - name: revenue_daily_by_channel
         type: rollup_lambda
         union_with_source_data: true
