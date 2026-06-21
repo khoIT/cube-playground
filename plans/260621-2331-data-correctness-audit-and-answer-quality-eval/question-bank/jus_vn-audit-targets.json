@@ -1,0 +1,1790 @@
+{
+ "gameId": "jus_vn",
+ "measures": [
+  {
+   "cube": "active_daily",
+   "measure": "rows",
+   "ref": "active_daily.rows",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "dau",
+   "ref": "active_daily.dau",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "dau_exact",
+   "ref": "active_daily.dau_exact",
+   "type": "count_distinct",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "paying_dau",
+   "ref": "active_daily.paying_dau",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "active_servers",
+   "ref": "active_daily.active_servers",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "total_online_time_sec",
+   "ref": "active_daily.total_online_time_sec",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "mau",
+   "ref": "active_daily.mau",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "mau_prev_month",
+   "ref": "active_daily.mau_prev_month",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "wau",
+   "ref": "active_daily.wau",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "trailing_wau",
+   "ref": "active_daily.trailing_wau",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "active_daily",
+   "measure": "trailing_mau",
+   "ref": "active_daily.trailing_mau",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "rows",
+   "ref": "billing_detail.rows",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "txn_count_total",
+   "ref": "billing_detail.txn_count_total",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "cash_charged_gross",
+   "ref": "billing_detail.cash_charged_gross",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "promo_charged_gross",
+   "ref": "billing_detail.promo_charged_gross",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "lps_charged_gross",
+   "ref": "billing_detail.lps_charged_gross",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "wallet_charged_gross",
+   "ref": "billing_detail.wallet_charged_gross",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "product_delivered_gross",
+   "ref": "billing_detail.product_delivered_gross",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "wallet_delivered_gross",
+   "ref": "billing_detail.wallet_delivered_gross",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "billing_detail",
+   "measure": "paying_users",
+   "ref": "billing_detail.paying_users",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "billing_lifetime",
+   "measure": "payers",
+   "ref": "billing_lifetime.payers",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "billing_lifetime",
+   "measure": "lifetime_vnd_total",
+   "ref": "billing_lifetime.lifetime_vnd_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "billing_lifetime",
+   "measure": "lifetime_usd_total",
+   "ref": "billing_lifetime.lifetime_usd_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "billing_lifetime",
+   "measure": "lifetime_txn_total",
+   "ref": "billing_lifetime.lifetime_txn_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "billing_lifetime",
+   "measure": "lifetime_arppu_vnd",
+   "ref": "billing_lifetime.lifetime_arppu_vnd",
+   "type": "number",
+   "headline": false
+  },
+  {
+   "cube": "ccu",
+   "measure": "peak",
+   "ref": "ccu.peak",
+   "type": "max",
+   "headline": true
+  },
+  {
+   "cube": "ccu",
+   "measure": "low",
+   "ref": "ccu.low",
+   "type": "min",
+   "headline": true
+  },
+  {
+   "cube": "ccu",
+   "measure": "avg",
+   "ref": "ccu.avg",
+   "type": "avg",
+   "headline": true
+  },
+  {
+   "cube": "ccu",
+   "measure": "sample_count",
+   "ref": "ccu.sample_count",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "server_peak",
+   "ref": "ccu_by_server.server_peak",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "server_avg",
+   "ref": "ccu_by_server.server_avg",
+   "type": "avg",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "server_low",
+   "ref": "ccu_by_server.server_low",
+   "type": "min",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "vng_peak",
+   "ref": "ccu_by_server.vng_peak",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "cloud_peak",
+   "ref": "ccu_by_server.cloud_peak",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "other_peak",
+   "ref": "ccu_by_server.other_peak",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "sample_count",
+   "ref": "ccu_by_server.sample_count",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "ccu_by_server",
+   "measure": "distinct_servers",
+   "ref": "ccu_by_server.distinct_servers",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "total_tickets",
+   "ref": "cs_ticket_detail.total_tickets",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "closed_tickets",
+   "ref": "cs_ticket_detail.closed_tickets",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "avg_resolution_time",
+   "ref": "cs_ticket_detail.avg_resolution_time",
+   "type": "avg",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "avg_first_response_time",
+   "ref": "cs_ticket_detail.avg_first_response_time",
+   "type": "avg",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "avg_csat",
+   "ref": "cs_ticket_detail.avg_csat",
+   "type": "avg",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "negative_sentiment_tickets",
+   "ref": "cs_ticket_detail.negative_sentiment_tickets",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "member_resolved_tickets",
+   "ref": "cs_ticket_detail.member_resolved_tickets",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "cs_ticket_detail",
+   "measure": "unresolved_member_tickets",
+   "ref": "cs_ticket_detail.unresolved_member_tickets",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_garden_harvest",
+   "measure": "harvests",
+   "ref": "etl_garden_harvest.harvests",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_garden_harvest",
+   "measure": "distinct_days",
+   "ref": "etl_garden_harvest.distinct_days",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_garden_harvest",
+   "measure": "distinct_roles",
+   "ref": "etl_garden_harvest.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_garden_harvest",
+   "measure": "active_users",
+   "ref": "etl_garden_harvest.active_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_garden_harvest",
+   "measure": "max_crop_level",
+   "ref": "etl_garden_harvest.max_crop_level",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "logins",
+   "ref": "etl_login.logins",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "distinct_days",
+   "ref": "etl_login.distinct_days",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "distinct_devices",
+   "ref": "etl_login.distinct_devices",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "distinct_ips",
+   "ref": "etl_login.distinct_ips",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "distinct_servers",
+   "ref": "etl_login.distinct_servers",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "max_role_level",
+   "ref": "etl_login.max_role_level",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "etl_login",
+   "measure": "emulator_logins",
+   "ref": "etl_login.emulator_logins",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_logout",
+   "measure": "sessions",
+   "ref": "etl_logout.sessions",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_logout",
+   "measure": "distinct_days",
+   "ref": "etl_logout.distinct_days",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_logout",
+   "measure": "total_online_time_sec",
+   "ref": "etl_logout.total_online_time_sec",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "etl_logout",
+   "measure": "avg_session_sec",
+   "ref": "etl_logout.avg_session_sec",
+   "type": "avg",
+   "headline": false
+  },
+  {
+   "cube": "etl_logout",
+   "measure": "max_session_sec",
+   "ref": "etl_logout.max_session_sec",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "etl_money_flow",
+   "measure": "flows",
+   "ref": "etl_money_flow.flows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_money_flow",
+   "measure": "total_value",
+   "ref": "etl_money_flow.total_value",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "etl_money_flow",
+   "measure": "distinct_roles",
+   "ref": "etl_money_flow.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_money_flow",
+   "measure": "distinct_users",
+   "ref": "etl_money_flow.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_money_flow",
+   "measure": "distinct_days",
+   "ref": "etl_money_flow.distinct_days",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_npc_im_tour",
+   "measure": "interactions",
+   "ref": "etl_npc_im_tour.interactions",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_npc_im_tour",
+   "measure": "enters",
+   "ref": "etl_npc_im_tour.enters",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_npc_im_tour",
+   "measure": "distinct_npcs",
+   "ref": "etl_npc_im_tour.distinct_npcs",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_npc_im_tour",
+   "measure": "distinct_roles",
+   "ref": "etl_npc_im_tour.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_npc_im_tour",
+   "measure": "active_users",
+   "ref": "etl_npc_im_tour.active_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_npc_im_tour",
+   "measure": "max_role_grade",
+   "ref": "etl_npc_im_tour.max_role_grade",
+   "type": "max",
+   "headline": false
+  },
+  {
+   "cube": "etl_prop_flow",
+   "measure": "events",
+   "ref": "etl_prop_flow.events",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_prop_flow",
+   "measure": "distinct_players",
+   "ref": "etl_prop_flow.distinct_players",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_prop_flow",
+   "measure": "distinct_items",
+   "ref": "etl_prop_flow.distinct_items",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_register",
+   "measure": "registers",
+   "ref": "etl_register.registers",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "etl_register",
+   "measure": "distinct_users",
+   "ref": "etl_register.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "etl_register",
+   "measure": "distinct_roles",
+   "ref": "etl_register.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "impressions",
+   "ref": "game_key_metrics.impressions",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "clicks",
+   "ref": "game_key_metrics.clicks",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "cost_vnd",
+   "ref": "game_key_metrics.cost_vnd",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "installs",
+   "ref": "game_key_metrics.installs",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "nru",
+   "ref": "game_key_metrics.nru",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "nrd",
+   "ref": "game_key_metrics.nrd",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "npu",
+   "ref": "game_key_metrics.npu",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "nnpu",
+   "ref": "game_key_metrics.nnpu",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "rev",
+   "ref": "game_key_metrics.rev",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "iap_rev",
+   "ref": "game_key_metrics.iap_rev",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "web_rev",
+   "ref": "game_key_metrics.web_rev",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "trans",
+   "ref": "game_key_metrics.trans",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "iap_trans",
+   "ref": "game_key_metrics.iap_trans",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "web_trans",
+   "ref": "game_key_metrics.web_trans",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "retain_user_active",
+   "ref": "game_key_metrics.retain_user_active",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "recall_user_active",
+   "ref": "game_key_metrics.recall_user_active",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "retain_user_recharge",
+   "ref": "game_key_metrics.retain_user_recharge",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "recall_user_recharge",
+   "ref": "game_key_metrics.recall_user_recharge",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a1",
+   "ref": "game_key_metrics.a1",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a3",
+   "ref": "game_key_metrics.a3",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a7",
+   "ref": "game_key_metrics.a7",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a14",
+   "ref": "game_key_metrics.a14",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a30",
+   "ref": "game_key_metrics.a30",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a60",
+   "ref": "game_key_metrics.a60",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "a90",
+   "ref": "game_key_metrics.a90",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "pu1",
+   "ref": "game_key_metrics.pu1",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "pu7",
+   "ref": "game_key_metrics.pu7",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "pu30",
+   "ref": "game_key_metrics.pu30",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "cpi_vnd",
+   "ref": "game_key_metrics.cpi_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "ctr",
+   "ref": "game_key_metrics.ctr",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "cpc_vnd",
+   "ref": "game_key_metrics.cpc_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "roas",
+   "ref": "game_key_metrics.roas",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "arppu_vnd",
+   "ref": "game_key_metrics.arppu_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "payer_rate",
+   "ref": "game_key_metrics.payer_rate",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "retention_d1",
+   "ref": "game_key_metrics.retention_d1",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "retention_d7",
+   "ref": "game_key_metrics.retention_d7",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "game_key_metrics",
+   "measure": "retention_d30",
+   "ref": "game_key_metrics.retention_d30",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "rows",
+   "ref": "marketing_cost.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "impressions",
+   "ref": "marketing_cost.impressions",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "clicks",
+   "ref": "marketing_cost.clicks",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "cost_native",
+   "ref": "marketing_cost.cost_native",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "cost_usd",
+   "ref": "marketing_cost.cost_usd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "cost_vnd",
+   "ref": "marketing_cost.cost_vnd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "ctr",
+   "ref": "marketing_cost.ctr",
+   "type": "number",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "cpc_vnd",
+   "ref": "marketing_cost.cpc_vnd",
+   "type": "number",
+   "headline": false
+  },
+  {
+   "cube": "marketing_cost",
+   "measure": "cpm_vnd",
+   "ref": "marketing_cost.cpm_vnd",
+   "type": "number",
+   "headline": false
+  },
+  {
+   "cube": "mf_users",
+   "measure": "user_count",
+   "ref": "mf_users.user_count",
+   "type": "count_distinct",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "user_count_approx",
+   "ref": "mf_users.user_count_approx",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "ltv_total_vnd",
+   "ref": "mf_users.ltv_total_vnd",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "ltv_total_usd",
+   "ref": "mf_users.ltv_total_usd",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "ltv_30d_total_vnd",
+   "ref": "mf_users.ltv_30d_total_vnd",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "paying_users",
+   "ref": "mf_users.paying_users",
+   "type": "count_distinct",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "paying_users_approx",
+   "ref": "mf_users.paying_users_approx",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "paying_users_30d",
+   "ref": "mf_users.paying_users_30d",
+   "type": "count_distinct",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "whales_count",
+   "ref": "mf_users.whales_count",
+   "type": "count_distinct",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "lapsed_this_month_count",
+   "ref": "mf_users.lapsed_this_month_count",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "arpu_vnd",
+   "ref": "mf_users.arpu_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "arppu_vnd",
+   "ref": "mf_users.arppu_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "payer_active_days_total",
+   "ref": "mf_users.payer_active_days_total",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "avg_total_active_days",
+   "ref": "mf_users.avg_total_active_days",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "paying_rate",
+   "ref": "mf_users.paying_rate",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "paying_rate_approx",
+   "ref": "mf_users.paying_rate_approx",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "mf_users",
+   "measure": "paying_rate_30d",
+   "ref": "mf_users.paying_rate_30d",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "nru",
+   "ref": "new_user_retention.nru",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "npu",
+   "ref": "new_user_retention.npu",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d1",
+   "ref": "new_user_retention.rnru_d1",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d3",
+   "ref": "new_user_retention.rnru_d3",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d7",
+   "ref": "new_user_retention.rnru_d7",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d14",
+   "ref": "new_user_retention.rnru_d14",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d30",
+   "ref": "new_user_retention.rnru_d30",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d60",
+   "ref": "new_user_retention.rnru_d60",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d90",
+   "ref": "new_user_retention.rnru_d90",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d180",
+   "ref": "new_user_retention.rnru_d180",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rnru_d360",
+   "ref": "new_user_retention.rnru_d360",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rpnpu_d7",
+   "ref": "new_user_retention.rpnpu_d7",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "rpnpu_d30",
+   "ref": "new_user_retention.rpnpu_d30",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "retention_d1",
+   "ref": "new_user_retention.retention_d1",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "retention_d7",
+   "ref": "new_user_retention.retention_d7",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "new_user_retention",
+   "measure": "retention_d30",
+   "ref": "new_user_retention.retention_d30",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "ordered_event_funnel",
+   "measure": "step_count",
+   "ref": "ordered_event_funnel.step_count",
+   "type": "count_distinct",
+   "headline": false
+  },
+  {
+   "cube": "ordered_funnel_canonical",
+   "measure": "step_count",
+   "ref": "ordered_funnel_canonical.step_count",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "recharge",
+   "measure": "transactions",
+   "ref": "recharge.transactions",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "recharge",
+   "measure": "revenue_vnd",
+   "ref": "recharge.revenue_vnd",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "recharge",
+   "measure": "paying_users",
+   "ref": "recharge.paying_users",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "recharge",
+   "measure": "paying_users_exact",
+   "ref": "recharge.paying_users_exact",
+   "type": "count_distinct",
+   "headline": true
+  },
+  {
+   "cube": "recharge",
+   "measure": "arppu_vnd",
+   "ref": "recharge.arppu_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "recharge",
+   "measure": "arpt_vnd",
+   "ref": "recharge.arpt_vnd",
+   "type": "number",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "cohort_size",
+   "ref": "retention.cohort_size",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "retained_d1",
+   "ref": "retention.retained_d1",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "retained_d3",
+   "ref": "retention.retained_d3",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "retained_d7",
+   "ref": "retention.retained_d7",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "retained_d14",
+   "ref": "retention.retained_d14",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "retained_d30",
+   "ref": "retention.retained_d30",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "retention",
+   "measure": "churned_d30",
+   "ref": "retention.churned_d30",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "active_role_days",
+   "ref": "role_active_daily.active_role_days",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "distinct_roles",
+   "ref": "role_active_daily.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "distinct_users",
+   "ref": "role_active_daily.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "total_online_time_sec",
+   "ref": "role_active_daily.total_online_time_sec",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "avg_online_time_sec",
+   "ref": "role_active_daily.avg_online_time_sec",
+   "type": "avg",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "max_role_level",
+   "ref": "role_active_daily.max_role_level",
+   "type": "max",
+   "headline": true
+  },
+  {
+   "cube": "role_active_daily",
+   "measure": "recharging_role_days",
+   "ref": "role_active_daily.recharging_role_days",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "recharge_role_days",
+   "ref": "role_recharge_daily.recharge_role_days",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "distinct_roles",
+   "ref": "role_recharge_daily.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "distinct_users",
+   "ref": "role_recharge_daily.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "total_recharge_vnd",
+   "ref": "role_recharge_daily.total_recharge_vnd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "total_recharge_vnd_iap",
+   "ref": "role_recharge_daily.total_recharge_vnd_iap",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "total_recharge_vnd_web",
+   "ref": "role_recharge_daily.total_recharge_vnd_web",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "total_recharge_usd",
+   "ref": "role_recharge_daily.total_recharge_usd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "total_transactions",
+   "ref": "role_recharge_daily.total_transactions",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "role_recharge_daily",
+   "measure": "arppu_vnd",
+   "ref": "role_recharge_daily.arppu_vnd",
+   "type": "number",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "rows",
+   "ref": "user_active_monthly.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "mau",
+   "ref": "user_active_monthly.mau",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "active_days_total",
+   "ref": "user_active_monthly.active_days_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "online_time_sec_total",
+   "ref": "user_active_monthly.online_time_sec_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "recharging_users",
+   "ref": "user_active_monthly.recharging_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "is_recharge",
+   "ref": "user_active_monthly.is_recharge",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "recharge_days_total",
+   "ref": "user_active_monthly.recharge_days_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "ingame_first_active_role_level",
+   "ref": "user_active_monthly.ingame_first_active_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "ingame_last_active_role_level",
+   "ref": "user_active_monthly.ingame_last_active_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "ingame_min_active_role_level",
+   "ref": "user_active_monthly.ingame_min_active_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "ingame_max_active_role_level",
+   "ref": "user_active_monthly.ingame_max_active_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "ingame_last_active_fighting_power",
+   "ref": "user_active_monthly.ingame_last_active_fighting_power",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_monthly",
+   "measure": "ingame_max_active_fighting_power",
+   "ref": "user_active_monthly.ingame_max_active_fighting_power",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_active_rolling",
+   "measure": "rows",
+   "ref": "user_active_rolling.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_devices",
+   "measure": "rows",
+   "ref": "user_devices.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_devices",
+   "measure": "distinct_devices",
+   "ref": "user_devices.distinct_devices",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_devices",
+   "measure": "distinct_users",
+   "ref": "user_devices.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_gameplay_daily",
+   "measure": "rows",
+   "ref": "user_gameplay_daily.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_identity",
+   "measure": "users",
+   "ref": "user_identity.users",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_ips",
+   "measure": "rows",
+   "ref": "user_ips.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_ips",
+   "measure": "distinct_ips",
+   "ref": "user_ips.distinct_ips",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_ips",
+   "measure": "distinct_users",
+   "ref": "user_ips.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "rows",
+   "ref": "user_recharge_daily.rows",
+   "type": "count",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "revenue_vnd_total",
+   "ref": "user_recharge_daily.revenue_vnd_total",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "revenue_usd_total",
+   "ref": "user_recharge_daily.revenue_usd_total",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "txn_count_total",
+   "ref": "user_recharge_daily.txn_count_total",
+   "type": "sum",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "paying_users",
+   "ref": "user_recharge_daily.paying_users",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "trailing_wpu",
+   "ref": "user_recharge_daily.trailing_wpu",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_daily",
+   "measure": "trailing_mpu",
+   "ref": "user_recharge_daily.trailing_mpu",
+   "type": "count_distinct_approx",
+   "headline": true
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "rows",
+   "ref": "user_recharge_monthly.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "paying_users_monthly",
+   "ref": "user_recharge_monthly.paying_users_monthly",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "revenue_vnd_total",
+   "ref": "user_recharge_monthly.revenue_vnd_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "revenue_usd_total",
+   "ref": "user_recharge_monthly.revenue_usd_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "revenue_vnd_iap_total",
+   "ref": "user_recharge_monthly.revenue_vnd_iap_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "revenue_vnd_web_total",
+   "ref": "user_recharge_monthly.revenue_vnd_web_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "txn_count_total",
+   "ref": "user_recharge_monthly.txn_count_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "arppu_vnd_monthly",
+   "ref": "user_recharge_monthly.arppu_vnd_monthly",
+   "type": "number",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "recharge_days_total",
+   "ref": "user_recharge_monthly.recharge_days_total",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_first_recharge_role_level",
+   "ref": "user_recharge_monthly.ingame_first_recharge_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_last_recharge_role_level",
+   "ref": "user_recharge_monthly.ingame_last_recharge_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_min_recharge_role_level",
+   "ref": "user_recharge_monthly.ingame_min_recharge_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_max_recharge_role_level",
+   "ref": "user_recharge_monthly.ingame_max_recharge_role_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_first_recharge_vip_level",
+   "ref": "user_recharge_monthly.ingame_first_recharge_vip_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_last_recharge_vip_level",
+   "ref": "user_recharge_monthly.ingame_last_recharge_vip_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_min_recharge_vip_level",
+   "ref": "user_recharge_monthly.ingame_min_recharge_vip_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_max_recharge_vip_level",
+   "ref": "user_recharge_monthly.ingame_max_recharge_vip_level",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_total_recharge_transaction_id_iap",
+   "ref": "user_recharge_monthly.ingame_total_recharge_transaction_id_iap",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_total_recharge_transaction_id_web",
+   "ref": "user_recharge_monthly.ingame_total_recharge_transaction_id_web",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "first_recharged_value",
+   "ref": "user_recharge_monthly.first_recharged_value",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "last_recharged_value",
+   "ref": "user_recharge_monthly.last_recharged_value",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_first_recharge_value_vnd",
+   "ref": "user_recharge_monthly.ingame_first_recharge_value_vnd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_last_recharge_value_vnd",
+   "ref": "user_recharge_monthly.ingame_last_recharge_value_vnd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_first_recharge_value_usd",
+   "ref": "user_recharge_monthly.ingame_first_recharge_value_usd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_last_recharge_value_usd",
+   "ref": "user_recharge_monthly.ingame_last_recharge_value_usd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_total_recharged_value_usd_iap",
+   "ref": "user_recharge_monthly.ingame_total_recharged_value_usd_iap",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_monthly",
+   "measure": "ingame_total_recharged_value_usd_web",
+   "ref": "user_recharge_monthly.ingame_total_recharged_value_usd_web",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_recharge_rolling",
+   "measure": "rows",
+   "ref": "user_recharge_rolling.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "rows",
+   "ref": "user_roles.rows",
+   "type": "count",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "distinct_roles",
+   "ref": "user_roles.distinct_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "distinct_users",
+   "ref": "user_roles.distinct_users",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "distinct_servers",
+   "ref": "user_roles.distinct_servers",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "active_roles",
+   "ref": "user_roles.active_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "new_roles",
+   "ref": "user_roles.new_roles",
+   "type": "count_distinct_approx",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "roles_revenue_vnd",
+   "ref": "user_roles.roles_revenue_vnd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "roles_revenue_usd",
+   "ref": "user_roles.roles_revenue_usd",
+   "type": "sum",
+   "headline": false
+  },
+  {
+   "cube": "user_roles",
+   "measure": "roles_txn_count",
+   "ref": "user_roles.roles_txn_count",
+   "type": "sum",
+   "headline": false
+  }
+ ]
+}

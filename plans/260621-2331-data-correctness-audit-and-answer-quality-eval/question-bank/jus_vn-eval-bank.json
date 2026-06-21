@@ -1,0 +1,245 @@
+{
+ "gameId": "jus_vn",
+ "cases": [
+  {
+   "question": "total session time by role class this week",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 4
+  },
+  {
+   "question": "why is jus_vn revenue weaker than it should be?",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 2
+  },
+  {
+   "question": "total ltv",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 2
+  },
+  {
+   "question": "online time by os platform",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 2
+  },
+  {
+   "question": "mau by os platform over the last 3 months",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 2
+  },
+  {
+   "question": "installs and cpi by acquisition channel",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 2
+  },
+  {
+   "question": "which servers have the highest dau this week?",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "which character class has the highest arppu?",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "what's info you have on billing details",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "what segment should we target and do what to improve the game's revenue",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "whales at risk in the last 30 days",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "total revenue by role class",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "new payer conversion rate by media source this month",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "net-new paying users by acquisition channel this month",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "monthly arppu trend over the last 6 months",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "gold spent by reason group — which in-game systems drain the most virtual currency?",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "dau trend over the last 30 days",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "daily revenue trend over the last 30 days",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "daily revenue by os platform",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "d3 vs d7 retention by recent monthly cohorts",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "d14 and d30 retention by install month",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "d1 → d30 retention curve for may's new-player cohort",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "create a segment of users in the top 25% by total active days (lifetime) who have never paid — ltv_vnd = 0.",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "create a segment of users in the top 25%\n  by total active days who have never paid",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "create a segment of high-engagement users who have never paid",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "cpi ranking by acquisition channel this month",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "compare dau and revenue daily for cfm_vn last 30 days",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "average session length in seconds by role class, using etl_logout.avg_session_sec grouped by role_class, last 30 days.",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "average session length by role class",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  },
+  {
+   "question": "average daily online time by role class this week",
+   "expectedRef": null,
+   "expectedKind": "unknown",
+   "queryShapeClass": "asked",
+   "source": "asked",
+   "weight": 1
+  }
+ ]
+}
