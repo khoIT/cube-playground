@@ -227,7 +227,7 @@ cubes:
         type: number
         description: Monthly ARPPU (revenue per paying user)
 
-      - name: recharge_days
+      - name: recharge_days_total
         sql: recharge_days
         type: sum
 

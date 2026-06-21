@@ -266,7 +266,7 @@ cubes:
         sql: is_recharge
         type: sum
 
-      - name: recharge_days
+      - name: recharge_days_total
         sql: recharge_days
         type: sum
 
