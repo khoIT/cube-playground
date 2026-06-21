@@ -26,7 +26,16 @@ cubes:
   #   country_code_adjust            -> country_code
   # ===========================================================================
   - name: recharge
-    sql_table: etl_ingame_recharge
+    # etl_ingame_recharge re-ingests rows with a fresh updated_time on each load,
+    # producing duplicate business rows per fsequence_no. Keep only the latest
+    # version per fsequence_no so SUM measures don't double-count and the
+    # fsequence_no primary key stays unique.
+    sql: |
+      SELECT * FROM (
+        SELECT *,
+               ROW_NUMBER() OVER (PARTITION BY fsequence_no ORDER BY updated_time DESC) AS _row_version
+        FROM etl_ingame_recharge
+      ) WHERE _row_version = 1
     title: PUBG Mobile VN — Recharge Transactions (raw events)
     description: >
       One row per recharge transaction in PUBG Mobile VN. User join key is

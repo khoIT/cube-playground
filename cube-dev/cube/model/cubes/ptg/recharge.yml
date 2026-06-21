@@ -29,7 +29,18 @@ cubes:
   #   country_code, role_class, role_level, vip_level
   # ===========================================================================
   - name: recharge
-    sql_table: etl_ingame_recharge
+    # etl_ingame_recharge re-ingests each payment on every load with a fresh
+    # updated_time, leaving multiple identical business rows per transactionid
+    # (verified ~1.88x row multiplication; one transactionid = one payment, no
+    # line-item fan-out). SUM measures (revenue, counts) double-count without a
+    # latest-version filter, so keep only the most recently updated row per
+    # transactionid. This also makes transaction_id a genuinely unique PK.
+    sql: |
+      SELECT * FROM (
+        SELECT *,
+               ROW_NUMBER() OVER (PARTITION BY transactionid ORDER BY updated_time DESC) AS _row_version
+        FROM etl_ingame_recharge
+      ) WHERE _row_version = 1
     title: PTG — Recharge Transactions (raw events)
     description: >
       One row per recharge transaction in PTG. STANDALONE cube — PTG does not

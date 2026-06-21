@@ -25,12 +25,12 @@ fan-out per `(game × cube)` → diff vs oracle / canonical → **verify each fi
 | Phase | File | Status |
 |-------|------|--------|
 | 0 · Audit harness + parity-matrix scaffolding | [phase-00](phase-00-audit-harness-and-parity-matrix.md) | ✅ done (8 games, 373 findings; runtime oracle-availability) |
-| 1 · Oracle-backed structural audit (cfm,jus,ballistar,cros,tf) | [phase-01](phase-01-oracle-backed-structural-audit.md) | ☐ pending |
-| 2 · Oracle-less audit (muaw,ptg,pubg) | [phase-02](phase-02-oracle-less-internal-consistency-audit.md) | ☐ pending |
-| 3 · Metric-layer parity audit | [phase-03](phase-03-metric-layer-parity-audit.md) | ☐ pending |
-| 4 · Dedupe, triage, fix worklist | [phase-04](phase-04-dedupe-triage-fix-worklist.md) | ☐ pending |
-| 5 · Execute fixes (generator-aware) | [phase-05](phase-05-execute-fixes.md) | ☐ pending |
-| 6 · Verification + regression gate | [phase-06](phase-06-verification-regression-gate.md) | ☐ pending |
+| 1 · Oracle-backed structural audit (cfm,jus,ballistar,cros,tf) | [phase-01](phase-01-oracle-backed-structural-audit.md) | ✅ done (verified ledger; all 8 now oracle-backed) |
+| 2 · Oracle-less audit (muaw,ptg,pubg) | [phase-02](phase-02-oracle-less-internal-consistency-audit.md) | ✅ done (merged into ledger — oracles now exist for all 3) |
+| 3 · Metric-layer parity audit | [phase-03](phase-03-metric-layer-parity-audit.md) | ✅ done (metric-trust: 425 certified · 129 GAP · 30 N/A; families split) |
+| 4 · Dedupe, triage, fix worklist | [phase-04](phase-04-dedupe-triage-fix-worklist.md) | ✅ done ([fix-worklist](reports/fix-worklist.md); W1–W9, D1–D3 gate) |
+| 5 · Execute fixes (generator-aware) | [phase-05](phase-05-execute-fixes.md) | 🟡 partial — W1 ptg + W2 pubg recharge version-dedup DONE (ptg revenue 1.88× inflation fixed); W3/W4/W6 measure backfill re-gated (shared-template regen would regress 5 games — needs re-decision) |
+| 6 · Verification + regression gate | [phase-06](phase-06-verification-regression-gate.md) | ☐ pending (live compiled-SQL recompile needs Cube restart; CI gate + baseline) |
 
 **Track B — persistent audit console UI** (consumes Track A; buildable in parallel after Phase 0)
 | Phase | File | Status |
