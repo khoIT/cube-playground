@@ -1,0 +1,139 @@
+<title>Cluster K (deferred) — aborted-turn handling + docked-panel parity</title>
+<style>
+  :root{
+    --bg:#0f1115;--panel:#171a21;--panel-2:#1d212b;--ink:#e8ebf0;--muted:#9aa3b2;--line:#272c38;
+    --brand:#6ea8fe;--bad:#ff6b6b;--bad-soft:#2a1618;--good:#46d39a;--good-soft:#10241d;--warn:#f5c451;
+    --code:#c6cddb;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:Inter,-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;padding:40px 24px 64px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  h1{font-size:26px;font-weight:700;margin:6px 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:26px;max-width:860px}
+  h2.sec{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--brand);margin:30px 0 12px;font-weight:700}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px;overflow:hidden}
+  .card.good{border-color:#1e3a30}
+  .chip{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.04em;padding:2px 8px;border-radius:999px;background:var(--good-soft);color:#7ce6bb;text-transform:uppercase}
+  h3{font-size:14.5px;font-weight:700;margin:10px 0 4px}
+  p.d{font-size:12.5px;color:#cfd5e0;margin:0 0 8px}
+  pre{background:#0b0d12;border:1px solid var(--line);border-radius:9px;margin:8px 0 0;padding:10px 11px;overflow-x:auto;font-family:var(--mono);font-size:11px;line-height:1.55;color:var(--code)}
+  .del{color:#ff9a9a;background:rgba(255,107,107,.10);display:block}
+  .add{color:#7ce6bb;background:rgba(70,211,154,.10);display:block}
+  .cmt{color:#6b7589}
+  .sev{font-family:var(--mono);font-size:10px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:6px}
+  .sev.h{background:#3a2a12;color:#f5c451}.sev.m{background:#1c2740;color:#88b3ff}.sev.l{background:#21262e;color:#9aa3b2}
+  .flow{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-top:8px;font-size:12.5px;color:#cfd5e0}
+  .flow b{color:var(--ink)}
+  .lane{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:start;padding:6px 0;border-bottom:1px dashed var(--line)}
+  .lane:last-child{border-bottom:none}
+  .lane .k{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .arrow{color:var(--muted)}
+  .ok{color:#7ce6bb;font-weight:600}.no{color:#ff9a9a;font-weight:600}
+  table{border-collapse:collapse;width:100%;font-size:12px;margin-top:8px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  td code{font-family:var(--mono);font-size:11px;color:#aeb6c6}
+  tr:last-child td{border-bottom:none}
+  .foot{margin-top:20px;color:var(--muted);font-size:12px}
+</style>
+<div class="wrap">
+  <div class="eyebrow">Cross-service bug hunt · D8 follow-up · shipped</div>
+  <h1>Aborted turns keep their partial answer; the docked panel reaches feature parity</h1>
+  <p class="sub">The six items deferred from Cluster K are now fixed end-to-end. An interrupted turn — whether a
+  user hit Stop or the server timed out — no longer drops the work the model already produced, and the right-side
+  chat panel renders disambiguation chips and survives session promotion exactly like the full <code>/chat</code> page.</p>
+
+  <h2 class="sec">1 · Aborted-turn handling (R31 HIGH · R38 LOW)</h2>
+  <p class="sub" style="margin-bottom:14px">The bug had two halves: the <b>server</b> persisted a partial on one
+  abort path but not the other, and the <b>client</b> only committed a turn on <code>done</code> — so an
+  <code>aborted</code> turn's partial answer vanished the instant the status flipped.</p>
+
+  <div class="flow">
+    <div class="lane"><span class="k">server · before</span><span>
+      graceful abort (loop ends) <span class="arrow">→</span> <b>appendTurn</b> persists partial <span class="ok">✓</span>
+      &nbsp;·&nbsp; thrown <code>AbortError</code> <span class="arrow">→</span> catch emits <code>turn_aborted</code>+<code>done</code>, <b>returns before persist</b> <span class="no">✗ partial lost on refresh</span>
+    </span></div>
+    <div class="lane"><span class="k">server · after</span><span>
+      both paths <span class="arrow">→</span> <b>appendTurn</b> persists partial (+ flush observability FKs, increment count) <span class="ok">✓ refresh-consistent</span>
+    </span></div>
+    <div class="lane"><span class="k">client · before</span><span>
+      commit effect fires only on <code>status === 'done'</code>; <code>isStreaming</code> excludes <code>aborted</code> <span class="no">✗ partial disappears mid-session</span>
+    </span></div>
+    <div class="lane"><span class="k">client · after</span><span>
+      commit on transition into <code>done</code> <b>OR</b> <code>aborted</code>, in <b>both</b> surfaces <span class="ok">✓</span>
+    </span></div>
+    <div class="lane"><span class="k">user Stop</span><span>
+      store <code>cancel()</code> wiped entry to <code>idle</code> (partial gone) <span class="arrow">→</span> now keeps partial as <code>aborted</code>; empty turn still falls back to <code>idle</code> <span class="ok">✓ keeps what was generated</span>
+    </span></div>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card good">
+      <span class="chip">✓ fixed</span><span class="sev h">R31 · server</span>
+      <h3>Thrown-abort path persists the partial</h3>
+      <p class="d">The two abort paths now behave identically for the same user-visible event.</p>
+<pre><span class="cmt">// catch (err) — controller.signal.aborted branch</span>
+<span class="add">chatStore.appendTurn(opts.db, { id: turnId, … assistantText,</span>
+<span class="add">  reasoningJson, artifacts, charts, stopReason: abortReason … });</span>
+<span class="add">bufferedRecorder?.flush();  // FKs resolve</span>
+<span class="add">chatStore.incrementTurnCount(…);</span>
+emit(turn_aborted); emit(done); registry.finish(turnId,'done');</pre>
+    </div>
+    <div class="card good">
+      <span class="chip">✓ fixed</span><span class="sev l">R38 · store + FE</span>
+      <h3>Stop keeps the partial answer</h3>
+      <p class="d">Matches ChatGPT/Claude — pressing Stop preserves what streamed so far.</p>
+<pre><span class="cmt">// chat-stream-store.cancel()</span>
+<span class="del">next.set(key, { ...makeIdleEntry(sid), refCount })  // wiped</span>
+<span class="add">hasPartial ? { ...rest, status:'aborted',</span>
+<span class="add">  abort:{reason:'user_cancel'} } : idle-fallback</span>
+<span class="cmt">// New chat reroutes to reset() so it won't re-commit</span></pre>
+    </div>
+  </div>
+
+  <h2 class="sec">2 · Docked-panel parity (R32 · R34 · R36 MED) + sticky flags (R33 MED)</h2>
+  <div class="grid">
+    <div class="card good">
+      <span class="chip">✓ fixed</span><span class="sev m">R32/R34</span>
+      <h3>Disambiguation chips render in the panel</h3>
+      <p class="d">The plumbing (<code>ChatThreadView</code> → <code>ChatMessageList</code> → <code>AssistantMessage</code>) already
+      existed; the panel just never fed it data.</p>
+<pre><span class="add">// usePanelChatState: attach to live + committed + persisted</span>
+<span class="add">disambigOptions: streamDisambigOptions</span>
+<span class="add">disambig + disambigSelectedPinText (from next user turn)</span>
+<span class="add">// chat-panel.tsx</span>
+<span class="add">onDisambigPick={sendFollowup}  // carries sticky flags</span></pre>
+    </div>
+    <div class="card good">
+      <span class="chip">✓ fixed</span><span class="sev m">R36 · R33</span>
+      <h3>No wipe on promotion · sticky flags on chips</h3>
+      <p class="d">Panel mirrors the page's <code>null → new-id</code> guard; chip handlers thread the toggles.</p>
+<pre><span class="cmt">// R36 — skip wipe on session_created promotion</span>
+<span class="add">const isPromoteAfterCreate = !prev && !!sessionId;</span>
+<span class="add">if (!isPromoteAfterCreate) setCommittedMessages([])</span>
+<span class="cmt">// R33 — page chip handlers (were dropping flags)</span>
+<span class="del">sendTurn(trimmed)</span>
+<span class="add">sendTurn(trimmed, bypassCache, webSearch, researchMode)</span></pre>
+    </div>
+  </div>
+
+  <h2 class="sec">Tests</h2>
+  <table>
+    <thead><tr><th>Behavior</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Stop keeps partial as <code>aborted</code>; never <code>disconnected</code></td><td><code>chat-stream-store.test.ts</code></td></tr>
+      <tr><td>Stop before any output → clean <code>idle</code> (no empty bubble)</td><td><code>chat-stream-store.test.ts</code></td></tr>
+      <tr><td>Panel commits partial on <code>aborted</code> + clears buffers</td><td><code>use-panel-chat-state.test.tsx</code></td></tr>
+      <tr><td>Panel attaches disambig options + selected pin from persisted turns</td><td><code>use-panel-chat-state.test.tsx</code></td></tr>
+      <tr><td>Panel keeps messages on null → new-id promotion</td><td><code>use-panel-chat-state.test.tsx</code></td></tr>
+      <tr><td>New chat wipes via <code>reset()</code> (not cancel)</td><td><code>use-panel-chat-state.test.tsx</code></td></tr>
+    </tbody>
+  </table>
+
+  <p class="foot">6/6 deferred items shipped · +5 FE regression tests, all chat suites green (FE 217, chat-service 65).
+  Server thrown-abort persist is verified-by-construction (identical <code>appendTurn</code> to the integration-tested graceful path);
+  the integration harness can't interleave a mid-request cancel to drive a live thrown-abort, noted as a coverage gap.</p>
+</div>
