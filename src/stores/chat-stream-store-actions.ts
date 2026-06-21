@@ -180,7 +180,28 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
       };
     }
 
-    case 'tool_result':
+    case 'tool_result': {
+      const known = entry.currentToolCalls.some((t) => t.id === event.data.id);
+      if (!known) {
+        // The matching tool_call was evicted from the replay ring before this
+        // result arrived (reachable on ring-buffer overflow during replay).
+        // Synthesize a completed chip so the tool round-trip isn't silently
+        // dropped — the summary still carries the useful detail; the name is
+        // unknown here (tool_result carries no name), so use a neutral label.
+        return {
+          ...entry,
+          currentToolCalls: [
+            ...entry.currentToolCalls,
+            {
+              id: event.data.id,
+              name: 'tool',
+              status: event.data.ok ? 'ok' : 'error',
+              ms: event.data.ms,
+              summary: event.data.summary,
+            },
+          ],
+        };
+      }
       return {
         ...entry,
         currentToolCalls: entry.currentToolCalls.map((t) =>
@@ -194,6 +215,7 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
             : t,
         ),
       };
+    }
 
     case 'query_artifact':
       return {

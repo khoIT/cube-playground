@@ -460,6 +460,17 @@ function QueryTabsRenderer({
   //   3. ?query= param (inline definition or arbitrary deeplink)
   //   4. null
   const queryParam = params.get('query');
+  // A hand-edited, truncated, or stale ?query= must not crash the builder.
+  // Malformed JSON degrades to "no inline query" (chat-artifact / from-segment
+  // sources still apply); an unguarded JSON.parse here white-screened the app.
+  let parsedQueryParam: unknown = null;
+  if (queryParam) {
+    try {
+      parsedQueryParam = JSON.parse(queryParam);
+    } catch {
+      console.warn('[QueryBuilder] ignoring malformed ?query= deeplink param');
+    }
+  }
   const rawQuery =
     (chatArtifactId && processedArtifactRef.current === chatProcessKey
       ? chatPayloadRef.current
@@ -467,7 +478,7 @@ function QueryTabsRenderer({
     (fromSegmentId && processedFromSegmentRef.current === fromSegmentProcessKey
       ? fromSegmentPayloadRef.current
       : null) ??
-    JSON.parse(queryParam || 'null');
+    parsedQueryParam;
 
   // Rewrite "last N week/month/quarter/year" relative strings to rolling
   // [start, end] tuples before they reach Cube. Cube's date-parser snaps

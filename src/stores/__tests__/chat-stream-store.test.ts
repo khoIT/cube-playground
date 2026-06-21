@@ -231,6 +231,39 @@ describe('cancel does not surface as "disconnected"', () => {
   });
 });
 
+describe('inactive-entry pruning (bounded memory)', () => {
+  it('startTurn prunes idle, fully-unsubscribed entries', async () => {
+    const s = useChatStreamStore.getState();
+    // A session visited then left behind: subscribed, then fully unsubscribed.
+    s.subscribe('stale');
+    s.unsubscribe('stale');
+    expect(useChatStreamStore.getState().streams.has('stale')).toBe(true);
+
+    // Starting a turn elsewhere prunes the inactive entry so the map stays bounded.
+    void s.startTurn({ sessionId: 'active', message: 'hi', game: 'g' });
+    await flush();
+
+    const st = useChatStreamStore.getState();
+    expect(st.streams.has('stale')).toBe(false); // pruned
+    expect(st.streams.has('active')).toBe(true); // current turn kept
+
+    close();
+    await flush();
+  });
+
+  it('does NOT prune an entry that still has subscribers', async () => {
+    const s = useChatStreamStore.getState();
+    s.subscribe('watched'); // refCount 1 — a view is still mounted
+    void s.startTurn({ sessionId: 'active', message: 'hi', game: 'g' });
+    await flush();
+
+    expect(useChatStreamStore.getState().streams.has('watched')).toBe(true);
+
+    close();
+    await flush();
+  });
+});
+
 describe('unmount does not cancel the live fetch', () => {
   it('refcount drops to 0 but the entry keeps accumulating events', async () => {
     const s = useChatStreamStore.getState();

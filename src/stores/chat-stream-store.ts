@@ -110,6 +110,37 @@ function resolveKey(s: ChatStreamStore, sessionId: string | null): string {
   return s.aliases.get(direct) ?? direct;
 }
 
+/**
+ * Drop entries no view is watching and no live turn owns, plus any aliases that
+ * pointed at them. Without this the `streams`/`aliases` maps grow unbounded
+ * across a long SPA session (every visited session leaves an entry behind).
+ * Safe because committed turns live in chat history, not the stream buffer; an
+ * in-flight turn (loading/streaming), an entry with subscribers (refCount>0),
+ * and the key about to be (re)used are all preserved.
+ */
+function pruneInactiveStreams(
+  streams: Map<string, StreamEntry>,
+  aliases: Map<string, string>,
+  keepKey: string,
+): { streams: Map<string, StreamEntry>; aliases: Map<string, string> } {
+  let changed = false;
+  const nextStreams = new Map(streams);
+  for (const [k, e] of streams) {
+    if (k === keepKey) continue;
+    const live = e.status === 'loading' || e.status === 'streaming';
+    if (!live && e.refCount === 0) {
+      nextStreams.delete(k);
+      changed = true;
+    }
+  }
+  if (!changed) return { streams, aliases };
+  const nextAliases = new Map<string, string>();
+  for (const [sid, k] of aliases) {
+    if (nextStreams.has(k)) nextAliases.set(sid, k);
+  }
+  return { streams: nextStreams, aliases: nextAliases };
+}
+
 export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
   streams: new Map(),
   aliases: new Map(),
@@ -151,10 +182,12 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
 
     const { stream, cancel } = openChatTurn({ sessionId, message, game, context, mode, bypassCache, webSearch, researchMode });
 
-    // Seed entry into 'loading' with cancel handle, preserve refcount.
+    // Seed entry into 'loading' with cancel handle, preserve refcount. Prune
+    // inactive entries first so the maps stay bounded across a long session.
     set((s) => {
-      const next = new Map(s.streams);
       const cur = s.streams.get(key) ?? makeIdleEntry(sessionId);
+      const pruned = pruneInactiveStreams(s.streams, s.aliases, key);
+      const next = new Map(pruned.streams);
       next.set(key, {
         ...makeIdleEntry(sessionId),
         refCount: cur.refCount,
@@ -162,7 +195,7 @@ export const useChatStreamStore = create<ChatStreamStore>((set, get) => ({
         status: 'loading',
         cancel,
       });
-      return { streams: next };
+      return { streams: next, aliases: pruned.aliases };
     });
 
     await runDispatchLoop(set, get, key, sessionId, stream);

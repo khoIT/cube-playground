@@ -221,4 +221,21 @@ describe('applySseEvent — Phase 04 cancel/abort path', () => {
     const cleared = clearStreamBuffers(s);
     expect(cleared.abort).toBeNull();
   });
+
+  it('synthesizes a completed chip for an orphan tool_result (no preceding tool_call)', () => {
+    // Reachable on replay when the tool_call event was evicted from the ring
+    // before its result. The chip must still render rather than vanish.
+    let s = makeIdleEntry('sess-1');
+    s = applySseEvent(s, { type: 'tool_result', data: { id: 'orphan-1', ok: true, ms: 9, summary: 'done' } });
+    expect(s.currentToolCalls).toHaveLength(1);
+    expect(s.currentToolCalls[0]).toMatchObject({ id: 'orphan-1', status: 'ok', ms: 9, summary: 'done' });
+  });
+
+  it('still updates the matching tool_call when one exists (no duplicate chip)', () => {
+    let s = makeIdleEntry('sess-1');
+    s = applySseEvent(s, { type: 'tool_call', data: { id: 'tc-1', name: 'list_metrics', args: {} } });
+    s = applySseEvent(s, { type: 'tool_result', data: { id: 'tc-1', ok: false, ms: 5, summary: 'boom' } });
+    expect(s.currentToolCalls).toHaveLength(1);
+    expect(s.currentToolCalls[0]).toMatchObject({ id: 'tc-1', name: 'list_metrics', status: 'error' });
+  });
 });
