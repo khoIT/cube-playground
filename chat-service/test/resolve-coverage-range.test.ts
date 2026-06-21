@@ -28,10 +28,16 @@ beforeEach(() => {
 });
 
 describe('isRelativeRange', () => {
-  it('treats absent and string ranges as relative, tuples as explicit', () => {
+  it('treats absent and relative-phrase strings as relative, tuples as explicit', () => {
     expect(isRelativeRange(undefined)).toBe(true);
     expect(isRelativeRange('last 30 days')).toBe(true);
+    expect(isRelativeRange('this month')).toBe(true);
     expect(isRelativeRange(['2026-01-01', '2026-01-31'])).toBe(false);
+  });
+  it('treats a single explicit ISO date as a PIN (not relative)', () => {
+    // A bare YYYY-MM-DD is a user-pinned day — must never be silently snapped.
+    expect(isRelativeRange('2026-06-01')).toBe(false);
+    expect(isRelativeRange(' 2026-06-01 ')).toBe(false);
   });
 });
 
@@ -45,9 +51,21 @@ describe('rangeWidthDays', () => {
     expect(rangeWidthDays('last 2 weeks')).toBe(14);
     expect(rangeWidthDays('last 3 months')).toBe(90);
   });
+  it('sizes count-less calendar phrases by their natural width', () => {
+    expect(rangeWidthDays('today')).toBe(1);
+    expect(rangeWidthDays('yesterday')).toBe(1);
+    expect(rangeWidthDays('this week')).toBe(7);
+    expect(rangeWidthDays('last week')).toBe(7);
+    expect(rangeWidthDays('this month')).toBe(30);
+    expect(rangeWidthDays('this quarter')).toBe(91);
+    expect(rangeWidthDays('last year')).toBe(365);
+  });
+  it('treats a single ISO date as a 1-day width', () => {
+    expect(rangeWidthDays('2026-06-01')).toBe(1);
+  });
   it('defaults on unknown / malformed ranges', () => {
     expect(rangeWidthDays(undefined)).toBe(DEFAULT_WINDOW_DAYS);
-    expect(rangeWidthDays('this month')).toBe(DEFAULT_WINDOW_DAYS);
+    expect(rangeWidthDays('whenever')).toBe(DEFAULT_WINDOW_DAYS);
     expect(rangeWidthDays(['bad', 'worse'])).toBe(DEFAULT_WINDOW_DAYS);
   });
 });
@@ -79,6 +97,16 @@ describe('resolveCoverageLatest', () => {
   it('never throws — a probe error resolves to null', async () => {
     probe.mockRejectedValue(new Error('cold backend'));
     expect(await resolveCoverageLatest('y.ts', ctx)).toBeNull();
+  });
+
+  it('does NOT cache a transient probe error — re-probes on the next call', async () => {
+    // A timeout/error must not freeze re-anchoring for the full TTL: the next
+    // empty query should re-probe and pick up real coverage once it succeeds.
+    probe.mockRejectedValueOnce(new Error('timeout'));
+    expect(await resolveCoverageLatest('flaky.ts', ctx)).toBeNull();
+    probe.mockResolvedValueOnce({ found: true, latestDate: '2026-04-30' });
+    expect(await resolveCoverageLatest('flaky.ts', ctx)).toBe('2026-04-30');
+    expect(probe).toHaveBeenCalledTimes(2); // error was not cached
   });
 
   it('caches a positive hit (no re-probe within TTL)', async () => {

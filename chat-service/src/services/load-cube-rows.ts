@@ -183,14 +183,31 @@ export async function loadCubeRowsCovered(
 
   // Relative + a known latest date → snap to a same-width window and re-run.
   if (latestDate && kind === 'relative') {
-    const width = rangeWidthDays(requestedRange);
+    // Match the requested width, but keep the snapped window within the same
+    // analysis cap the first /load obeyed — otherwise a "last 365 days" snap
+    // re-introduces the multi-month scan the clamp exists to prevent.
+    const maxDays = config.analysisMaxWindowDays;
+    const requestedWidth = rangeWidthDays(requestedRange);
+    const width = maxDays > 0 ? Math.min(requestedWidth, maxDays) : requestedWidth;
     const snappedRange = snapWindow(latestDate, width);
     const snappedQuery = withSnappedRange(query, member, snappedRange);
     const retryRows = await fetchRows(snappedQuery, ctx, opts.maxRows);
+    // Only claim a snap was "applied" when the re-run actually returned data.
+    // A still-empty retry means the cube-wide latest date doesn't satisfy this
+    // query's filters/dimensions — disclose the latest date, don't pretend the
+    // shown window has rows.
+    const applied = retryRows.length > 0;
     return {
       rows: retryRows,
-      query: snappedQuery,
-      snap: { member, latestDate, applied: true, kind, requestedRange, snappedRange },
+      query: applied ? snappedQuery : query,
+      snap: {
+        member,
+        latestDate,
+        applied,
+        kind,
+        requestedRange,
+        ...(applied ? { snappedRange } : {}),
+      },
     };
   }
 

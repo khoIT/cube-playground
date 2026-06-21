@@ -200,9 +200,12 @@ export async function handler(
   // all agree, and disclose the shift. Never throws.
   if (!chart) {
     try {
-      // Load the clamped/normalized query, not the raw one, so the fallback
-      // chart respects both the coverage snap and the analysis-window cap.
-      const loaded = await loadCubeRowsCovered(effectiveQuery, ctx, { maxRows: MAX_ROWS });
+      // Pass the RAW query: loadCubeRowsCovered normalizes + applies the same
+      // analysis-window clamp internally, and it must see the original relative
+      // phrase to classify the range as snappable. Handing it the already-
+      // normalized query turns every relative range into a tuple, which reads as
+      // "explicit" and silently disables coverage re-anchoring.
+      const loaded = await loadCubeRowsCovered(args.query, ctx, { maxRows: MAX_ROWS });
       if (loaded.snap?.applied && loaded.snap.snappedRange) {
         effectiveQuery = loaded.query;
         deeplink = buildChatDeeplink(effectiveQuery);

@@ -21,13 +21,22 @@ export type DateRange = string | [string, string];
 /** Default window width (days) when the requested range gives no usable width. */
 export const DEFAULT_WINDOW_DAYS = 30;
 
+/** A bare ISO date "YYYY-MM-DD" — an explicit single-day pin, not a phrase. */
+function isExplicitIsoDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
+}
+
 /**
  * A range is "relative" (safe to auto-snap) when the agent left it open or
  * expressed it as a relative phrase ("last 30 days"). An explicit [from,to]
- * tuple is a pinned period the user asked for — never silently moved.
+ * tuple — OR a single pinned ISO date ("2026-06-01") — is a period the user
+ * asked for and is never silently moved.
  */
 export function isRelativeRange(range: DateRange | undefined): boolean {
-  return range == null || typeof range === 'string';
+  if (range == null) return true;
+  if (Array.isArray(range)) return false;
+  // A bare ISO date is an explicit pin; only phrases ("last 30 days") snap.
+  return !isExplicitIsoDate(range);
 }
 
 function isoDay(d: Date): string {
@@ -41,10 +50,16 @@ export function addDays(iso: string, days: number): string {
   return isoDay(d);
 }
 
+/** Approx day-span of one calendar unit, used to size snapped windows. */
+function daysPerUnit(unit: string): number {
+  return unit === 'day' ? 1 : unit === 'week' ? 7 : unit === 'month' ? 30 : unit === 'quarter' ? 91 : 365;
+}
+
 /**
  * Day-width of a requested range so the snapped window matches its size.
- * Tuple → inclusive day count. "last N day/week/month/quarter/year" → N×unit.
- * Anything else → DEFAULT_WINDOW_DAYS.
+ * Tuple → inclusive day count. Single ISO date → 1. "last N unit" → N×unit.
+ * Calendar phrases ("today"/"yesterday"/"this|last week|month|quarter|year") →
+ * their natural width. Anything else → DEFAULT_WINDOW_DAYS.
  */
 export function rangeWidthDays(range: DateRange | undefined): number {
   if (Array.isArray(range)) {
@@ -56,14 +71,16 @@ export function rangeWidthDays(range: DateRange | undefined): number {
     return DEFAULT_WINDOW_DAYS;
   }
   if (typeof range === 'string') {
-    const m = /^last\s+(\d{1,4})\s+(day|week|month|quarter|year)s?$/i.exec(range.trim());
-    if (m) {
-      const n = parseInt(m[1], 10);
-      const unit = m[2].toLowerCase();
-      const perUnit =
-        unit === 'day' ? 1 : unit === 'week' ? 7 : unit === 'month' ? 30 : unit === 'quarter' ? 91 : 365;
-      return Math.max(1, n * perUnit);
-    }
+    const s = range.trim();
+    // Explicit single-day pin (kept narrow even if it ever reaches the snapper).
+    if (isExplicitIsoDate(s)) return 1;
+    if (/^(today|yesterday)$/i.test(s)) return 1;
+    // "last 7 days", "last 3 months", …
+    const m = /^last\s+(\d{1,4})\s+(day|week|month|quarter|year)s?$/i.exec(s);
+    if (m) return Math.max(1, parseInt(m[1], 10) * daysPerUnit(m[2].toLowerCase()));
+    // Count-less calendar phrases: "this month", "last week", "this quarter", …
+    const period = /^(?:this|last)\s+(week|month|quarter|year)$/i.exec(s);
+    if (period) return daysPerUnit(period[1].toLowerCase());
   }
   return DEFAULT_WINDOW_DAYS;
 }
@@ -96,8 +113,12 @@ export async function resolveCoverageLatest(member: string, ctx: ToolContext): P
     const r = (await getTimeCoverage({ member }, ctx)) as { found?: boolean; latestDate?: string };
     latest = r?.found && r.latestDate ? r.latestDate : null;
   } catch {
-    latest = null;
+    // Transient probe failure (timeout/network). Do NOT cache: caching null
+    // here would suppress every empty-range re-anchor for the full TTL on a
+    // single blip. Return null uncached so the next empty query re-probes.
+    return null;
   }
+  // Genuine result (a date, or a confirmed "no data") — safe to cache for the TTL.
   coverageCache.set(key, { latest, at: clock() });
   return latest;
 }

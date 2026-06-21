@@ -10,7 +10,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 
 vi.mock('../src/config.js', () => ({
-  config: { serverBaseUrl: 'http://localhost:3004' },
+  config: { serverBaseUrl: 'http://localhost:3004', analysisMaxWindowDays: 90, cubeLoadTimeoutMs: 30000 },
 }));
 
 vi.mock('../src/core/cube-meta-cache.js', () => ({
@@ -22,8 +22,16 @@ vi.mock('../src/core/cube-meta-cache.js', () => ({
   invalidate: vi.fn(),
 }));
 
+// The coverage probe (get_time_coverage) is mocked so the snap-on-empty path is
+// deterministic without a warehouse.
+vi.mock('../src/tools/get-time-coverage.js', () => ({ handler: vi.fn() }));
+
 import { handler } from '../src/tools/emit-query-artifact.js';
+import { handler as getTimeCoverage } from '../src/tools/get-time-coverage.js';
+import { __resetCoverageForTest } from '../src/services/resolve-coverage-range.js';
 import type { ToolContext, QueryArtifact } from '../src/types.js';
+
+const probe = getTimeCoverage as unknown as ReturnType<typeof vi.fn>;
 
 const cash = 'billing_detail.cash_charged_gross';
 const day = 'billing_detail.order_date.day';
@@ -64,9 +72,67 @@ function captureArtifact(emitter: EventEmitter): { current: QueryArtifact | null
   return ref;
 }
 
+// A RELATIVE-range variant (no chart) → exercises the coverage snap-on-empty.
+const relativeArgs = {
+  ...baseArgs,
+  query: {
+    measures: [cash],
+    timeDimensions: [
+      { dimension: 'billing_detail.order_date', granularity: 'day' as const, dateRange: 'last 30 days' },
+    ],
+  },
+};
+
 describe('emit_query_artifact chart fallback', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    probe.mockReset();
+    __resetCoverageForTest();
+  });
+
+  // Regression: emit must hand the RAW (relative) query to the covered loader.
+  // Passing the normalized query turned "last 30 days" into a tuple, read as
+  // "explicit", which silently disabled re-anchoring — empty cards shipped.
+  it('re-anchors an empty relative range to the latest window with data', async () => {
+    const snappedRows = [
+      { [day]: '2026-04-29T00:00:00.000', [cash]: 400 },
+      { [day]: '2026-04-30T00:00:00.000', [cash]: 500 },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) }) // first: empty
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: snappedRows }) }); // retry: rows
+    vi.stubGlobal('fetch', fetchMock);
+    probe.mockResolvedValue({ found: true, latestDate: '2026-04-30' });
+
+    const emitter = new EventEmitter();
+    const artifact = captureArtifact(emitter);
+    const res = await handler(relativeArgs, makeCtx(emitter));
+
+    expect(res.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // empty → snap → re-run
+    expect(artifact.current?.summary).toContain('Showing 2026-04-01–2026-04-30');
+    expect(artifact.current?.chart).toBeTruthy(); // real chart, not an empty card
+  });
+
+  // Regression (R15): when the snapped re-run is ALSO empty, the card must not
+  // claim a window was applied — it discloses the latest date instead.
+  it('discloses the latest date when even the snapped window has no rows', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ data: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    probe.mockResolvedValue({ found: true, latestDate: '2026-04-30' });
+
+    const emitter = new EventEmitter();
+    const artifact = captureArtifact(emitter);
+    const res = await handler(relativeArgs, makeCtx(emitter));
+
+    expect(res.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(artifact.current?.summary).toContain('No data in the requested range; latest available is 2026-04-30');
+    expect(artifact.current?.summary).not.toContain('Showing 2026'); // no false "applied" window
   });
 
   it('derives a chart when the LLM omits one', async () => {
