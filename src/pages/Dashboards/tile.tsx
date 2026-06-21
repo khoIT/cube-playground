@@ -29,7 +29,7 @@ interface TileProps {
 const tileStyle: React.CSSProperties = {
   background: 'var(--bg-card)',
   borderRadius: 10,
-  border: '1px solid var(--border-card)',
+  border: '1px solid var(--border-strong)',
   padding: '12px 14px',
   display: 'flex',
   flexDirection: 'column',

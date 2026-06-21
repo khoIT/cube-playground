@@ -22,6 +22,18 @@ export function prettifyKey(key: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/**
+ * Short metric label: drops a leading cube prefix ("mf_users.paying_users_30d"
+ * → "Paying users 30d") so the chip text matches the chart legend, which the
+ * renderer already humanises off the member leaf. Keeps the selector chips and
+ * the legend reading identically instead of "Mf users.paying users 30d" vs
+ * "Paying users 30d".
+ */
+export function shortMetricLabel(key: string): string {
+  const leaf = key.includes('.') ? key.slice(key.lastIndexOf('.') + 1) : key;
+  return prettifyKey(leaf);
+}
+
 function artifact(id: string, spec: ChartSpec, rowCount: number): ChartArtifact {
   return { id, spec, truncated: false, originalRowCount: rowCount };
 }
@@ -30,7 +42,7 @@ function artifact(id: string, spec: ChartSpec, rowCount: number): ChartArtifact 
 export function buildKpiTrendChart(id: string, title: string, series: KpiTrendSeries[]): ChartArtifact {
   const data: Array<Record<string, string | number>> = [];
   for (const s of series) {
-    const label = prettifyKey(s.metricId);
+    const label = shortMetricLabel(s.metricId);
     for (const p of s.points) {
       if (p.value == null) continue;
       data.push({ ts: p.ts, metric: label, value: p.value });

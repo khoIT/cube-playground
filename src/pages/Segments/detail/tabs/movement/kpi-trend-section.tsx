@@ -11,7 +11,7 @@
 import { ReactElement, useMemo, useState } from 'react';
 import { segmentMovementClient, type MovementGranularity, type KpiTrendSeries } from '../../../../../api/segment-movement-client';
 import { useMovementResource } from './use-movement-resource';
-import { buildKpiTrendChart, prettifyKey } from './build-movement-chart';
+import { buildKpiTrendChart, shortMetricLabel } from './build-movement-chart';
 import { MovementSection } from './movement-section';
 import styles from '../../../segments.module.css';
 
@@ -30,7 +30,7 @@ const DEFAULT_KEYWORDS = ['user count', 'paying users', 'ltv total', 'size', 'me
 /** Pick the default-visible metric set: keyword matches (capped), else first 3. */
 function defaultSelection(series: KpiTrendSeries[]): Set<string> {
   const matched = series
-    .filter((s) => DEFAULT_KEYWORDS.some((k) => prettifyKey(s.metricId).toLowerCase().includes(k)))
+    .filter((s) => DEFAULT_KEYWORDS.some((k) => shortMetricLabel(s.metricId).toLowerCase().includes(k)))
     .slice(0, 4)
     .map((s) => s.metricId);
   const ids = matched.length > 0 ? matched : series.slice(0, 3).map((s) => s.metricId);
@@ -73,7 +73,7 @@ export function KpiTrendSection({ segmentId, granularity, days, from, to }: Prop
             className={[styles.metricChip, on ? styles.metricChipOn : ''].filter(Boolean).join(' ')}
             onClick={() => toggle(s.metricId)}
           >
-            {prettifyKey(s.metricId)}
+            {shortMetricLabel(s.metricId)}
           </button>
         );
       })}

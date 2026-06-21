@@ -96,14 +96,6 @@ export function MonitorTab({ segment, preset = null, onSegmentChange }: Props): 
       cubeSegments={parseCubeSegmentsFromQueryJson(segment.cube_query_json)}
     />
   );
-  const scopeChip = (
-    <SliceScopeNote
-      predicate={segment.predicate_tree}
-      cubeSegments={parseCubeSegmentsFromQueryJson(segment.cube_query_json)}
-      compact
-    />
-  );
-
   if (!hasSnapshots) {
     return (
       <div className={styles.monitorGrid}>
@@ -147,7 +139,6 @@ export function MonitorTab({ segment, preset = null, onSegmentChange }: Props): 
       />
       <CadenceCoverageStrip eras={captureEras} finest={finest} />
       <MonitorKpiTiles segment={segment} preset={preset} range={effRange} granularity={granularity} />
-      <div className={styles.monitorScopeChipRow}>{scopeChip}</div>
       <TrajectoryCard
         segment={segment}
         days={effDays}

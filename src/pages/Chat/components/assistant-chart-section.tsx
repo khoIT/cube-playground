@@ -157,7 +157,7 @@ export function AssistantChartSection({
         width: '100%',
         marginBlock: 16,
         background: 'var(--surface-raised)',
-        border: `1px solid var(--shell-border)`,
+        border: `1px solid var(--border-strong)`,
         borderRadius: 12,
         overflow: 'hidden',
       }}
@@ -169,7 +169,7 @@ export function AssistantChartSection({
           alignItems: 'center',
           gap: 12,
           padding: '12px 24px',
-          borderBottom: `1px solid var(--shell-bg-subtle)`,
+          borderBottom: `1px solid var(--border-strong)`,
         }}
       >
         <div
@@ -427,6 +427,61 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
     case 'multi-line': {
       const wide = pivotForSeries(spec.data, spec.encoding);
       const seriesKeys = uniqueSeriesValues(spec.data, spec.encoding.series);
+      // Mixing money (VND/USD ≈ billions) with counts (≈ thousands) on one axis
+      // flattens the counts onto the floor — when both unit families are present
+      // money rides a second right-hand axis so each reads at its own scale.
+      // Single-unit charts (all counts, all money) keep one axis, unchanged.
+      const isMoney = (s: string) => {
+        const u = detectColumnUnit(s, spec);
+        return u === 'vnd' || u === 'usd';
+      };
+      const moneyKeys = seriesKeys.filter(isMoney);
+      const splitAxes = moneyKeys.length > 0 && moneyKeys.length < seriesKeys.length;
+      const moneyUnit = detectColumnUnit(moneyKeys[0] ?? '', spec);
+      const moneyTick = (v: number | string) => formatAxisValue(v, moneyUnit, 1);
+      // Per-series tooltip unit so the money series reads "340B VND" while count
+      // series stay plain — only meaningful when the axes are split.
+      const splitTooltip = (value: number | string, name: string) =>
+        [
+          isMoney(name) ? formatReadableValue(value, moneyUnit, 1) : readable(value),
+          labelOf(labels, name),
+        ] as [string, string];
+      // When money and counts coexist they ride separate axes AND separate mark
+      // types: money as bars (right axis), counts as lines (left axis), so the
+      // two metric families are unmistakable at a glance. Single-unit charts
+      // (all counts or all money) stay a plain multi-line.
+      if (splitAxes) {
+        return (
+          <ComposedChart data={wide} margin={cartesianMargin}>
+            <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
+            <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
+            <YAxis yAxisId="left" stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} />
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              stroke={'var(--shell-text-subtle)'}
+              fontSize={11}
+              tickFormatter={moneyTick}
+              label={{ value: moneyUnit === 'usd' ? 'USD ($)' : 'VND', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: 'var(--shell-text-subtle)', fontSize: 11 } }}
+            />
+            <Tooltip formatter={splitTooltip} labelFormatter={tooltipLabel} />
+            <Legend formatter={legendFormatter} />
+            {/* Bars first, then lines — so the count lines always draw on top of
+                the money bars. Bars are kept thin and translucent so they read as
+                a backdrop and never swallow the lines. */}
+            {seriesKeys.map((s, i) =>
+              isMoney(s) ? (
+                <Bar key={s} yAxisId="right" dataKey={s} fill={CHART[i % CHART.length]} fillOpacity={0.35} maxBarSize={14} />
+              ) : null,
+            )}
+            {seriesKeys.map((s, i) =>
+              isMoney(s) ? null : (
+                <Line key={s} yAxisId="left" type="monotone" dataKey={s} stroke={CHART[i % CHART.length]} strokeWidth={2} dot={false} />
+              ),
+            )}
+          </ComposedChart>
+        );
+      }
       return (
         <LineChart data={wide} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />

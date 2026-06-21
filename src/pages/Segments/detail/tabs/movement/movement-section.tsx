@@ -30,23 +30,30 @@ interface Props {
   carryForward?: string[];
   /** Optional control row (e.g. distribution dimension selector). */
   control?: ReactNode;
+  /**
+   * Optional control rendered INSIDE the chart card header, beside the title —
+   * e.g. the state-distribution breakdown tabs, so they read as the chart's own
+   * selector rather than a pill bar floating above a detached card.
+   */
+  headerAction?: ReactNode;
   /** Shown when there is no data (loaded but empty). */
   emptyHint?: string;
 }
 
-function PlaceholderCard({ title, children }: { title: string; children: ReactNode }): ReactElement {
+function PlaceholderCard({ title, headerAction, children }: { title: string; headerAction?: ReactNode; children: ReactNode }): ReactElement {
   return (
     <div
       style={{
         width: '100%',
         background: 'var(--surface-raised)',
-        border: '1px solid var(--shell-border)',
+        border: '1px solid var(--border-strong)',
         borderRadius: 12,
         overflow: 'hidden',
       }}
     >
-      <div style={{ padding: '12px 24px', borderBottom: '1px solid var(--shell-bg-subtle)', fontSize: 14, fontWeight: 600, color: 'var(--shell-text)' }}>
-        {title}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 24px', borderBottom: '1px solid var(--border-strong)', fontSize: 14, fontWeight: 600, color: 'var(--shell-text)' }}>
+        <span style={{ flex: 1, minWidth: 0 }}>{title}</span>
+        {headerAction}
       </div>
       <div style={{ padding: '32px 24px', fontSize: 13, color: 'var(--shell-text-subtle)', textAlign: 'center' }}>
         {children}
@@ -56,21 +63,21 @@ function PlaceholderCard({ title, children }: { title: string; children: ReactNo
 }
 
 export function MovementSection({
-  title, loading, error, artifact, control, emptyHint,
+  title, loading, error, artifact, control, headerAction, emptyHint,
 }: Props): ReactElement {
   let body: ReactElement;
   if (loading) {
-    body = <PlaceholderCard title={title}>Loading…</PlaceholderCard>;
+    body = <PlaceholderCard title={title} headerAction={headerAction}>Loading…</PlaceholderCard>;
   } else if (error) {
-    body = <PlaceholderCard title={title}><span style={{ color: 'var(--destructive-ink)' }}>{error.message}</span></PlaceholderCard>;
+    body = <PlaceholderCard title={title} headerAction={headerAction}><span style={{ color: 'var(--destructive-ink)' }}>{error.message}</span></PlaceholderCard>;
   } else if (!artifact || artifact.spec.data.length === 0) {
     body = (
-      <PlaceholderCard title={title}>
+      <PlaceholderCard title={title} headerAction={headerAction}>
         {emptyHint ?? 'No snapshots captured in this range yet — history accrues as the snapshot job runs.'}
       </PlaceholderCard>
     );
   } else {
-    body = <AssistantChartSection artifact={artifact} defaultView="chart" />;
+    body = <AssistantChartSection artifact={artifact} headerAction={headerAction} defaultView="chart" />;
   }
 
   return (

@@ -4,12 +4,34 @@ import {
   buildMembershipChart,
   buildDistributionChart,
   prettifyKey,
+  shortMetricLabel,
 } from '../build-movement-chart';
 
 describe('prettifyKey', () => {
   it('humanises snake/camel keys', () => {
     expect(prettifyKey('ltv_total_vnd')).toBe('Ltv total vnd');
     expect(prettifyKey('lifecycleStage')).toBe('Lifecycle Stage');
+  });
+});
+
+describe('shortMetricLabel', () => {
+  it('drops the cube prefix so chip text matches the legend leaf', () => {
+    expect(shortMetricLabel('mf_users.paying_users_30d')).toBe('Paying users 30d');
+    expect(shortMetricLabel('mf_users.ltv_total_vnd')).toBe('Ltv total vnd');
+  });
+  it('passes through unprefixed ids', () => {
+    expect(shortMetricLabel('size')).toBe('Size');
+    expect(shortMetricLabel('member_count')).toBe('Member count');
+  });
+});
+
+describe('buildKpiTrendChart label', () => {
+  it('stores the short (prefix-stripped) metric label as the series value', () => {
+    const a = buildKpiTrendChart('s1', 'KPI', [
+      { metricId: 'mf_users.paying_users_30d', points: [{ ts: 't1', value: 10 }], carryForward: [] },
+      { metricId: 'mf_users.user_count', points: [{ ts: 't1', value: 99 }], carryForward: [] },
+    ]);
+    expect(a.spec.data.map((r) => r.metric)).toEqual(['Paying users 30d', 'User count']);
   });
 });
 

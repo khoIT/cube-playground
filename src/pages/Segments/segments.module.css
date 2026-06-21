@@ -1247,6 +1247,24 @@
   background: var(--bg-muted);
 }
 
+/* State-distribution breakdown tabs — a compact segmented control that lives
+ * INSIDE the chart card header (beside the title), so the dimension picker reads
+ * as the chart's own selector rather than a detached pill bar above the card. */
+.distHeaderControl {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-muted);
+}
+.distHeaderControl .cadenceSegment {
+  min-width: 0;
+  height: 24px;
+  font-size: 11px;
+}
+
 .cadenceSegment {
   min-width: 34px;
   height: 26px;
@@ -1314,8 +1332,12 @@
 .coverWrap {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 2px 0 2px;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  font-family: var(--font-sans);
 }
 .coverHead {
   display: flex;
@@ -1783,16 +1805,43 @@
 }
 
 /* ── Monitor control bar: view grain · range · status pills ──────────── */
-.monitorControlBar {
+/* The "Now" controls split into clearly-separate bordered sections: View grain
+ * (display) and Settings (capture cadence + status) ride one wrapping row; the
+ * capture-coverage strip is the third section below (see .coverWrap). */
+.monitorControlRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+}
+.monitorControlCard {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px 16px;
   padding: 10px 14px;
-  border: 1px solid var(--border-card);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--bg-card);
   font-family: var(--font-sans);
+}
+.monitorControlCardView { flex: 1 1 440px; }
+
+/* Status & controls rail — borderless (no card box). Notices + Settings ride
+ * the top row; the freshness stamp sits on its own row beneath, right-aligned.
+ * flex:0 0 auto so it never claims View grain's width. */
+.monitorStatusRail {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  font-family: var(--font-sans);
+}
+.monitorStatusButtons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .monitorControlGroup {
@@ -1810,17 +1859,6 @@
   white-space: nowrap;
 }
 
-.monitorControlStatus {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-left: auto;
-  /* Anchor the capture-cadence popover to this (right-aligned) group rather than
-     the 28px gear, so it opens flush-right inside the bar and never overflows. */
-  position: relative;
-}
-
 .statusPill {
   border-radius: var(--radius-full);
   padding: 2px 8px;
@@ -1833,9 +1871,41 @@
 .statusPill_info { background: var(--info-soft); color: var(--info-ink); }
 .statusPill_success { background: var(--success-soft); color: var(--success-ink); }
 
-/* Capture-cadence gear — opens the "Track every" popover (a write setting kept
-   out of the chart flow so it stops reading as a second view-grain control). */
-.monitorGear { display: inline-flex; }
+/* Popover anchor — position:relative so each trigger's popover hangs off it. */
+.monitorPopAnchor { display: inline-flex; position: relative; }
+
+/* Notices trigger — a quiet pill button with an inline count chip. */
+.monitorNoticeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.monitorNoticeBtn:hover { background: var(--bg-muted); }
+.monitorNoticeCount {
+  display: grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Settings gear — opens the capture-cadence popover. */
 .monitorGearBtn {
   display: inline-grid;
   place-items: center;
@@ -1848,13 +1918,31 @@
   cursor: pointer;
 }
 .monitorGearBtn:hover { background: var(--bg-muted); }
-.monitorGearPopover {
+
+/* Stacked notice pills inside the Notices popover. */
+.monitorNotices {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.monitorPopoverLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+/* Shared popover for both Notices and Settings — right-aligned to its trigger. */
+.monitorPopover {
   position: absolute;
   top: 36px;
   right: 0;
   z-index: 30;
-  width: 320px;
-  max-width: min(320px, calc(100vw - 48px));
+  width: 340px;
+  max-width: min(340px, calc(100vw - 48px));
   padding: 14px;
   background: var(--bg-card);
   border: 1px solid var(--border-strong);
@@ -1864,10 +1952,11 @@
 }
 /* The shared segmented control doesn't wrap by default; inside the fixed-width
    popover its 8 options must wrap instead of forcing the box wider (overflow). */
-.monitorGearPopover .cadenceSegmented { flex-wrap: wrap; }
-
-/* Row hosting the compact slice ⓘ chip under the KPI tiles. */
-.monitorScopeChipRow { display: flex; }
+.monitorPopover .cadenceSegmented { flex-wrap: wrap; }
+/* The slice banner's chips can hold long predicate text — let them break inside
+   the narrow popover instead of overflowing (the clip seen at the viewport edge). */
+.monitorPopover .sliceScopeBanner { margin: 0; }
+.monitorPopover .sliceScopeChip { white-space: normal; word-break: break-word; }
 
 /* Compact slice caveat — replaces the full-width banner on the Monitor tab. */
 .sliceScopeChipWrap {
@@ -2047,7 +2136,7 @@
 
 .monitorSection {
   background: var(--bg-card);
-  border: 1px solid var(--border-card);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   padding: 16px;
 }
@@ -2058,6 +2147,11 @@
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+/* Collapsed: the header is the section's only child, so its bottom margin
+   becomes dead space below the title. Drop it so the card hugs the header. */
+.monitorSectionHead:last-child {
+  margin-bottom: 0;
 }
 
 .monitorSectionHead h3 {

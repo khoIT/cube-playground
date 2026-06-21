@@ -42,7 +42,7 @@ export function StateDistributionTrendSection({ segmentId, granularity, days, fr
   const artifact = data ? buildDistributionChart(segmentId, 'State distribution', data.rows) : null;
 
   const control = (
-    <div className={styles.cadenceSegmented} role="radiogroup" aria-label="Distribution dimension">
+    <div className={styles.distHeaderControl} role="radiogroup" aria-label="Distribution dimension">
       {DIMENSIONS.map((d) => {
         const selected = d.key === dimension;
         return (
@@ -71,7 +71,7 @@ export function StateDistributionTrendSection({ segmentId, granularity, days, fr
       stale={data?.stale}
       cadenceChanges={data?.cadenceChanges}
       carryForward={data?.carryForward}
-      control={control}
+      headerAction={control}
       emptyHint={
         data?.redacted
           ? 'This dimension is restricted — sign in to view its distribution.'
