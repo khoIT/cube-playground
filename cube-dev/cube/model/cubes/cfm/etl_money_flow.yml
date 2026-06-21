@@ -529,14 +529,19 @@ cubes:
           - reason_base_label
         time_dimension: log_date
         granularity: day
-        partition_granularity: month
+        # Year partitions, not month: on the local prod-mode stack the scheduled
+        # refresh only seals the partition holding build_range_end, so monthly
+        # partitions left every mature month empty — and an empty in-range
+        # partition returns 0 rows (masking real source data) instead of falling
+        # through to the union lambda. A single year partition over the 120-day
+        # window collapses all data months into the end-of-range partition that
+        # always builds, so the rollup serves every in-window date.
+        partition_granularity: year
         refresh_key:
           every: 6 hours
           incremental: true
-        # Rolling 120-day build window with monthly partitions: only recent
-        # months materialize to CubeStore (matches recent-skewed demand and
-        # survives source blips since each month seals independently); older
-        # dates fall through to source via the union lambda.
+        # Rolling 120-day build window; older dates fall through to source via
+        # the union lambda.
         build_range_start:
           sql: "SELECT date_add('day', -120, current_timestamp)"
         build_range_end:
@@ -568,7 +573,9 @@ cubes:
           - reason_base_label
         time_dimension: dteventtime
         granularity: day
-        partition_granularity: month
+        # Year partitions — see money_flow_summary_batch above for why monthly
+        # partitions left mature months empty and masked source on this stack.
+        partition_granularity: year
         refresh_key:
           every: 6 hours
           incremental: true
