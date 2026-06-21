@@ -24,11 +24,55 @@ import {
   getActiveAnthropicKey,
   reportKeyBalanceExhausted,
   isBalanceExhaustedError,
+  balanceErrorTextOf,
+  isFailureResultMessage,
   anthropicKeyCount,
   anthropicAuthEnvFor,
   keyFailoverStatus,
   __resetKeyFailoverForTests,
 } from '../src/core/anthropic-key-failover.js';
+
+describe('isFailureResultMessage / balanceErrorTextOf (shared detector)', () => {
+  const balanceText =
+    'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade.';
+
+  it('classifies the LIVE gateway balance shape (subtype:success + is_error:true) as a failure', () => {
+    // The exact regression: the gateway 400 reports subtype 'success' WITH
+    // is_error true. A subtype-only discriminator misses this entirely.
+    const m = { type: 'result', subtype: 'success', is_error: true, api_error_status: 400, result: balanceText };
+    expect(isFailureResultMessage(m)).toBe(true);
+    expect(balanceErrorTextOf(m)).toBe(balanceText);
+  });
+
+  it('classifies a non-success subtype as a failure too', () => {
+    const m = { type: 'result', subtype: 'error_during_execution', is_error: false, result: balanceText };
+    expect(isFailureResultMessage(m)).toBe(true);
+    expect(balanceErrorTextOf(m)).toBe(balanceText);
+  });
+
+  it('does NOT treat a clean success as a failure or balance error', () => {
+    const m = { type: 'result', subtype: 'success', is_error: false, result: 'Here is your answer.' };
+    expect(isFailureResultMessage(m)).toBe(false);
+    expect(balanceErrorTextOf(m)).toBeNull();
+  });
+
+  it('returns null for a success-subtype+is_error message whose text is NOT a balance error', () => {
+    const m = { type: 'result', subtype: 'success', is_error: true, result: 'some other 500 error' };
+    expect(isFailureResultMessage(m)).toBe(true);
+    expect(balanceErrorTextOf(m)).toBeNull();
+  });
+
+  it('catches the assistant-first echo shape (short balance text), capped at 300 chars', () => {
+    const echo = { type: 'assistant', message: { content: [{ type: 'text', text: 'Credit balance is too low' }] } };
+    expect(balanceErrorTextOf(echo)).toBe('Credit balance is too low');
+    // A long genuine answer that merely mentions the phrase is NOT matched.
+    const long = {
+      type: 'assistant',
+      message: { content: [{ type: 'text', text: 'x'.repeat(280) + ' credit balance is too low ' + 'y'.repeat(40) }] },
+    };
+    expect(balanceErrorTextOf(long)).toBeNull();
+  });
+});
 
 describe('isBalanceExhaustedError', () => {
   it('matches the live gateway low-balance error (Anthropic upstream via LiteLLM)', () => {

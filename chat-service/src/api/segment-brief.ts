@@ -19,7 +19,7 @@ import { buildInternalSecretGate, type InternalSecretGateOptions } from '../midd
 import {
   getActiveAnthropicKey,
   reportKeyBalanceExhausted,
-  isBalanceExhaustedError,
+  balanceErrorTextOf,
   anthropicAuthEnvFor,
 } from '../core/anthropic-key-failover.js';
 import { proxyEnvForChild } from '../core/claude-runner.js';
@@ -59,11 +59,14 @@ async function defaultCallLlm(prompt: string): Promise<string> {
   })) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const m = msg as any;
+    // Canonical detector: the gateway balance 400 arrives as subtype:'success' +
+    // is_error:true, so a subtype-only check misses it — the drained key would
+    // never be reported and the outage would be mis-attributed downstream.
+    if (balanceErrorTextOf(m)) {
+      reportKeyBalanceExhausted(activeKey.key, config.briefModel);
+      throw new Error('llm_balance_exhausted');
+    }
     if (m.type === 'result') {
-      if (m.subtype && m.subtype !== 'success' && isBalanceExhaustedError(m.result ?? '')) {
-        reportKeyBalanceExhausted(activeKey.key, config.briefModel);
-        throw new Error('llm_balance_exhausted');
-      }
       result = m.result ?? '';
     }
   }

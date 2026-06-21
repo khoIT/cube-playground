@@ -76,6 +76,50 @@ export function isBalanceExhaustedError(message: string | null | undefined): boo
   return BALANCE_EXHAUSTED_SIGNALS.some((s) => h.includes(s));
 }
 
+/**
+ * True when an SDK `result` message represents a failure.
+ *
+ * The live LiteLLM gateway reports a balance 400 with `subtype: "success"` but
+ * `is_error: true, api_error_status: 400` — so the error FLAG, not just a
+ * non-success subtype, is the discriminator. A discriminator that checks only
+ * `subtype` misses the gateway balance shape entirely.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function isFailureResultMessage(msg: any): boolean {
+  return msg?.is_error === true || (!!msg?.subtype && msg.subtype !== 'success');
+}
+
+/**
+ * Extract balance-exhaustion error text from an SDK message, or null. The single
+ * canonical detector shared by the main runner and every peripheral one-shot
+ * call (salvage, title, segment-brief) so the discriminator can never drift.
+ *
+ * Two shapes carry it (verified live against the LiteLLM gateway):
+ *   - a `result` message — see isFailureResultMessage for the subtype/is_error note;
+ *   - an `assistant` message the CLI emits FIRST (model `<synthetic>`), whose only
+ *     content is the short error echo — capped at 300 chars so a genuine long
+ *     answer that merely mentions the phrase is never matched.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function balanceErrorTextOf(msg: any): string | null {
+  if (msg?.type === 'result') {
+    if (!isFailureResultMessage(msg)) return null;
+    const text = typeof msg.result === 'string' ? msg.result : '';
+    return isBalanceExhaustedError(text) ? text : null;
+  }
+  if (msg?.type === 'assistant') {
+    const blocks = Array.isArray(msg.message?.content) ? msg.message.content : [];
+    const text = blocks
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .filter((b: any) => b?.type === 'text')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((b: any) => b.text ?? '')
+      .join('');
+    return text.length > 0 && text.length <= 300 && isBalanceExhaustedError(text) ? text : null;
+  }
+  return null;
+}
+
 // Lazily built so test mocks of config.js are honoured per-suite.
 let slots: KeySlot[] | null = null;
 

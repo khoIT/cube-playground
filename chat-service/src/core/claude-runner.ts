@@ -19,6 +19,7 @@ import {
   getActiveAnthropicKey,
   reportKeyBalanceExhausted,
   isBalanceExhaustedError,
+  balanceErrorTextOf,
   anthropicKeyCount,
   anthropicAuthEnvFor,
 } from './anthropic-key-failover.js';
@@ -80,39 +81,6 @@ export function proxyEnvForChild(): Record<string, string> {
     if (v) out[k] = v;
   }
   return out;
-}
-
-/**
- * Extract balance-exhaustion error text from an SDK message, or null.
- *
- * Two shapes carry it (verified live against the LiteLLM gateway):
- *   - `result` message — NOTE the CLI reports this failure with
- *     `subtype: "success"` but `is_error: true, api_error_status: 400`, so the
- *     error flag (or a non-success subtype) is the discriminator, NOT subtype;
- *   - an `assistant` message the CLI emits FIRST (model `<synthetic>`), whose
- *     only content is the short error echo ("Credit balance is too low") —
- *     capped at 300 chars so a genuine long answer that merely mentions the
- *     phrase is never matched.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function balanceErrorTextOf(msg: any): string | null {
-  if (msg?.type === 'result') {
-    const isError = msg.is_error === true || (msg.subtype && msg.subtype !== 'success');
-    if (!isError) return null;
-    const text = typeof msg.result === 'string' ? msg.result : '';
-    return isBalanceExhaustedError(text) ? text : null;
-  }
-  if (msg?.type === 'assistant') {
-    const blocks = Array.isArray(msg.message?.content) ? msg.message.content : [];
-    const text = blocks
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((b: any) => b?.type === 'text')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((b: any) => b.text ?? '')
-      .join('');
-    return text.length > 0 && text.length <= 300 && isBalanceExhaustedError(text) ? text : null;
-  }
-  return null;
 }
 
 // ---------------------------------------------------------------------------

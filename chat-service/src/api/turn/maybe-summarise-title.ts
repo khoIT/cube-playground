@@ -13,7 +13,8 @@ import { config } from '../../config.js';
 import {
   getActiveAnthropicKey,
   reportKeyBalanceExhausted,
-  isBalanceExhaustedError,
+  balanceErrorTextOf,
+  isFailureResultMessage,
   anthropicAuthEnvFor,
 } from '../../core/anthropic-key-failover.js';
 import { proxyEnvForChild } from '../../core/claude-runner.js';
@@ -78,11 +79,15 @@ export function maybeSummariseTitle(args: Args): void {
           })) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const m = msg as any;
+            // Canonical detector (handles the gateway subtype:'success'+is_error
+            // balance shape). On any failure return empty so the raw error string
+            // is never written as the session title.
+            if (balanceErrorTextOf(m)) {
+              reportKeyBalanceExhausted(activeKey.key, config.titleModel);
+              return ''; // empty title → caller skips the update
+            }
             if (m.type === 'result') {
-              if (m.subtype && m.subtype !== 'success' && isBalanceExhaustedError(m.result ?? '')) {
-                reportKeyBalanceExhausted(activeKey.key, config.titleModel);
-                return ''; // empty title → caller skips the update
-              }
+              if (isFailureResultMessage(m)) return '';
               result = m.result ?? '';
             }
           }

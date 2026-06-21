@@ -17,7 +17,8 @@ import { config } from '../../config.js';
 import {
   getActiveAnthropicKey,
   reportKeyBalanceExhausted,
-  isBalanceExhaustedError,
+  balanceErrorTextOf,
+  isFailureResultMessage,
   anthropicAuthEnvFor,
 } from '../../core/anthropic-key-failover.js';
 import { proxyEnvForChild } from '../../core/claude-runner.js';
@@ -115,13 +116,19 @@ function defaultDeps(model: string): SalvageDeps {
       })) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const m = msg as any;
+        // Balance/budget drain can arrive as a result message OR an assistant-first
+        // echo, and the gateway 400 carries subtype:'success' + is_error:true — so
+        // use the canonical detector, not a subtype-only check, or the drain is
+        // missed (dead key stays active) and the raw error text leaks as the answer.
+        const balanceText = balanceErrorTextOf(m);
+        if (balanceText) {
+          reportKeyBalanceExhausted(activeKey.key, model);
+          return ''; // empty → caller falls back to the deterministic notice
+        }
         if (m.type === 'result') {
-          if (m.subtype && m.subtype !== 'success') {
-            if (isBalanceExhaustedError(m.result ?? '')) {
-              reportKeyBalanceExhausted(activeKey.key, model);
-            }
-            return ''; // empty → caller falls back to the deterministic notice
-          }
+          // Any other failure: return empty so the error string is never persisted
+          // as the salvaged answer; caller uses the deterministic timeout notice.
+          if (isFailureResultMessage(m)) return '';
           result = m.result ?? '';
         }
       }
