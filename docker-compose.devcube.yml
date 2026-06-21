@@ -43,6 +43,11 @@ services:
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
       CUBEJS_CUBESTORE_HOST: cubestore_dev
       CUBEJS_CUBESTORE_PORT: "3030"
+      # Raise Node's heap ceiling (default ~2GB). Compiling the large multi-game
+      # model + serializing the ~34MB /v1/meta spikes memory; the default heap
+      # OOMs → restart → recompile loop (the 503 hang). Container/host (colima VM)
+      # RAM must be >= this, else Docker OOM-kills before V8 hits the ceiling.
+      NODE_OPTIONS: "--max-old-space-size=4096"
       # Hard OFF on the serving instance (event-loop wedge risk). Rollups are
       # built by cube_refresh_worker_dev below; pinned literal so an env value
       # meant for the worker can never flip this instance.
@@ -104,6 +109,11 @@ services:
       CUBEJS_API_SECRET: ${CUBEJS_API_SECRET:-}
       CUBEJS_CUBESTORE_HOST: cubestore_dev
       CUBEJS_CUBESTORE_PORT: "3030"
+      # Raise Node's heap ceiling well above the API: this worker compiles the
+      # full model AND builds every game's rollups standalone (games × rollups ×
+      # partitions), the heaviest memory consumer in the stack. Container/host
+      # (colima VM) RAM must be >= this, else Docker OOM-kills before V8's limit.
+      NODE_OPTIONS: "--max-old-space-size=8192"
       # Keep the laptop→Trino backfill gentle (games × rollups × ~29 partitions).
       CUBEJS_REFRESH_WORKER_CONCURRENCY: ${CUBEJS_REFRESH_WORKER_CONCURRENCY:-2}
       # THIS is the refresh worker, sweeping hourly (a full all-games sweep is a
