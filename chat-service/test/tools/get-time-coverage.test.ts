@@ -80,15 +80,42 @@ describe('get_time_coverage tool', () => {
     expect(body.query.order).toEqual({ [MEMBER]: 'desc' });
   });
 
-  it('reports not-found after exhausting maxWindows', async () => {
-    const fetchSpy = mockLoadSequence([null, null]);
+  it('reports not-found after exhausting maxWindows (rollup AND source both empty)', async () => {
+    // 2 empty rollup windows + 2 empty source-confirm windows = genuinely no data.
+    const fetchSpy = mockLoadSequence([null, null, null, null]);
     const out = (await handler({ member: MEMBER, maxWindows: 2 }, ctx)) as {
       found: boolean; probedWindows: number; note?: string;
     };
     expect(out.found).toBe(false);
-    expect(out.probedWindows).toBe(2);
     expect(out.note).toMatch(/no data/i);
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    // Rollup walk (2) THEN a source-confirm walk (2) before declaring absence.
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it('confirms against source when the rollup walk finds nothing (dormant-rollup masking)', async () => {
+    // Rollup walk: both windows empty (unbuilt/dormant rollup partition).
+    // Source-confirm walk: window 1 still empty (data older than 31d), window 2
+    // returns the real latest date the empty rollup was masking.
+    const fetchSpy = mockLoadSequence([null, null, null, '2026-05-15']);
+    const out = (await handler({ member: MEMBER, maxWindows: 2 }, ctx)) as {
+      found: boolean; latestDate: string; viaSource?: boolean; rollupDormant?: boolean; note?: string;
+    };
+    expect(out.found).toBe(true);
+    expect(out.latestDate).toBe('2026-05-15');
+    expect(out.viaSource).toBe(true);
+    expect(out.rollupDormant).toBe(true);
+    expect(out.note).toMatch(/pre-aggregation|rollup/i);
+  });
+
+  it('source-confirm probe uses hour granularity to bypass a day-grained rollup', async () => {
+    const fetchSpy = mockLoadSequence([null, '2026-05-15']);
+    await handler({ member: MEMBER, maxWindows: 1 }, ctx);
+    // Call 1 = rollup walk; call 2 = source-confirm, which forces hour granularity
+    // (no day-grained rollup can serve hour) so an empty rollup can't mask source.
+    const rollupBody = JSON.parse((fetchSpy.mock.calls[0] as unknown as [string, { body: string }])[1].body);
+    const sourceBody = JSON.parse((fetchSpy.mock.calls[1] as unknown as [string, { body: string }])[1].body);
+    expect(rollupBody.query.timeDimensions[0].granularity).not.toBe('hour');
+    expect(sourceBody.query.timeDimensions[0].granularity).toBe('hour');
   });
 
   it('rejects a measure without querying Cube', async () => {

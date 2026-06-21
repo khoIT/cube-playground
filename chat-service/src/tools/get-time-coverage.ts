@@ -116,110 +116,157 @@ export async function handler(
   const probeMeasure = pickAdditiveMeasure(meta, args.member);
   const deadline = Date.now() + TOTAL_BUDGET_MS;
 
-  for (let i = 0; i < maxWindows; i++) {
-    // Stop before a probe that can't finish inside the remaining budget rather
-    // than risk overshooting it; report what we covered so the agent proceeds.
-    const remaining = deadline - Date.now();
-    if (remaining <= 0) {
-      return {
-        member: args.member,
-        found: false,
-        probedWindows: i,
-        timedOut: true,
-        note:
-          `Coverage probing hit its ${TOTAL_BUDGET_MS / 1000}s budget after ${i} window(s) on a ` +
-          'cold/slow backend. Proceed with the user\'s requested range and disclose that data ' +
-          'freshness could not be confirmed; do not re-probe.',
-      };
-    }
-    // Window i: [today - (i+1)*31 + 1 day, today - i*31] — contiguous,
-    // non-overlapping, each exactly 31 days so per-window bound guards pass.
-    const end = daysAgo(today, i * WINDOW_DAYS);
-    const start = daysAgo(end, WINDOW_DAYS - 1);
-    const dateRange: [string, string] = [fmtDate(start), fmtDate(end)];
+  /** Outcome of one backward window walk. */
+  type WalkResult =
+    | { kind: 'found'; latestDate: string; probedWindows: number; searchedBack: string }
+    | { kind: 'empty'; probedWindows: number; searchedBack: string }
+    | { kind: 'timedOut'; probedWindows: number; lastWindow: [string, string] };
 
-    // Order desc + limit 1 → the single returned row carries the max date
-    // within the window. With a rollup-eligible measure we add day granularity
-    // (rollups are keyed by their granularity); the time dim is still returned
-    // under its bare ref so row[args.member] resolves either way.
-    const query = probeMeasure
-      ? {
-          measures: [probeMeasure],
-          timeDimensions: [{ dimension: args.member, granularity: 'day', dateRange }],
-          order: { [args.member]: 'desc' },
-          limit: 1,
+  /**
+   * Walk windows back from today looking for the latest non-empty one. When
+   * `forceSource` is set, probes carry HOUR granularity: no day-grained rollup
+   * can serve an hour query, so the probe hits the raw source. That is what lets
+   * us distinguish "genuinely no data" from "an empty/dormant rollup is masking
+   * real source rows" — the day-granularity walk would see 0 either way.
+   */
+  async function walkWindows(forceSource: boolean): Promise<WalkResult> {
+    let lastWindow: [string, string] = [fmtDate(today), fmtDate(today)];
+    for (let i = 0; i < maxWindows; i++) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return { kind: 'timedOut', probedWindows: i, lastWindow };
+      // Window i: [today - (i+1)*31 + 1 day, today - i*31] — contiguous,
+      // non-overlapping, each exactly 31 days so per-window bound guards pass.
+      const end = daysAgo(today, i * WINDOW_DAYS);
+      const start = daysAgo(end, WINDOW_DAYS - 1);
+      const dateRange: [string, string] = [fmtDate(start), fmtDate(end)];
+      lastWindow = dateRange;
+
+      // Order desc + limit 1 → the single returned row carries the max date
+      // within the window. The time dim is returned under its bare ref so
+      // row[args.member] resolves whether or not a granularity is attached.
+      const granularity = forceSource ? 'hour' : 'day';
+      const query = probeMeasure
+        ? {
+            measures: [probeMeasure],
+            timeDimensions: [{ dimension: args.member, granularity, dateRange }],
+            order: { [args.member]: 'desc' },
+            limit: 1,
+          }
+        : {
+            dimensions: [args.member],
+            timeDimensions: [
+              forceSource
+                ? { dimension: args.member, granularity, dateRange }
+                : { dimension: args.member, dateRange },
+            ],
+            order: { [args.member]: 'desc' },
+            limit: 1,
+          };
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), Math.min(PROBE_TIMEOUT_MS, remaining));
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-Cube-Workspace': ctx.workspace,
+            'X-Cube-Game': ctx.gameId,
+          },
+          body: JSON.stringify({ query }),
+          signal: ctrl.signal,
+        });
+      } catch (err) {
+        // Timed-out (aborted) probe on a cold backend. Probing further windows
+        // would hit the same cold path, so bail rather than chaining slow scans.
+        if (err instanceof Error && err.name === 'AbortError') {
+          return { kind: 'timedOut', probedWindows: i + 1, lastWindow: dateRange };
         }
-      : {
-          dimensions: [args.member],
-          timeDimensions: [{ dimension: args.member, dateRange }],
-          order: { [args.member]: 'desc' },
-          limit: 1,
-        };
-
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), Math.min(PROBE_TIMEOUT_MS, remaining));
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'X-Cube-Workspace': ctx.workspace,
-          'X-Cube-Game': ctx.gameId,
-        },
-        body: JSON.stringify({ query }),
-        signal: ctrl.signal,
-      });
-    } catch (err) {
-      // Timed-out (aborted) probe on a cold backend. Probing further windows
-      // would hit the same cold path, so bail with an actionable result rather
-      // than chaining 6 slow scans into the turn budget.
-      if (err instanceof Error && err.name === 'AbortError') {
-        return {
-          member: args.member,
-          found: false,
-          probedWindows: i + 1,
-          timedOut: true,
-          note:
-            `Coverage probe timed out on a cold/slow backend (window ${dateRange[0]}..${dateRange[1]}). ` +
-            "Proceed with the user's requested range and disclose that data freshness could not be " +
-            'confirmed; do not re-probe.',
-        };
+        throw err;
+      } finally {
+        clearTimeout(timer);
       }
-      throw err;
-    } finally {
-      clearTimeout(timer);
-    }
 
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      throw new Error(`Cube /load failed: ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
-    }
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Cube /load failed: ${res.status} ${res.statusText} — ${body.slice(0, 200)}`);
+      }
 
-    const data = (await res.json()) as { data?: Record<string, string | number>[] };
-    const row = data?.data?.[0];
-    const raw = row?.[args.member];
-    if (raw !== null && raw !== undefined) {
-      return {
-        member: args.member,
-        found: true,
+      const data = (await res.json()) as { data?: Record<string, string | number>[] };
+      const raw = data?.data?.[0]?.[args.member];
+      if (raw !== null && raw !== undefined) {
         // Cube returns time values as ISO timestamps — trim to the date part.
-        latestDate: String(raw).slice(0, 10),
-        probedWindows: i + 1,
-        searchedBack: dateRange[0],
-      };
+        return { kind: 'found', latestDate: String(raw).slice(0, 10), probedWindows: i + 1, searchedBack: dateRange[0] };
+      }
     }
+    return { kind: 'empty', probedWindows: maxWindows, searchedBack: fmtDate(daysAgo(today, maxWindows * WINDOW_DAYS - 1)) };
   }
 
-  const oldestStart = fmtDate(daysAgo(today, maxWindows * WINDOW_DAYS - 1));
+  const timedOutResult = (probedWindows: number, window?: [string, string]) => ({
+    member: args.member,
+    found: false,
+    probedWindows,
+    timedOut: true,
+    note:
+      `Coverage probing timed out (hit its ${TOTAL_BUDGET_MS / 1000}s budget` +
+      (window ? ` at window ${window[0]}..${window[1]}` : ` after ${probedWindows} window(s)`) +
+      ") on a cold/slow backend. Proceed with the user's requested range and disclose that data " +
+      'freshness could not be confirmed; do not re-probe.',
+  });
+
+  // First pass: fast, rollup-routed (day granularity). Found or timed out → done.
+  const rollup = await walkWindows(false);
+  if (rollup.kind === 'found') {
+    return { member: args.member, found: true, latestDate: rollup.latestDate, probedWindows: rollup.probedWindows, searchedBack: rollup.searchedBack };
+  }
+  if (rollup.kind === 'timedOut') {
+    return timedOutResult(rollup.probedWindows, rollup.lastWindow);
+  }
+
+  // The rollup walk saw nothing — but an empty/unbuilt pre-aggregation returns 0
+  // rows for an in-range window just like genuinely-absent data. Confirm against
+  // raw source (hour granularity bypasses the rollup) before declaring absence,
+  // so chat can't report a confident "no data" while the source holds real rows.
+  const source = await walkWindows(true);
+  if (source.kind === 'found') {
+    return {
+      member: args.member,
+      found: true,
+      latestDate: source.latestDate,
+      probedWindows: rollup.probedWindows + source.probedWindows,
+      searchedBack: source.searchedBack,
+      viaSource: true,
+      rollupDormant: true,
+      note:
+        `The pre-aggregation returned no rows, but raw source has data through ${source.latestDate} — ` +
+        'the rollup is unbuilt/dormant. Re-anchor to that date and serve from source; do NOT report ' +
+        "'no data'. The pre-aggregation should be rebuilt.",
+    };
+  }
+  if (source.kind === 'timedOut') {
+    // Couldn't confirm against source on a cold backend — still must not assert
+    // absence (the rollup miss is unconfirmed).
+    return {
+      member: args.member,
+      found: false,
+      probedWindows: rollup.probedWindows + source.probedWindows,
+      timedOut: true,
+      note:
+        'The pre-aggregation returned no rows and the source confirmation timed out on a cold backend, ' +
+        "so absence is UNCONFIRMED. Disclose that data freshness could not be verified; do NOT report 'no data'.",
+    };
+  }
+
   return {
     member: args.member,
     found: false,
-    probedWindows: maxWindows,
-    searchedBack: oldestStart,
+    probedWindows: rollup.probedWindows + source.probedWindows,
+    searchedBack: source.searchedBack,
     note:
-      `No data between ${oldestStart} and today. The cube may be empty for this game, ` +
-      'or the data is older — retry with a larger maxWindows if the user asked about an older period.',
+      `No data between ${source.searchedBack} and today, confirmed against raw source (not just the ` +
+      'rollup). The cube may be empty for this game, or the data is older — retry with a larger ' +
+      'maxWindows if the user asked about an older period.',
   };
 }
