@@ -722,6 +722,10 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
           members: page,
           next_cursor: start + limit < profiles.rows.length ? String(start + limit) : null,
         },
+        // Strip monetization/CS/VIP columns for unauthenticated callers. NOTE: under
+        // AUTH_DISABLED (local + the VPN-gated playground) every request resolves to
+        // the bootstrap admin, so this gate is open there by design — those
+        // deployments are trusted admin contexts where the operator sees full data.
         Boolean(req.user),
       );
     }
