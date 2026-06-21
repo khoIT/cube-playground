@@ -140,13 +140,34 @@ async function main(): Promise<void> {
   console.log(`[runner] ${GAME} | ${cases.length} cases | ${CHAT_BASE} | ws=${WORKSPACE}`);
   await setSubscriptionLane();
 
+  // Pace between turns; a sustained back-to-back batch trips the subscription
+  // session cap. PACE_MS gives the lane breathing room (default 2s).
+  const PACE_MS = process.env['PACE_MS'] ? Number(process.env['PACE_MS']) : 2000;
+  const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
+  // Detecting the session/usage cap mid-batch means every remaining turn is
+  // doomed — abort fast rather than burn 80 garbage attempts.
+  const isCapHit = (r: AqResult) =>
+    /session limit|usage limit|rate.?limit/i.test(r.errorDetail ?? '');
+
   const results: AqResult[] = [];
-  for (const c of cases) {
-    const r = await runCase(c);
+  for (let i = 0; i < cases.length; i++) {
+    const c = cases[i]!;
+    let r = await runCase(c);
+    // Retry once on a transient transport failure (timeout / conn reset).
+    if (r.status === 'http-error' && (r.httpStatus === 408 || r.httpStatus === 0)) {
+      await sleep(PACE_MS);
+      r = await runCase(c);
+    }
     results.push(r);
     const ok = r.status === 'ok' ? '✓' : '✗';
     const hit = r.expectedRef ? (r.resolvedRef === r.expectedRef ? '=' : '≠') : '·';
     console.log(`  ${ok} [${r.curationGroup}] "${c.question.slice(0, 44)}" ${hit} ${r.resolvedRef ?? '(none)'}${r.nonEmpty ? ' rows' : ''}`);
+    if (isCapHit(r)) {
+      console.error(`\n[runner] ABORT — auth lane cap hit: "${r.errorDetail}". ` +
+        `Ran ${results.length}/${cases.length}. Resume after the cap resets.`);
+      break;
+    }
+    if (i < cases.length - 1) await sleep(PACE_MS);
   }
 
   const out = process.env['SNAPSHOT_OUT']
