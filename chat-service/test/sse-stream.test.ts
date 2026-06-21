@@ -161,4 +161,28 @@ describe('writeSseEvent', () => {
     expect(output).toContain('"name":"get_cube_meta"');
     expect(output.endsWith('\n\n')).toBe(true);
   });
+
+  it('no-ops on a destroyed stream (client disconnected)', () => {
+    // After a client disconnect the turn keeps running for replay, but writing
+    // to the dead socket is wasted and can raise an unhandled stream 'error'.
+    const stream = new PassThrough();
+    let errored = false;
+    stream.on('error', () => {
+      errored = true;
+    });
+    stream.destroy();
+
+    expect(() => writeSseEvent(stream, { type: 'token', data: { delta: 'hi' } })).not.toThrow();
+    expect(errored).toBe(false); // no write attempted on the destroyed socket
+  });
+
+  it('no-ops after the stream has ended', () => {
+    const stream = new PassThrough();
+    const chunks: string[] = [];
+    stream.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+    stream.end();
+
+    writeSseEvent(stream, { type: 'token', data: { delta: 'late' } });
+    expect(chunks.join('')).not.toContain('late');
+  });
 });

@@ -182,8 +182,15 @@ export function mapSdkMessage(msg: SdkMessage): SseEvent[] {
 /**
  * Write a single SseEvent to a Node Writable stream in the SSE wire format:
  *   event: <type>\ndata: <json>\n\n
+ *
+ * No-op once the socket is gone (client disconnected / response ended). The
+ * turn deliberately keeps running so a refreshed client can replay from the
+ * registry's ring buffer — but writing to a destroyed socket is wasted work and
+ * can surface an unhandled 'error' on the response stream. Callers still mirror
+ * the event into the registry before calling this, so replay is unaffected.
  */
 export function writeSseEvent(stream: Writable, event: SseEvent): void {
+  if (stream.destroyed || stream.writableEnded) return;
   const line = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
   stream.write(line);
 }

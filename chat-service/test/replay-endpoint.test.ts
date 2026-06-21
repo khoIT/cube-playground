@@ -172,6 +172,24 @@ describe('replay endpoint', () => {
     expect(body.availableFromOffset).toBe(50);
   });
 
+  it('400 on a negative or non-integer from offset (not a silent coerce)', async () => {
+    const session = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'ptg' });
+    const reg = getStreamRegistry();
+    reg.register('t-bad', session.id);
+    reg.append('t-bad', { type: 'token', data: { delta: 'A' } });
+    reg.finish('t-bad', 'done');
+
+    for (const bad of ['-5', '1.5', 'abc']) {
+      const res = await fastify.inject({
+        method: 'GET',
+        url: `/agent/turn/t-bad/stream?from=${bad}`,
+        headers: { 'x-owner-id': 'owner-a' },
+      });
+      expect(res.statusCode).toBe(400);
+      expect((JSON.parse(res.body) as { code: string }).code).toBe('bad_offset');
+    }
+  });
+
   it('compact alias: refresh against pre-compact sessionId still finds the turn', async () => {
     const oldSess = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'ptg' });
     const newSess = chatStore.createSession(db, { ownerId: 'owner-a', gameId: 'ptg' });

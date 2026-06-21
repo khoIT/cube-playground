@@ -14,6 +14,7 @@ export function getStreamRegistry(): StreamRegistry {
       maxTurns: config.streamRegistryMaxTurns,
       ttlMs: config.streamRegistryTtlMs,
       sweepIntervalMs: config.streamRegistrySweepIntervalMs,
+      maxRunningMs: config.streamRegistryMaxRunningMs,
     });
   }
   return instance;

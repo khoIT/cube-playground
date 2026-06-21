@@ -818,6 +818,27 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       timer.flush(fastify.log, 'finish');
       registry.finish(turnId, 'done');
     } catch (err) {
+      // An abort (cancel / timeout / client disconnect) can surface as a thrown
+      // AbortError from the SDK rather than ending the runner loop gracefully.
+      // Treat it as the abort path — emit turn_aborted with the real reason and
+      // a clean done — instead of misclassifying it as an LLM/connectivity error
+      // (which showed the user a spurious "check your VPN/key" banner). The
+      // finally below still runs on return, so timers/mutex/stream are cleaned.
+      if (controller.signal.aborted) {
+        const entry = registry.get(turnId);
+        emit({
+          type: 'turn_aborted',
+          data: {
+            reason: entry?.abortReason ?? 'server_error',
+            message:
+              typeof controller.signal.reason === 'string' ? controller.signal.reason : undefined,
+          },
+        });
+        emit({ type: 'done', data: {} });
+        timer.flush(fastify.log, 'aborted');
+        registry.finish(turnId, 'done');
+        return;
+      }
       const message = err instanceof Error ? err.message : String(err);
       // Classify into an actionable category so the FE banner can tell the user
       // where to fix (VPN / key / connectivity) and the audit row is triageable.

@@ -184,7 +184,7 @@ describe('stream-registry — TTL eviction', () => {
     expect(reg.get('t1')).toBeUndefined();
   });
 
-  it('running entries are NOT evicted by the sweeper', async () => {
+  it('running entries are NOT evicted by the sweeper (within maxRunningMs)', async () => {
     reg = createStreamRegistry({
       ringSize: 10,
       maxTurns: 10,
@@ -194,5 +194,70 @@ describe('stream-registry — TTL eviction', () => {
     reg.register('t1', 'sess-1');
     await new Promise((r) => setTimeout(r, 30));
     expect(reg.get('t1')).toBeDefined();
+  });
+});
+
+describe('stream-registry — leaked running-entry reaper', () => {
+  it('reaps a never-finished running entry past maxRunningMs and frees the cap', async () => {
+    // A turn that throws before its streaming finally can call finish() stays
+    // 'running' forever — without the reaper it counts against the cap for good.
+    reg = createStreamRegistry({
+      ringSize: 10,
+      maxTurns: 2,
+      ttlMs: 60_000,
+      sweepIntervalMs: 5,
+      maxRunningMs: 10,
+    });
+    reg.register('leaked', 'sess-leaked'); // simulated leak: never finished
+    await new Promise((r) => setTimeout(r, 40)); // > maxRunningMs + a sweep
+
+    expect(reg.get('leaked')).toBeUndefined(); // reaped
+    // Cap is no longer wedged — two fresh turns register without overflow.
+    expect(() => {
+      reg!.register('t2', 'sess-2');
+      reg!.register('t3', 'sess-3');
+    }).not.toThrow();
+  });
+});
+
+describe('stream-registry — alias survives a sibling turn (R28)', () => {
+  it('keeps a compact alias still needed by another live turn on the same session', async () => {
+    reg = createStreamRegistry({
+      ringSize: 10,
+      maxTurns: 10,
+      ttlMs: 10,
+      sweepIntervalMs: 5,
+      maxRunningMs: 60_000,
+    });
+    // A client still holding the pre-compact id resolves via this alias.
+    reg.aliasSession('sess-old', 'sess-new');
+    reg.register('t1', 'sess-new'); // first turn (will finish + be swept)
+    reg.register('t2', 'sess-new'); // sibling turn, still live on the same session
+    reg.finish('t1', 'done');
+
+    await new Promise((r) => setTimeout(r, 40)); // t1 evicted past ttl, t2 stays
+
+    expect(reg.get('t1')).toBeUndefined();
+    // The alias must NOT have been collateral-deleted: a client on the old id
+    // still resolves to the live sibling turn.
+    expect(reg.findRunning('sess-old')?.turnId).toBe('t2');
+  });
+
+  it('drops a fully orphaned alias once no entry references it', async () => {
+    reg = createStreamRegistry({
+      ringSize: 10,
+      maxTurns: 10,
+      ttlMs: 10,
+      sweepIntervalMs: 5,
+      maxRunningMs: 60_000,
+    });
+    reg.aliasSession('sess-old', 'sess-new');
+    reg.register('t1', 'sess-new');
+    reg.finish('t1', 'done');
+
+    await new Promise((r) => setTimeout(r, 40)); // t1 evicted; nothing left on sess-new
+
+    expect(reg.get('t1')).toBeUndefined();
+    expect(reg.findRunning('sess-old')).toBeUndefined(); // orphan alias pruned
   });
 });

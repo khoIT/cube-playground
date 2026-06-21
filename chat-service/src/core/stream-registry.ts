@@ -53,7 +53,16 @@ export interface StreamRegistryConfig {
   maxTurns: number;
   ttlMs: number;
   sweepIntervalMs: number;
+  /**
+   * Max age (ms) a 'running' entry may live before the sweeper reaps it as a
+   * leak. Optional so hermetic tests can omit it; defaults generously so it
+   * never reaps a live turn.
+   */
+  maxRunningMs?: number;
 }
+
+/** Default leak-reaper threshold when config omits maxRunningMs (30 min). */
+const DEFAULT_MAX_RUNNING_MS = 30 * 60 * 1000;
 
 export class RegistryOverflowError extends Error {
   readonly code = 'registry_overflow' as const;
@@ -216,21 +225,56 @@ export function createStreamRegistry(config: StreamRegistryConfig): StreamRegist
     return undefined;
   }
 
+  /**
+   * Drop only aliases no surviving entry still needs. An alias chain
+   * `old → … → terminal` is kept while its terminal sessionId is one a live or
+   * still-buffered entry is keyed by — so a separate live turn on the same
+   * compacted lineage keeps a working resolution path. Fully orphaned chains
+   * (terminal no longer present) are removed. Replaces the old "delete every
+   * alias touching the swept entry's sessionId", which severed a sibling turn's
+   * chain when two turns shared a compacted session.
+   */
+  function pruneOrphanAliases(): void {
+    const liveSessions = new Set<string>();
+    for (const e of entries.values()) liveSessions.add(e.sessionId);
+    for (const k of [...aliases.keys()]) {
+      let cur = k;
+      const seen = new Set<string>();
+      while (aliases.has(cur) && !seen.has(cur)) {
+        seen.add(cur);
+        cur = aliases.get(cur)!;
+      }
+      if (!liveSessions.has(cur)) aliases.delete(k);
+    }
+  }
+
   // ---- TTL sweeper -----------------------------------------------------
+  const maxRunningMs = config.maxRunningMs ?? DEFAULT_MAX_RUNNING_MS;
   const sweepHandle = setInterval(() => {
     const now = Date.now();
+    let removed = false;
     for (const [turnId, entry] of entries) {
-      if (entry.status === 'running') continue;
+      if (entry.status === 'running') {
+        // Leak safety net: a turn that threw before its streaming finally could
+        // call finish() stays 'running' forever and would count against the
+        // concurrency cap indefinitely. Reap entries older than any legitimate
+        // turn duration so the cap can't wedge.
+        if (now - entry.createdAt > maxRunningMs) {
+          entry.status = 'error';
+          entry.finishedAt = now;
+          entry.listeners.clear();
+          entries.delete(turnId);
+          removed = true;
+        }
+        continue;
+      }
       if (entry.finishedAt && now - entry.finishedAt > config.ttlMs) {
         entries.delete(turnId);
-        // Drop aliases referencing this sessionId.
-        for (const [k, v] of aliases) {
-          if (v === entry.sessionId || k === entry.sessionId) {
-            aliases.delete(k);
-          }
-        }
+        removed = true;
       }
     }
+    // Prune aliases once, after all deletions, against the surviving set.
+    if (removed) pruneOrphanAliases();
   }, config.sweepIntervalMs);
   // Allow process exit even while sweeper is registered.
   sweepHandle.unref?.();

@@ -48,7 +48,17 @@ const replayRoutes: FastifyPluginAsync<ReplayRouteOptions> = async (fastify, opt
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
-      const from = Number.parseInt(req.query.from ?? '0', 10) || 0;
+      // Validate the replay offset. Absent → 0 (replay from the ring tail). A
+      // present-but-malformed value (negative, fractional, non-numeric) is a
+      // client bug → 400, not a silent coerce that mis-reports as ring_overflow.
+      let from = 0;
+      if (req.query.from !== undefined) {
+        const parsed = Number(req.query.from);
+        if (!Number.isInteger(parsed) || parsed < 0) {
+          return reply.status(400).send({ code: 'bad_offset', error: 'from must be a non-negative integer' });
+        }
+        from = parsed;
+      }
 
       // Overflow: requested offset older than the ring's tail.
       if (from < entry.startOffset) {

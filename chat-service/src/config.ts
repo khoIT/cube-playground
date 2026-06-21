@@ -107,6 +107,14 @@ export interface Config {
   /** Background sweeper interval (ms) for evicting expired entries. */
   streamRegistrySweepIntervalMs: number;
   /**
+   * Max age (ms) a still-'running' entry may live before the sweeper reaps it.
+   * Safety net for a turn that throws before its streaming finally can call
+   * finish() — without this the leaked entry counts against the concurrency cap
+   * forever. Must exceed the longest legitimate turn (timeout × research
+   * doubling, plus margin) so it only catches genuine leaks.
+   */
+  streamRegistryMaxRunningMs: number;
+  /**
    * Minimum sessions before starter-question grid switches from cold-start
    * (uniform) ranking to topic-histogram ranking. Single source of truth —
    * no env var, no DB row.
@@ -356,6 +364,9 @@ export const config: Config = {
   streamRegistryMaxTurns: optionalInt('STREAM_REGISTRY_MAX_TURNS', 100),
   streamRegistryTtlMs: optionalInt('STREAM_REGISTRY_TTL_MS', 300_000),
   streamRegistrySweepIntervalMs: optionalInt('STREAM_REGISTRY_SWEEP_INTERVAL_MS', 60_000),
+  // 30 min — far longer than any real turn (even research-doubled), so the
+  // reaper only ever frees genuinely leaked 'running' entries.
+  streamRegistryMaxRunningMs: optionalInt('STREAM_REGISTRY_MAX_RUNNING_MS', 1_800_000),
   langfusePublicKey: optional('LANGFUSE_PUBLIC_KEY', ''),
   langfuseSecretKey: optional('LANGFUSE_SECRET_KEY', ''),
   langfuseBaseUrl: optional('LANGFUSE_HOST', 'https://cloud.langfuse.com'),
