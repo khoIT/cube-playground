@@ -471,7 +471,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
                 a backdrop and never swallow the lines. */}
             {seriesKeys.map((s, i) =>
               isMoney(s) ? (
-                <Bar key={s} yAxisId="right" dataKey={s} fill={CHART[i % CHART.length]} fillOpacity={0.35} maxBarSize={14} />
+                <Bar key={s} yAxisId="right" dataKey={s} fill={CHART[i % CHART.length]} fillOpacity={0.85} maxBarSize={14} />
               ) : null,
             )}
             {seriesKeys.map((s, i) =>
