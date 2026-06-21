@@ -68,7 +68,7 @@ function UserMessageImpl({ text, ts, compact }: UserMessageProps) {
         style={{
           margin: 0,
           fontFamily: T.fSans,
-          fontSize: compact ? 17 : 22,
+          fontSize: compact ? 14 : 18,
           fontWeight: 700,
           lineHeight: 1.3,
           color: 'var(--shell-text)',

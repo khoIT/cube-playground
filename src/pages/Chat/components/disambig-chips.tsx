@@ -178,7 +178,7 @@ export function DisambigChips({ prompt, slot, options, selectedPinText, onPick }
                   {isSelected ? (
                     <Check size={14} strokeWidth={2.5} />
                   ) : (
-                    <Play size={14} fill="currentColor" stroke="currentColor" strokeWidth={1} />
+                    <Play size={10} fill="currentColor" fillOpacity={0.8} stroke="currentColor" strokeWidth={1} />
                   )}
                 </span>
               )}

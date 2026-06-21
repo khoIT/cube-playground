@@ -538,6 +538,13 @@ function AssistantMessageImpl({
   // precedence over the heuristic followup row.
   const hasExplicitOptions = !!disambigOptions && disambigOptions.options.length > 0;
 
+  // Hanging indent for the reply body: the question heading and the CUBE byline
+  // hang at the outer gutter while everything the agent returns is nudged right
+  // to align under the "Cube" wordmark (logo 24 + 7 gap). This visually peels
+  // each question off the answer block beneath it. Off on the narrow side panel
+  // (compact) where the extra indent would eat scarce horizontal room.
+  const bodyIndent = compact ? 0 : 31;
+
   return (
     // Horizontal gutter matches UserMessage (16 compact / 24 full) so the reply
     // shares the question's left rail. Top padding 0 keeps the "Cube" header
@@ -631,6 +638,7 @@ function AssistantMessageImpl({
       {reasoningText && reasoningOpen && (
         <div
           style={{
+            marginLeft: bodyIndent,
             marginBottom: 10,
             padding: '8px 12px',
             borderLeft: '2px solid var(--shell-border)',
@@ -646,9 +654,9 @@ function AssistantMessageImpl({
         </div>
       )}
 
-      {/* Sections — flush within the card padding (the card edge is now the
-          left rail, so the old hanging indent under the logo is unnecessary). */}
-      <div>
+      {/* Sections — hung-indented under the "Cube" wordmark so the answer body
+          reads as subordinate to the question heading + byline above it. */}
+      <div style={{ marginLeft: bodyIndent }}>
         {groupToolCallRuns(bodyUnits).map((unit, i) =>
           unit.kind === 'tool_run' ? (
             unit.calls.length === 1 ? (
