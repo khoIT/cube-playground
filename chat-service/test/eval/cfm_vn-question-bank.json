@@ -1,0 +1,2727 @@
+{
+  "_comment": "cfm_vn answer-quality eval bank: asked (chat.db) + synthesized-glossary. Catalog coverage is Phase 02, not here.",
+  "capturedAt": "2026-06-22T00:00:00.000Z",
+  "gameId": "cfm_vn",
+  "cases": [
+    {
+      "id": "gloss-1",
+      "question": "show Active user last 7 days",
+      "expectedMetricId": "active-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-2",
+      "question": "Active user this month",
+      "expectedMetricId": "active-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-3",
+      "question": "compare Active user month over month",
+      "expectedMetricId": "active-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-4",
+      "question": "Active user by platform",
+      "expectedMetricId": "active-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-5",
+      "question": "show ARPDAU last 7 days",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-6",
+      "question": "ARPDAU this month",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-7",
+      "question": "compare ARPDAU month over month",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-8",
+      "question": "ARPDAU by platform",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-vi-9",
+      "question": "ARPDAU tháng này",
+      "expectedMetricId": "arpdau",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-10",
+      "question": "show ARPPU last 7 days",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-11",
+      "question": "ARPPU this month",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-12",
+      "question": "compare ARPPU month over month",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-13",
+      "question": "ARPPU by platform",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-vi-14",
+      "question": "ARPPU tháng này",
+      "expectedMetricId": "arppu",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-15",
+      "question": "show ARPU last 7 days",
+      "expectedMetricId": "arpu",
+      "expectedRef": "mf_users.arpu_vnd",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-16",
+      "question": "ARPU this month",
+      "expectedMetricId": "arpu",
+      "expectedRef": "mf_users.arpu_vnd",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-17",
+      "question": "compare ARPU month over month",
+      "expectedMetricId": "arpu",
+      "expectedRef": "mf_users.arpu_vnd",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-18",
+      "question": "ARPU by platform",
+      "expectedMetricId": "arpu",
+      "expectedRef": "mf_users.arpu_vnd",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-vi-19",
+      "question": "ARPU tháng này",
+      "expectedMetricId": "arpu",
+      "expectedRef": "mf_users.arpu_vnd",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-20",
+      "question": "show Churner last 7 days",
+      "expectedMetricId": "churner",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-21",
+      "question": "Churner this month",
+      "expectedMetricId": "churner",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-22",
+      "question": "compare Churner month over month",
+      "expectedMetricId": "churner",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-23",
+      "question": "Churner by platform",
+      "expectedMetricId": "churner",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-24",
+      "question": "show CPI last 7 days",
+      "expectedMetricId": "cpi",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-25",
+      "question": "CPI this month",
+      "expectedMetricId": "cpi",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-26",
+      "question": "compare CPI month over month",
+      "expectedMetricId": "cpi",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-27",
+      "question": "CPI by platform",
+      "expectedMetricId": "cpi",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-28",
+      "question": "show DAU last 7 days",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-29",
+      "question": "DAU this month",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-30",
+      "question": "compare DAU month over month",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-31",
+      "question": "DAU by platform",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-vi-32",
+      "question": "DAU tháng này",
+      "expectedMetricId": "dau",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-33",
+      "question": "show Dolphin last 7 days",
+      "expectedMetricId": "dolphin",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-34",
+      "question": "Dolphin this month",
+      "expectedMetricId": "dolphin",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-35",
+      "question": "compare Dolphin month over month",
+      "expectedMetricId": "dolphin",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-36",
+      "question": "Dolphin by platform",
+      "expectedMetricId": "dolphin",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-37",
+      "question": "show Dormant user last 7 days",
+      "expectedMetricId": "dormant-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-38",
+      "question": "Dormant user this month",
+      "expectedMetricId": "dormant-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-39",
+      "question": "compare Dormant user month over month",
+      "expectedMetricId": "dormant-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-40",
+      "question": "Dormant user by platform",
+      "expectedMetricId": "dormant-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-41",
+      "question": "show First-time payer last 7 days",
+      "expectedMetricId": "first-time-payer",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-42",
+      "question": "First-time payer this month",
+      "expectedMetricId": "first-time-payer",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-43",
+      "question": "compare First-time payer month over month",
+      "expectedMetricId": "first-time-payer",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-44",
+      "question": "First-time payer by platform",
+      "expectedMetricId": "first-time-payer",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-45",
+      "question": "show Installs last 7 days",
+      "expectedMetricId": "installs",
+      "expectedRef": "mf_users.installs",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-46",
+      "question": "Installs this month",
+      "expectedMetricId": "installs",
+      "expectedRef": "mf_users.installs",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-47",
+      "question": "compare Installs month over month",
+      "expectedMetricId": "installs",
+      "expectedRef": "mf_users.installs",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-48",
+      "question": "Installs by platform",
+      "expectedMetricId": "installs",
+      "expectedRef": "mf_users.installs",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-49",
+      "question": "show LTV last 7 days",
+      "expectedMetricId": "ltv",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-50",
+      "question": "LTV this month",
+      "expectedMetricId": "ltv",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-51",
+      "question": "compare LTV month over month",
+      "expectedMetricId": "ltv",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-52",
+      "question": "LTV by platform",
+      "expectedMetricId": "ltv",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-vi-53",
+      "question": "LTV tháng này",
+      "expectedMetricId": "ltv",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-54",
+      "question": "show MAU last 7 days",
+      "expectedMetricId": "mau",
+      "expectedRef": "active_daily.mau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-55",
+      "question": "MAU this month",
+      "expectedMetricId": "mau",
+      "expectedRef": "active_daily.mau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-56",
+      "question": "compare MAU month over month",
+      "expectedMetricId": "mau",
+      "expectedRef": "active_daily.mau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-57",
+      "question": "MAU by platform",
+      "expectedMetricId": "mau",
+      "expectedRef": "active_daily.mau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-vi-58",
+      "question": "MAU tháng này",
+      "expectedMetricId": "mau",
+      "expectedRef": "active_daily.mau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-59",
+      "question": "show Minnow last 7 days",
+      "expectedMetricId": "minnow",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-60",
+      "question": "Minnow this month",
+      "expectedMetricId": "minnow",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-61",
+      "question": "compare Minnow month over month",
+      "expectedMetricId": "minnow",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-62",
+      "question": "Minnow by platform",
+      "expectedMetricId": "minnow",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-63",
+      "question": "show New spender last 7 days",
+      "expectedMetricId": "new-spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-64",
+      "question": "New spender this month",
+      "expectedMetricId": "new-spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-65",
+      "question": "compare New spender month over month",
+      "expectedMetricId": "new-spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-66",
+      "question": "New spender by platform",
+      "expectedMetricId": "new-spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-67",
+      "question": "show Returning user last 7 days",
+      "expectedMetricId": "returning-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-68",
+      "question": "Returning user this month",
+      "expectedMetricId": "returning-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-69",
+      "question": "compare Returning user month over month",
+      "expectedMetricId": "returning-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-70",
+      "question": "Returning user by platform",
+      "expectedMetricId": "returning-user",
+      "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-71",
+      "question": "show Revenue last 7 days",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-72",
+      "question": "Revenue this month",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-73",
+      "question": "compare Revenue month over month",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-74",
+      "question": "Revenue by platform",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-vi-75",
+      "question": "Doanh thu tháng này",
+      "expectedMetricId": "revenue",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-76",
+      "question": "show ROAS last 7 days",
+      "expectedMetricId": "roas",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-77",
+      "question": "ROAS this month",
+      "expectedMetricId": "roas",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-78",
+      "question": "compare ROAS month over month",
+      "expectedMetricId": "roas",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-79",
+      "question": "ROAS by platform",
+      "expectedMetricId": "roas",
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=ratio"
+    },
+    {
+      "id": "gloss-80",
+      "question": "show Spender last 7 days",
+      "expectedMetricId": "spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-81",
+      "question": "Spender this month",
+      "expectedMetricId": "spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-82",
+      "question": "compare Spender month over month",
+      "expectedMetricId": "spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-83",
+      "question": "Spender by platform",
+      "expectedMetricId": "spender",
+      "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-84",
+      "question": "show WAU last 7 days",
+      "expectedMetricId": "wau",
+      "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-85",
+      "question": "WAU this month",
+      "expectedMetricId": "wau",
+      "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-86",
+      "question": "compare WAU month over month",
+      "expectedMetricId": "wau",
+      "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-87",
+      "question": "WAU by platform",
+      "expectedMetricId": "wau",
+      "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-vi-88",
+      "question": "WAU tháng này",
+      "expectedMetricId": "wau",
+      "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "gloss-89",
+      "question": "show Whale last 7 days",
+      "expectedMetricId": "whale",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "trend",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-90",
+      "question": "Whale this month",
+      "expectedMetricId": "whale",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-91",
+      "question": "compare Whale month over month",
+      "expectedMetricId": "whale",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "compare",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-92",
+      "question": "Whale by platform",
+      "expectedMetricId": "whale",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary",
+      "note": "weight=1 kind=measure"
+    },
+    {
+      "id": "gloss-vi-93",
+      "question": "Cá voi tháng này",
+      "expectedMetricId": "whale",
+      "expectedRef": "mf_users.user_count",
+      "expectedCube": "mf_users",
+      "queryShapeClass": "aggregate",
+      "curationGroup": "synthesized-glossary-vi",
+      "note": "weight=1 locale=vi"
+    },
+    {
+      "id": "asked-1",
+      "question": "top 20 vip players",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=6 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-2",
+      "question": "login volume by hour (vn time) and weekday — peak activity windows",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=5 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-3",
+      "question": "spend is soft this month — what should i do to lift it?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=4 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-4",
+      "question": "show a login-volume heatmap by hour of day vs day of week — when are cfm vn players most and least active throughout the week?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=4 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-5",
+      "question": "daily active players by os platform — ios vs android split",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=4 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-6",
+      "question": "at which tutorial step do new players drop off most — rank all tutorial steps by completion rate to find the highest-friction gate in the onboarding funnel?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=4 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-7",
+      "question": "what's the churn situation for this game",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-8",
+      "question": "top 100 whales by revenue in last 30 days and haven't login for 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-9",
+      "question": "top 10 countries by arpu last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-10",
+      "question": "show revenue last 7 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-11",
+      "question": "show gross bookings last 7 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-12",
+      "question": "revenue trend",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-13",
+      "question": "rank the top 20 vip players by first purchase rate over the last 7 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-14",
+      "question": "rank the top 20 players by arpu",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-15",
+      "question": "now by country",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-16",
+      "question": "ios vs android revenue",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-17",
+      "question": "how is dau trending over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-18",
+      "question": "gacha pulls and players by banner — which banner drives volume?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-19",
+      "question": "compare arpdau month-over-month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-20",
+      "question": "backflow logins vs total logins by app channel — returning vs fresh players",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-21",
+      "question": "actually show me currency outflow reasons by region instead",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=3 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-22",
+      "question": "which game modes drive the most matches, and how does average match duration compare across them?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-23",
+      "question": "which game modes and maps drive the most matches and unique players in available data?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-24",
+      "question": "wau vs trailing wau over the last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-25",
+      "question": "user",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-26",
+      "question": "tutorial completion rate by step — where do new players drop off?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-27",
+      "question": "trailing mau over the last 60 days — is the player base growing?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-28",
+      "question": "top diamond spend reasons — what drains player wallets most?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-29",
+      "question": "top 20 spenders",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-30",
+      "question": "show diamond spend and distinct spenders by gacha banner — which banner captures the most in the most recent data?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-31",
+      "question": "show diamond inflow vs outflow by money type using etl_money_flow — are players earning more than they spend in the most recent month?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-32",
+      "question": "recharge.revenue_vnd last month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-33",
+      "question": "players reaching each tutorial step — where do new players drop off?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-34",
+      "question": "paying users this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-35",
+      "question": "paying users 30 day trailing",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-36",
+      "question": "payer share by os platform — ios vs android recharge rate",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-37",
+      "question": "payer count per day — active players who recharged, last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-38",
+      "question": "matches played per day — last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-39",
+      "question": "matches and distinct players by game mode — which mode dominates?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-40",
+      "question": "match drop rate by map — which maps trigger the most early quits?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-41",
+      "question": "how many payers this week?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-42",
+      "question": "how has trailing 7-day wau trended over the last 30 days, broken down by os platform?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-43",
+      "question": "doanh thu 7 ngày qua",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-44",
+      "question": "dau/mau ratio by os platform — ios vs android stickiness",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-45",
+      "question": "dau by country over the last 30 days — geographic player spread",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-46",
+      "question": "arpu this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-47",
+      "question": "à nhầm, ý là query paying dau và revenue theo ngày",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-48",
+      "question": "yes, by user",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-49",
+      "question": "why is cfm_vn revenue down recently, and what should i do about it?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-50",
+      "question": "which whales are at risk of churning?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-51",
+      "question": "which tutorial steps have the lowest completion rate — where do new players drop out of onboarding?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-52",
+      "question": "which servers have the highest share of recharge-day users among their active base in the most recent month of available data?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-53",
+      "question": "which role classes log the most total daily online time — how does session depth vary by character choice over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-54",
+      "question": "which prop types are acquired most by players — rank by total volume gained?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-55",
+      "question": "which prop types (weapons, skins, consumables) have the highest consumption volume, and which generate the largest gold outflows?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-56",
+      "question": "which maps have the highest player drop/quit rates, and how many matches are affected?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-57",
+      "question": "which maps have the highest match drop rate — and how much volume do those maps carry?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-58",
+      "question": "which maps drive the most matches over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-59",
+      "question": "which lottery banner has the highest ten-pull ratio — where are players most committed to multi-spend?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-60",
+      "question": "which item quality tiers (common / rare / epic / legendary) see the most prop consumption and the most distinct consumers?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-61",
+      "question": "which game modes have the highest matchmaking failure rate and longest average queue wait?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-62",
+      "question": "which game modes have the highest match drop rate and how many matches are affected — rank all modes by drop rate vs total match volume?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-63",
+      "question": "which game mode do new players choose for their very first match?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-64",
+      "question": "which gacha boxes generate the most diamond spend and attract the most distinct spenders?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-65",
+      "question": "which gacha boxes attract the most diamond spend, and how has total gacha diamond consumption trended over recent months?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-66",
+      "question": "which gacha banners see the highest share of 10-pull (bulk) vs single pulls?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-67",
+      "question": "which gacha banner generated the most diamond spend and attracted the most unique spenders in the most recent month of data?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-68",
+      "question": "which gacha banner (lottery box) consumes the most diamonds and drives the most pulls?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-69",
+      "question": "which countries account for the most daily active users over the last 30 days, and which are growing fastest?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-70",
+      "question": "which churn metrics should i optimize",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-71",
+      "question": "what's the most pressing problem with this game",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-72",
+      "question": "what should i know about churn users situation of this game",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-73",
+      "question": "what share of monthly active users made at least one recharge, and how has payer penetration changed month over month?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-74",
+      "question": "what share of daily active users recharged in the last 30 days — show payer vs non-payer dau split per day as a stacked trend?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-75",
+      "question": "what share of daily active users also recharged on the same day, and how has that engagement-to-payer overlap shifted over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-76",
+      "question": "what share of daily active players made a recharge each day over the last 7 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-77",
+      "question": "what is the os platform split (ios / android / pc) among daily active users over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-78",
+      "question": "what is the net diamond and gold balance — compare total inflow vs outflow by currency type?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-79",
+      "question": "what is the hourly login distribution in vn timezone — when do players peak during the day?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-80",
+      "question": "what is the formula for arpdau?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-81",
+      "question": "what is arpdau this month?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-82",
+      "question": "what hours of the day (vn time) see the highest player login volume?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-83",
+      "question": "what game mode do new players choose for their first real match after completing the tutorial?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-84",
+      "question": "what fraction of gacha pulls are 10-pull bundles vs singles, broken down by lottery box?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-85",
+      "question": "what does ltv mean?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-86",
+      "question": "what does dau mean?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-87",
+      "question": "what does arpu mean?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-88",
+      "question": "what data is etl game details has",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-89",
+      "question": "what are the top in-game actions draining player currency — rank outflow by reason?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-90",
+      "question": "what are the top in-game actions draining diamonds — ranked by total outflow and distinct spenders?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-91",
+      "question": "what are the top currency outflow reasons by total amount spent this month — where are players sinking their money?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-92",
+      "question": "what are the biggest diamond-spend sinks — rank all spend reasons by total diamond outflow to reveal where premium currency is consumed most?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-93",
+      "question": "whales at risk in the last 30d",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-94",
+      "question": "weekly active users last 4 weeks",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-95",
+      "question": "use arppu for the segmentation metric. and for the at risk, can you propose a metric based on what you have. it could be a combination of declining spend or declining playtime or sessions. i don't know what metrics you have",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-96",
+      "question": "tạo segment có paying dau và revenue theo ngày",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-97",
+      "question": "tình hình doanh thu game trong 30 ngày gần đây",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-98",
+      "question": "trailing mau trend — last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-99",
+      "question": "total online hours per day — last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-100",
+      "question": "total ltv",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-101",
+      "question": "top campaigns by roas this quarter",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-102",
+      "question": "top 100 whales by revenue in last 30 days and haven't login for 30 days, rank by user",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-103",
+      "question": "top 10 servers by total online time — where do players spend most hours?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-104",
+      "question": "ten-pull vs single-pull ratio by gacha banner",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-105",
+      "question": "show xyz_metric_unknown last 7 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-106",
+      "question": "show top spenders this week",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-107",
+      "question": "show etl_money_flow.total_in and etl_money_flow.total_out side by side, broken down by etl_money_flow.money_type, in the most recent month of available data.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-108",
+      "question": "show daily avg session duration trend over the last 30 days to see if engagement depth is declining.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-109",
+      "question": "revenue q1 2026",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-110",
+      "question": "revenue looks weak in cfm_vn lately — diagnose why and tell me what to do.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-111",
+      "question": "revenue by country last month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-112",
+      "question": "recharge.revenue_vnd by country last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-113",
+      "question": "recharge player density by server — top servers by payer share",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-114",
+      "question": "rank all maps by total match count and overlay the ai-bot fill rate — which high-traffic maps are being propped up by bots?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-115",
+      "question": "prologue completion time of new players — daily trend",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-116",
+      "question": "plot paying dau and total revenue together by day for the last 10 days as one dual-axis chart.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-117",
+      "question": "plot dau, wau, and trailing mau over the last 30 days — is the player base growing or contracting?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-118",
+      "question": "paying rate this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-119",
+      "question": "payer share by role level — which levels monetize best?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-120",
+      "question": "nru to install rate this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-121",
+      "question": "npu trend last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-122",
+      "question": "mau in the last 3 months",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-123",
+      "question": "ltv by install-month cohort",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-124",
+      "question": "just give me top 100 whales by revenue in last 30 days and haven't login for 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-125",
+      "question": "installs this month by channel",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-126",
+      "question": "in which game modes are ai bots most frequently replacing dropped players mid-match?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-127",
+      "question": "how's this game performing",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-128",
+      "question": "how many novice (new-player) logins came through each acquisition channel — which channels are delivering the most fresh installs?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-129",
+      "question": "how many distinct spenders fall in each vip level tier — what does the payer pyramid look like?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-130",
+      "question": "how many days is our current threshold for a user to count as returnee and how you currently calculate backflow",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-131",
+      "question": "how is the daily new-player intake trending over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-132",
+      "question": "how is monthly active user growth tracking — compare trailing mau to prior-month mau to surface month-over-month momentum?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-133",
+      "question": "how is daily active player count split between ios and android over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-134",
+      "question": "how is daily active player count split across role classes over the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-135",
+      "question": "how has dau trended over the last 30 days, and which days saw the sharpest drops?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-136",
+      "question": "how has daily gacha pull volume and 10-pull bundle usage trended — is player engagement with the current pool rising or falling?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-137",
+      "question": "how effective is user acquisition for this game",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-138",
+      "question": "how does the ten-pull share vs single-pull share differ across player levels — do higher-level players bulk-pull more aggressively?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-139",
+      "question": "how does ship training kill count and completion time differ across new-player self-esteem tiers?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-140",
+      "question": "how does newbie self-assessed skill level (novice / normal / expert) correlate with training kills and tutorial score?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-141",
+      "question": "how does gacha diamond spend and spender count distribute across player level brackets?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-142",
+      "question": "how do returning (backflow) players compare to first-time players in matches played, kdr, and login frequency in their first week back in the game?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-143",
+      "question": "how do re-activated backflow users compare to first-time new players in login volume and max ladder score at re-entry?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-144",
+      "question": "how do prop losses (spending) break down by item quality tier — common vs rare vs epic?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-145",
+      "question": "how do new players self-declare their skill tier — which tier dominates the incoming cohort?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-146",
+      "question": "how do kdr, headshot rate, and accuracy compare between newbie-flagged and non-newbie players?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-147",
+      "question": "how are vip tiers distributed among players who spent currency in the most recent month of data?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-148",
+      "question": "how are matches split across game modes in the last 30 days?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-149",
+      "question": "how are logins distributed across acquisition channels — which channel brings the most active users?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-150",
+      "question": "how about dau week by week",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-151",
+      "question": "help me identify whales at are at risk of churning",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-152",
+      "question": "gold vs diamond spend on gacha by banner",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-153",
+      "question": "give me top 100 whales with likelihood to churn",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-154",
+      "question": "for the cfm mid-spend payers (dolphins) segment, diagnose revenue and recommend concrete actions to lift their spend.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-155",
+      "question": "first game mode chosen in training — what draws new players?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-156",
+      "question": "do players who recharge spend significantly more time online per day than non-payers — compare avg daily online time for recharge-day vs non-recharge users?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-157",
+      "question": "do higher self-esteem new players score significantly better in the tutorial training match?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-158",
+      "question": "diamond spend by gacha banner — which lottery box captures the most?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-159",
+      "question": "diamond spend by gacha banner — which banner captures the most?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-160",
+      "question": "dau week by week thì sao",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-161",
+      "question": "dau by role class — which character class leads daily play?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-162",
+      "question": "dau 7 ngày qua",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-163",
+      "question": "create a segment of the top 25% of spenders",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-164",
+      "question": "continue",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-165",
+      "question": "compare revenue and gross bookings last quarter",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-166",
+      "question": "compare paid vs organic install quality — d7 retention and payer rate",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-167",
+      "question": "compare ios vs android revenue last 3 months by install week cohort",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-168",
+      "question": "compare arpu and arppu this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-169",
+      "question": "cho tôi xem số lượng payer (paying dau) theo ngày từ 01/06 đến 10/06/2026.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-170",
+      "question": "break down the player base by lifecycle stage",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-171",
+      "question": "break down dau by lifecycle stage last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-172",
+      "question": "average revenue per daily active user last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-173",
+      "question": "at which tutorial step do new players drop off — show the full started vs completed funnel by tutorial id?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-174",
+      "question": "at which player level do players spend the most diamonds on gacha?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-175",
+      "question": "arppu tuần qua",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-176",
+      "question": "arppu last quarter",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-177",
+      "question": "arpdau tuần này",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-178",
+      "question": "are diamonds and gold net positive or negative for players overall — show total inflow vs outflow by currency type?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-179",
+      "question": "add in user count",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    }
+  ]
+}

@@ -1,0 +1,307 @@
+{
+  "_comment": "jus_vn answer-quality eval bank: asked (chat.db) + synthesized-glossary. Catalog coverage is Phase 02, not here.",
+  "capturedAt": "2026-06-22T00:00:00.000Z",
+  "gameId": "jus_vn",
+  "cases": [
+    {
+      "id": "asked-1",
+      "question": "total session time by role class this week",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=4 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-2",
+      "question": "why is jus_vn revenue weaker than it should be?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-3",
+      "question": "total ltv",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-4",
+      "question": "online time by os platform",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-5",
+      "question": "mau by os platform over the last 3 months",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-6",
+      "question": "installs and cpi by acquisition channel",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=2 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-7",
+      "question": "which servers have the highest dau this week?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-8",
+      "question": "which character class has the highest arppu?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-9",
+      "question": "what's info you have on billing details",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-10",
+      "question": "what segment should we target and do what to improve the game's revenue",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-11",
+      "question": "whales at risk in the last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-12",
+      "question": "total revenue by role class",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-13",
+      "question": "new payer conversion rate by media source this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-14",
+      "question": "net-new paying users by acquisition channel this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-15",
+      "question": "monthly arppu trend over the last 6 months",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-16",
+      "question": "gold spent by reason group — which in-game systems drain the most virtual currency?",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-17",
+      "question": "dau trend over the last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-18",
+      "question": "daily revenue trend over the last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-19",
+      "question": "daily revenue by os platform",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-20",
+      "question": "d3 vs d7 retention by recent monthly cohorts",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-21",
+      "question": "d14 and d30 retention by install month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-22",
+      "question": "d1 → d30 retention curve for may's new-player cohort",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-23",
+      "question": "create a segment of users in the top 25% by total active days (lifetime) who have never paid — ltv_vnd = 0.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-24",
+      "question": "create a segment of users in the top 25%\n  by total active days who have never paid",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-25",
+      "question": "create a segment of high-engagement users who have never paid",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-26",
+      "question": "cpi ranking by acquisition channel this month",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-27",
+      "question": "compare dau and revenue daily for cfm_vn last 30 days",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-28",
+      "question": "average session length in seconds by role class, using etl_logout.avg_session_sec grouped by role_class, last 30 days.",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-29",
+      "question": "average session length by role class",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    },
+    {
+      "id": "asked-30",
+      "question": "average daily online time by role class this week",
+      "expectedMetricId": null,
+      "expectedRef": null,
+      "expectedCube": null,
+      "queryShapeClass": null,
+      "curationGroup": "asked",
+      "note": "weight=1 (golden ref unknown — loose score)"
+    }
+  ]
+}
