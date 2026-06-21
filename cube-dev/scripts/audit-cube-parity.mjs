@@ -14,6 +14,8 @@
  *   node scripts/audit-cube-parity.mjs --prod-root /path/to/cube-prod
  */
 
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadModel, PROD_ROOT_DEFAULT } from './lib/cube-parity/load-and-normalize.mjs';
 import { runCanonicalRules, collectJoinTargets } from './lib/cube-parity/canonical-rules.mjs';
 import { diffGameAgainstOracle } from './lib/cube-parity/oracle-diff.mjs';
@@ -22,15 +24,26 @@ import {
   writeParityMatrix,
   countBySeverity,
 } from './lib/cube-parity/emit.mjs';
+import { writeBaseline, loadBaseline, diffAgainstBaseline } from './lib/cube-parity/baseline.mjs';
+
+const BASELINE_DEFAULT = join(dirname(fileURLToPath(import.meta.url)), 'parity-baseline.json');
 
 function parseArgs(argv) {
   // CUBE_PARITY_PROD_ROOT lets both the CLI and the server recorder point at the
   // same prod clone without hardcoding; --prod-root overrides it.
-  const args = { json: false, gate: false, prodRoot: process.env.CUBE_PARITY_PROD_ROOT ?? PROD_ROOT_DEFAULT };
+  const args = {
+    json: false,
+    gate: false,
+    writeBaseline: false,
+    baselinePath: BASELINE_DEFAULT,
+    prodRoot: process.env.CUBE_PARITY_PROD_ROOT ?? PROD_ROOT_DEFAULT,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--json') args.json = true;
     else if (a === '--gate') args.gate = true;
+    else if (a === '--write-baseline') args.writeBaseline = true;
+    else if (a === '--baseline') args.baselinePath = argv[++i];
     else if (a === '--prod-root') args.prodRoot = argv[++i];
   }
   return args;
@@ -57,6 +70,12 @@ function main() {
   const args = parseArgs(process.argv.slice(2));
   const { model, findings, parseErrors, snapshots } = runAudit(args.prodRoot);
   const counts = countBySeverity(findings);
+
+  if (args.writeBaseline) {
+    const { path } = writeBaseline(findings, args.baselinePath);
+    console.log(`Wrote parity baseline (${findings.length} accepted findings) → ${path}`);
+    return;
+  }
 
   if (args.json) {
     process.stdout.write(
@@ -88,9 +107,28 @@ function main() {
     console.log(`  matrix:  ${matrixPath}`);
   }
 
-  if (args.gate && counts.correctness > 0) {
-    if (!args.json) console.error(`GATE FAIL: ${counts.correctness} correctness finding(s)`);
-    process.exit(1);
+  if (args.gate) {
+    // Prefer a baseline-aware gate: fail on any NEWLY introduced correctness
+    // finding (one not in the accepted baseline). Without a baseline, fall back
+    // to "any correctness finding fails" — equivalent while accepted correctness
+    // is empty, which it is.
+    const baseline = loadBaseline(args.baselinePath);
+    if (baseline) {
+      const { added, removed, newCorrectness } = diffAgainstBaseline(findings, baseline);
+      if (!args.json) {
+        console.log(
+          `  gate vs baseline: ${added.length} new · ${removed.length} cleared · ${newCorrectness.length} new correctness`,
+        );
+        for (const f of newCorrectness) console.error(`  NEW correctness: ${f.game}/${f.cube} ${f.dimension} — ${f.detail ?? ''}`);
+      }
+      if (newCorrectness.length > 0) {
+        if (!args.json) console.error(`GATE FAIL: ${newCorrectness.length} new correctness finding(s) vs baseline`);
+        process.exit(1);
+      }
+    } else if (counts.correctness > 0) {
+      if (!args.json) console.error(`GATE FAIL: ${counts.correctness} correctness finding(s) (no baseline present)`);
+      process.exit(1);
+    }
   }
 }
 

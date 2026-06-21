@@ -820,6 +820,16 @@ Five reader patterns: legacy trajectory/metric-series, plus three new movement-a
 
 ---
 
+## Cross-Game Cube Parity Audit & Regression Gate
+
+Read-only static analyzer that fans out over `(game × cube)`, applies canonical-rule checks to every dev cube, and structurally diffs each against its prod-clone oracle (`/Users/.../cube-prod`, schema map cfm→cfm_vn … pubg→pubgm). Lives in `cube-dev/scripts/audit-cube-parity.mjs` + `lib/cube-parity/` (load-and-normalize, canonical-rules, oracle-diff, emit, baseline). Severity rubric: **correctness** (PK fan-out, non-additive rollup, time-dim mismatch, identity-join, ratio truncation) > **parity** (measure present in oracle/peer but missing here) > **cosmetic** (label/order). Emits a JSONL ledger + a cubes×games matrix; also feeds the **Model Audit** UI console (`/model-audit`) via the persisted-snapshot recorder (migration 067).
+
+A structural parity harness intentionally under-rates duplicate-fact-row inflation as `parity` ("PK differs") — promote such findings by querying the data, not the YAML (see lessons-learned: a Cube `primary_key` does not dedup fact rows for `SUM`).
+
+**Regression gate (manual / pre-push — no CI lane exists yet):**
+- `node scripts/audit-cube-parity.mjs --gate` — exits 1 on any **new correctness** finding vs `parity-baseline.json` (the frozen accepted set: currently 0🔴 / 40🟡 / 306⚪, mostly name-alias parity + source-blocked N/A). Falls back to "any correctness fails" when no baseline is present.
+- `--write-baseline` — re-freeze the accepted set, **only after a human reviews the drift** the gate prints (`N new · N cleared · N new correctness`).
+
 ## Future Directions
 
 **Semantic cache deferred** — exact-match cache (Layer 4) deferred pending production hit-rate measurement. If exact-match hit-rate <10%, revisit embedding-based semantic matching via a higher-latency service.

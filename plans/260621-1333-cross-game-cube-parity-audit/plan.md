@@ -30,7 +30,7 @@ fan-out per `(game × cube)` → diff vs oracle / canonical → **verify each fi
 | 3 · Metric-layer parity audit | [phase-03](phase-03-metric-layer-parity-audit.md) | ✅ done (metric-trust: 425 certified · 129 GAP · 30 N/A; families split) |
 | 4 · Dedupe, triage, fix worklist | [phase-04](phase-04-dedupe-triage-fix-worklist.md) | ✅ done ([fix-worklist](reports/fix-worklist.md); W1–W9, D1–D3 gate) |
 | 5 · Execute fixes (generator-aware) | [phase-05](phase-05-execute-fixes.md) | ✅ done — W1 ptg + W2 pubg recharge version-dedup (ptg revenue 1.88× inflation fixed); W3/W4 measure backfill via cfm-template superset upgrade + regen of 4 gap games (parity 121→40, additive-only, cros/tf/muaw untouched). W7 N/A flags deferred. |
-| 6 · Verification + regression gate | [phase-06](phase-06-verification-regression-gate.md) | ☐ pending (live compiled-SQL recompile needs Cube restart; CI gate + baseline) |
+| 6 · Verification + regression gate | [phase-06](phase-06-verification-regression-gate.md) | ✅ done — re-audit green (0 correctness); baseline-aware `--gate` + frozen `parity-baseline.json` (verified: fails on new correctness, ignores accepted); docs noted. (No CI lane exists in-repo → gate is manual/pre-push; live compiled-SQL recompile still needs a Cube restart.) |
 
 **Track B — persistent audit console UI** (consumes Track A; buildable in parallel after Phase 0)
 | Phase | File | Status |
