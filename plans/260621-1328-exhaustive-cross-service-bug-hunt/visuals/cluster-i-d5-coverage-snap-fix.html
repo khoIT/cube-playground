@@ -1,0 +1,149 @@
+<title>Cluster I — D5 empty-range coverage-snap fix</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel-2:#1d212b; --ink:#e8ebf0; --muted:#9aa3b2;
+    --line:#272c38; --brand:#6ea8fe; --bad:#ff6b6b; --bad-soft:#2a1618; --good:#46d39a;
+    --good-soft:#10241d; --warn:#f5c451; --code:#c6cddb; --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:Inter,-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;
+    padding:40px 24px 64px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  h1{font-size:26px;font-weight:700;margin:6px 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:28px;max-width:760px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:880px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;overflow:hidden}
+  .card.bad{border-color:#3a2226}
+  .card.good{border-color:#1e3a30}
+  .tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.04em;
+    padding:3px 9px;border-radius:999px;text-transform:uppercase}
+  .tag.bad{background:var(--bad-soft);color:#ff9a9a}
+  .tag.good{background:var(--good-soft);color:#7ce6bb}
+  h2{font-size:16px;font-weight:700;margin:12px 0 2px}
+  .flow{display:flex;align-items:stretch;gap:8px;margin:14px 0;flex-wrap:wrap}
+  .step{flex:1;min-width:120px;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;
+    padding:10px 11px;font-size:12.5px}
+  .step .k{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
+  .step.hit{border-color:var(--bad);box-shadow:0 0 0 1px var(--bad) inset}
+  .step.fix{border-color:var(--good);box-shadow:0 0 0 1px var(--good) inset}
+  .arrow{align-self:center;color:var(--muted);font-size:18px}
+  pre{background:#0b0d12;border:1px solid var(--line);border-radius:10px;margin:12px 0 0;padding:12px 13px;
+    overflow-x:auto;font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--code)}
+  .del{color:#ff9a9a;background:rgba(255,107,107,.10);display:block}
+  .add{color:#7ce6bb;background:rgba(70,211,154,.10);display:block}
+  .cmt{color:#6b7589}
+  ul{margin:12px 0 0;padding-left:18px}
+  li{font-size:13px;margin:5px 0;color:#cfd5e0}
+  li b{color:var(--ink)}
+  .pill{font-family:var(--mono);font-size:11px;background:#0b0d12;border:1px solid var(--line);
+    padding:1px 6px;border-radius:5px;color:#aeb6c6}
+  .sev{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:1px 5px;border-radius:4px}
+  .sev.h{background:#3a2a12;color:#f5c451}.sev.m{background:#1c2740;color:#88b3ff}
+  .ledger{margin-top:30px;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  table{border-collapse:collapse;width:100%;font-size:12.5px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  th{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);background:var(--panel-2)}
+  td code{font-family:var(--mono);font-size:11.5px;color:#aeb6c6}
+  tr:last-child td{border-bottom:none}
+  .st{font-weight:700}.st.fix{color:var(--good)}.st.def{color:var(--warn)}
+  .foot{margin-top:18px;color:var(--muted);font-size:12px}
+</style>
+<div class="wrap">
+  <div class="eyebrow">Cross-service bug hunt · D5 · empty-range re-anchor</div>
+  <h1>Cluster I — the coverage-snap that silently stopped snapping</h1>
+  <p class="sub">When a chat query lands on a date range that has no data, the service is meant to probe the cube's
+  real coverage and re-run against the latest window that <em>does</em> have data — so the card shows a chart, not an
+  empty box. Three high-severity bugs quietly defeated that, and a single pinned date got dragged around when it
+  shouldn't be.</p>
+
+  <div class="grid">
+    <!-- PROBLEM -->
+    <div class="card bad">
+      <span class="tag bad">● The problem</span>
+      <h2>The re-anchor never runs — and lies when it does</h2>
+      <div class="flow">
+        <div class="step">
+          <div class="k">emit artifact</div>relative range<br><span class="pill">"last 30 days"</span>
+        </div>
+        <div class="arrow">→</div>
+        <div class="step hit">
+          <div class="k">R14 · normalize</div>range rewritten to a <b>tuple</b> before it reaches the loader
+        </div>
+        <div class="arrow">→</div>
+        <div class="step hit">
+          <div class="k">kind check</div>tuple ⇒ <b>"explicit"</b> ⇒ <b>snap skipped</b>
+        </div>
+        <div class="arrow">→</div>
+        <div class="step">
+          <div class="k">card</div>empty chart ships
+        </div>
+      </div>
+<pre><span class="cmt">// emit-query-artifact.ts:205 — effectiveQuery is ALREADY normalized</span>
+<span class="del">const loaded = await loadCubeRowsCovered(effectiveQuery, ctx, …)</span>
+<span class="cmt">// → eligibleTimeDim reads kind from a tuple → "explicit" → never snaps</span>
+
+<span class="cmt">// load-cube-rows.ts:193 — applied:true even on a ZERO-row retry</span>
+<span class="del">snap: { …, applied: true }   // claims a window it could not fill</span>
+
+<span class="cmt">// resolve-coverage-range.ts:30 — a single pinned date looks "relative"</span>
+<span class="del">return range == null || typeof range === 'string';  // "2026-06-01" ⇒ moved</span></pre>
+    </div>
+
+    <!-- FIX -->
+    <div class="card good">
+      <span class="tag good">✓ The fix</span>
+      <h2>Detect intent from the raw range; tell the truth about the retry</h2>
+      <div class="flow">
+        <div class="step">
+          <div class="k">emit artifact</div>pass the <b>raw</b> query
+        </div>
+        <div class="arrow">→</div>
+        <div class="step fix">
+          <div class="k">R14 · loader</div>normalizes+clamps <b>internally</b>; kind read from raw ⇒ <b>relative</b>
+        </div>
+        <div class="arrow">→</div>
+        <div class="step fix">
+          <div class="k">snap</div>re-run on latest window
+        </div>
+        <div class="arrow">→</div>
+        <div class="step fix">
+          <div class="k">R15 · honesty</div>applied = rows&gt;0; else disclose "still empty"
+        </div>
+      </div>
+<pre><span class="cmt">// emit-query-artifact.ts — loader does normalize+clamp itself</span>
+<span class="add">const loaded = await loadCubeRowsCovered(args.query, ctx, …)</span>
+
+<span class="cmt">// load-cube-rows.ts — applied reflects the actual retry</span>
+<span class="add">const applied = retryRows.length > 0;</span>
+<span class="add">snap: { …, applied, snappedRange: applied ? snappedRange : undefined }</span>
+
+<span class="cmt">// resolve-coverage-range.ts — an ISO-date string is a PIN, not relative</span>
+<span class="add">if (typeof range === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(range.trim()))</span>
+<span class="add">  return false;   // explicit single date — never silently moved</span></pre>
+    </div>
+  </div>
+
+  <!-- supporting fixes -->
+  <div class="ledger">
+    <table>
+      <thead><tr><th>#</th><th>Sev</th><th>Site</th><th>Fix</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>R14</td><td><span class="sev h">HIGH</span></td><td><code>emit-query-artifact.ts:205</code></td><td>Pass raw query; loader normalizes+clamps internally so kind detection survives</td><td class="st fix">FIX</td></tr>
+        <tr><td>R15</td><td><span class="sev h">HIGH</span></td><td><code>load-cube-rows.ts:193</code></td><td><code>applied = retryRows.length>0</code>; disclose "snapped, still no data"</td><td class="st fix">FIX</td></tr>
+        <tr><td>R16</td><td><span class="sev h">HIGH</span></td><td><code>resolve-coverage-range.ts:30</code></td><td>Single <code>YYYY-MM-DD</code> string ⇒ explicit (never snapped)</td><td class="st fix">FIX</td></tr>
+        <tr><td>R18</td><td><span class="sev m">MED</span></td><td><code>resolve-coverage-range.ts:96</code></td><td>Probe <b>timeout/error</b> no longer cached as 1h null — only genuine results cache</td><td class="st fix">FIX</td></tr>
+        <tr><td>R19</td><td><span class="sev m">MED</span></td><td><code>load-cube-rows.ts:188</code></td><td>Cap snapped width to <code>analysisMaxWindowDays</code> so the clamp survives the re-run</td><td class="st fix">FIX</td></tr>
+        <tr><td>R21</td><td><span class="sev m">MED</span></td><td><code>resolve-coverage-range.ts:68</code></td><td>Calendar phrases (<code>today</code>/<code>this&nbsp;month</code>/<code>last&nbsp;week</code>…) get correct widths</td><td class="st fix">FIX</td></tr>
+        <tr><td>R23</td><td><span class="sev m">MED</span></td><td><code>resolve-coverage-range.ts:49</code></td><td>Single-date width = 1 day (not 30) — moot once R16 stops snapping it</td><td class="st fix">FIX</td></tr>
+        <tr><td>R17</td><td><span class="sev m">MED</span></td><td><code>emit-query-artifact.ts:201</code></td><td>Re-anchor only on LLM-omitted-chart path — deliberately off the common path for perf; LLM charts carry LLM data</td><td class="st def">DEFER</td></tr>
+        <tr><td>R20</td><td><span class="sev m">MED</span></td><td><code>disambiguate-starter-passthrough.ts:132</code></td><td>Stale seed-coverage pin — needs a freshness signal; relative-fallback risks starter-preview regression</td><td class="st def">DEFER</td></tr>
+        <tr><td>R22</td><td><span class="sev m">MED</span></td><td><code>load-cube-rows.ts:182</code></td><td>Filter-induced emptiness — mitigated by R15's honest disclosure; full fix needs a filter-aware probe</td><td class="st def">DEFER</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="foot">7 of 10 fixed in one coherent change across <code>resolve-coverage-range.ts</code>, <code>load-cube-rows.ts</code>,
+  <code>emit-query-artifact.ts</code>. 3 deferred with rationale (perf trade-off / regression risk / mitigated). Verified by unit tests on the pure helpers + the snap path.</p>
+</div>

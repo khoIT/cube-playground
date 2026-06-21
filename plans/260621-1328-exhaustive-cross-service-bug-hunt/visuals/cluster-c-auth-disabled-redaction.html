@@ -1,0 +1,145 @@
+<title>Cluster C — AUTH_DISABLED Redaction No-Op</title>
+<style>
+  :root {
+    --ink: #15171a; --ink-soft: #4a4f57; --ink-faint: #8a909a;
+    --paper: #f6f5f2; --card: #fffefb; --line: #e3e0d8;
+    --danger: #b3261e; --danger-soft: #fbeae8; --danger-line: #e7b3ad;
+    --safe: #1f7a4d; --safe-soft: #e8f3ec; --safe-line: #aed6bf;
+    --accent: #b5651d;
+    --mono: 'SF Mono','JetBrains Mono',ui-monospace,Menlo,monospace;
+    --sans: 'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 48px 32px 72px; }
+  .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 30px; font-weight: 700; margin: 8px 0 6px; letter-spacing: -.01em; }
+  .sub { font-size: 15px; color: var(--ink-soft); max-width: 760px; margin: 0; }
+  .meta { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); margin-top: 14px; }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 36px; }
+  @media (max-width: 880px){ .cols { grid-template-columns: 1fr; } }
+  .col { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .col-head { padding: 16px 20px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line); }
+  .col.broken .col-head { background: var(--danger-soft); border-bottom-color: var(--danger-line); }
+  .col.fixed  .col-head { background: var(--safe-soft);   border-bottom-color: var(--safe-line); }
+  .tag { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; }
+  .col.broken .tag { background: var(--danger); color: #fff; }
+  .col.fixed  .tag { background: var(--safe);  color: #fff; }
+  .col-head h2 { font-size: 16px; margin: 0; font-weight: 650; }
+  .col-body { padding: 20px; }
+
+  .flow { list-style: none; margin: 0; padding: 0; }
+  .step { position: relative; padding: 0 0 0 34px; margin: 0 0 4px; }
+  .step:not(:last-child)::before { content:''; position:absolute; left: 11px; top: 24px; bottom: -4px; width: 2px; background: var(--line); }
+  .dot { position: absolute; left: 2px; top: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); border: 2px solid var(--line); color: var(--ink-soft); font-size: 11px; font-weight: 700; display: grid; place-items: center; font-family: var(--mono); }
+  .step.bad .dot  { border-color: var(--danger); color: var(--danger); }
+  .step.good .dot { border-color: var(--safe);  color: var(--safe); }
+  .step-t { font-size: 14px; font-weight: 600; padding-top: 2px; }
+  .step-d { font-size: 13px; color: var(--ink-soft); margin: 2px 0 14px; }
+  code { font-family: var(--mono); font-size: 12.5px; background: #eceae3; padding: 1px 5px; border-radius: 4px; color: var(--ink); }
+  .col.broken code.hot { background: var(--danger-soft); color: var(--danger); }
+  .col.fixed  code.hot { background: var(--safe-soft);  color: var(--safe); }
+
+  .outcome { margin-top: 8px; padding: 13px 15px; border-radius: 10px; font-size: 13px; display: flex; gap: 9px; align-items: flex-start; }
+  .col.broken .outcome { background: var(--danger-soft); border: 1px solid var(--danger-line); color: #7d1a14; }
+  .col.fixed  .outcome { background: var(--safe-soft);   border: 1px solid var(--safe-line);  color: #14543a; }
+  .outcome b { font-weight: 700; }
+
+  .diff { margin-top: 36px; background: #1b1d21; border-radius: 14px; padding: 22px 24px; font-family: var(--mono); font-size: 13px; color: #d6d3cc; overflow-x: auto; }
+  .diff .file { color: #8a909a; font-size: 11.5px; letter-spacing: .04em; margin-bottom: 12px; text-transform: none; }
+  .diff pre { margin: 0; line-height: 1.7; }
+  .diff .rm { color: #f1948c; }
+  .diff .add { color: #95d5b2; }
+  .diff .cmt { color: #6b7280; }
+  .diff .hl { background: rgba(149,213,178,.12); display: inline-block; width: 100%; }
+
+  .sites { margin-top: 28px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .site { flex: 1 1 220px; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 13px 15px; }
+  .site .f { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+  .site .w { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; }
+  .note { margin-top: 26px; font-size: 12.5px; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 16px; }
+  .note b { color: var(--ink-soft); }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Cross-service bug hunt · Cluster C · Finding #4</div>
+  <h1>Tokenless redaction is a no-op under <code>AUTH_DISABLED</code></h1>
+  <p class="sub">The redaction gate that strips payer/CS/VIP columns from tokenless callers keys on <code>Boolean(req.user)</code>. Under <code>AUTH_DISABLED</code> every request — including a bare <code>curl</code> with no token — is decorated with a synthetic admin, so the gate is always open.</p>
+  <p class="meta"><b>Live on:</b> local dev + playground host (AUTH_DISABLED, non-prod NODE_ENV, VPN-reachable) &nbsp;·&nbsp; <b>Prod real-auth:</b> not affected (boot guard blocks AUTH_DISABLED+prod)</p>
+
+  <div class="cols">
+    <!-- BROKEN -->
+    <div class="col broken">
+      <div class="col-head"><span class="tag">Broken</span><h2>Anonymous curl, no Authorization header</h2></div>
+      <div class="col-body">
+        <ul class="flow">
+          <li class="step bad"><span class="dot">1</span>
+            <div class="step-t">Request hits the <code>onRequest</code> hook</div>
+            <div class="step-d"><code>GET /api/segments/&lt;uuid&gt;/members</code> — no token, no <code>X-Owner</code>.</div></li>
+          <li class="step bad"><span class="dot">2</span>
+            <div class="step-t">AUTH_DISABLED branch runs</div>
+            <div class="step-d"><code class="hot">request.user = devUser()</code> — synthesized <code>role:'admin'</code>, every feature on. Set <b>unconditionally</b>, for any caller.</div></li>
+          <li class="step bad"><span class="dot">3</span>
+            <div class="step-t">Members route reaches the gate</div>
+            <div class="step-d"><code>redactSensitiveMembers(payload, <span class="hot">Boolean(req.user)</span>)</code> → <code>Boolean(req.user)</code> is <b>true</b>.</div></li>
+          <li class="step bad"><span class="dot">4</span>
+            <div class="step-t">Gate returns payload untouched</div>
+            <div class="step-d"><code>if (authenticated) return payload;</code> — the <code>SENSITIVE_MEMBER_FIELD</code> strip never runs.</div></li>
+        </ul>
+        <div class="outcome"><span>🔓</span><div><b>Leak.</b> Full per-player dossier served tokenless: <code>billing_lifetime</code>, <code>ltv_vnd</code>, <code>arppu</code>, <code>vip</code>, <code>csat</code>, <code>cs_ticket_detail</code>. Members route doesn't even call <code>guardSegment</code> → any segment UUID, cross-workspace.</div></div>
+      </div>
+    </div>
+
+    <!-- FIXED -->
+    <div class="col fixed">
+      <div class="col-head"><span class="tag">Fixed</span><h2>Gate on a real-token-verified signal</h2></div>
+      <div class="col-body">
+        <ul class="flow">
+          <li class="step good"><span class="dot">1</span>
+            <div class="step-t">Add <code>request.tokenVerified</code> decorator</div>
+            <div class="step-d">Defaults to <code>false</code>. A new request flag distinct from identity presence.</div></li>
+          <li class="step good"><span class="dot">2</span>
+            <div class="step-t">Set true on the real-JWT branch only</div>
+            <div class="step-d">After <code>verifyAppJwt</code> + active grant resolves: <code class="hot">request.tokenVerified = true</code>. The AUTH_DISABLED branch leaves it <b>false</b>.</div></li>
+          <li class="step good"><span class="dot">3</span>
+            <div class="step-t">Gate keys on the new signal</div>
+            <div class="step-d"><code>redactSensitiveMembers(payload, <span class="hot">req.tokenVerified</span>)</code> — synthetic dev admin no longer counts as authenticated.</div></li>
+          <li class="step good"><span class="dot">4</span>
+            <div class="step-t">Tokenless callers get redacted rows</div>
+            <div class="step-d">Sensitive columns stripped for any caller without a verified token, in every mode.</div></li>
+        </ul>
+        <div class="outcome"><span>🔒</span><div><b>Sealed.</b> Prod token-holders still see full data (unchanged). Prod tokenless still redacts (unchanged). AUTH_DISABLED curl now redacts (fixed) — the tokenless capability serves only non-sensitive columns, as designed.</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIFF -->
+  <div class="diff">
+    <div class="file">server/src/middleware/authenticate.ts</div>
+    <pre><span class="cmt">// 1. declare + decorate</span>
+  interface FastifyRequest { user?: AuthenticatedUser; owner: string;
+<span class="add">+   tokenVerified: boolean;</span>  <span class="cmt">// true ONLY when a real app-JWT verified</span>
+    ...
+  app.decorateRequest('user', null);
+<span class="add">+ app.decorateRequest('tokenVerified', false);</span>
+
+<span class="cmt">// 2. real-auth branch — set the flag where req.user is built from a verified token</span>
+    if (access && access.status === 'active') {
+      request.user = { ... };
+      request.owner = claims.sub;
+<span class="add">+     request.tokenVerified = true;</span>
+      return;
+    }
+<span class="cmt">// AUTH_DISABLED branch: request.user = devUser() but tokenVerified stays false</span></pre>
+  </div>
+
+  <div class="sites">
+    <div class="site"><div class="f">segments.ts:725</div><div class="w"><code style="font-size:11px">Boolean(req.user)</code> → <code style="font-size:11px">req.tokenVerified</code> (members pull)</div></div>
+    <div class="site"><div class="f">segment-movement.ts:395</div><div class="w"><code style="font-size:11px">Boolean(req.user)</code> → <code style="font-size:11px">req.tokenVerified</code> (state-distribution)</div></div>
+    <div class="site"><div class="f">segment-movement.ts:458</div><div class="w"><code style="font-size:11px">Boolean(req.user)</code> → <code style="font-size:11px">req.tokenVerified</code> (state-distribution-trend)</div></div>
+  </div>
+
+  <p class="note"><b>Why this is a fix, not a behavior reversal:</b> the gate's own comment claims <i>"req.user is set only when a real token verified"</i> — false under AUTH_DISABLED. The change aligns the code with its documented intent. The cross-workspace pull on the members route (no <code>guardSegment</code>) is left intentional — the tokenless "CS handed the URL" capability model is by-design; redaction is the correct boundary, not blocking access.</p>
+</div>

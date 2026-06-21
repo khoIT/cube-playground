@@ -1,0 +1,115 @@
+<title>Cluster F — Rollup build_range_end Never Seals</title>
+<style>
+  :root{
+    --ink:#15171a;--ink-soft:#4a4f57;--ink-faint:#8a909a;
+    --paper:#f6f5f2;--card:#fffefb;--line:#e3e0d8;
+    --danger:#b3261e;--danger-soft:#fbeae8;--danger-line:#e7b3ad;
+    --safe:#1f7a4d;--safe-soft:#e8f3ec;--safe-line:#aed6bf;
+    --accent:#b5651d;
+    --mono:'SF Mono','JetBrains Mono',ui-monospace,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:48px 32px 72px}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-size:29px;font-weight:700;margin:8px 0 6px;letter-spacing:-.01em}
+  .sub{font-size:15px;color:var(--ink-soft);max-width:800px;margin:0}
+  code{font-family:var(--mono);font-size:12.5px;background:#eceae3;padding:1px 5px;border-radius:4px}
+
+  .timeline{margin-top:34px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:26px 28px}
+  .tl-title{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-faint);font-weight:600;margin-bottom:22px}
+  .axis{position:relative;height:96px;margin:0 8px}
+  .bar{position:absolute;top:34px;height:14px;border-radius:7px}
+  .bar.utc{left:0;width:62%;background:linear-gradient(90deg,#cfcabd,#b7b1a3)}
+  .now{position:absolute;top:18px;left:62%;width:2px;height:46px;background:var(--ink)}
+  .now .cap{position:absolute;top:-20px;left:-16px;font-family:var(--mono);font-size:11px;color:var(--ink);white-space:nowrap}
+  .maxend{position:absolute;top:18px;left:81%;width:2px;height:46px;background:var(--danger)}
+  .maxend .cap{position:absolute;top:-20px;left:-30px;font-family:var(--mono);font-size:11px;color:var(--danger);white-space:nowrap}
+  .gap{position:absolute;top:36px;left:62%;width:19%;height:10px;background:repeating-linear-gradient(45deg,var(--danger-soft),var(--danger-soft) 5px,#fff 5px,#fff 10px);border:1px dashed var(--danger-line);border-radius:5px}
+  .gaplbl{position:absolute;top:54px;left:64%;font-size:11.5px;color:var(--danger);font-family:var(--mono)}
+  .axisline{position:absolute;top:41px;left:0;right:0;height:1px;background:var(--line)}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:30px}
+  @media(max-width:840px){.cols{grid-template-columns:1fr}}
+  .col{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .col-head{padding:14px 20px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line)}
+  .col.broken .col-head{background:var(--danger-soft);border-bottom-color:var(--danger-line)}
+  .col.fixed .col-head{background:var(--safe-soft);border-bottom-color:var(--safe-line)}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  .col.broken .tag{background:var(--danger);color:#fff}
+  .col.fixed .tag{background:var(--safe);color:#fff}
+  .col-head h3{font-size:15px;margin:0;font-weight:650}
+  .codeblk{padding:16px 20px;font-family:var(--mono);font-size:12px;line-height:1.7;overflow-x:auto;margin:0}
+  .codeblk .rm{color:var(--danger)}.codeblk .add{color:var(--safe)}
+  .chain{padding:4px 20px 16px;margin:0;list-style:none}
+  .chain li{font-size:12.5px;color:var(--ink-soft);padding:5px 0 5px 22px;position:relative}
+  .chain li::before{content:'→';position:absolute;left:2px;color:var(--ink-faint)}
+  .col.broken .chain li:last-child{color:#7d1a14;font-weight:600}
+  .col.fixed .chain li:last-child{color:#14543a;font-weight:600}
+
+  .games{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap}
+  .game{flex:1 1 210px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .game .g{font-weight:700;font-size:13px}
+  .game .col2{font-family:var(--mono);font-size:11px;color:var(--accent);margin-top:3px}
+  .game .col2 .x{color:var(--ink-faint)}
+  .note{margin-top:26px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:16px}
+  .note b{color:var(--ink-soft)}
+  .warn{margin-top:16px;background:#fdf0dd;border:1px solid #e9cfa0;border-radius:10px;padding:12px 15px;font-size:12.5px;color:#7a5512}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Cross-service bug hunt · Cluster F · Findings #10–13</div>
+  <h1>Open-month rollup partition never seals — the timezone trap</h1>
+  <p class="sub">Four games' recharge rollups set <code>build_range_end</code> to a bare <code>MAX(timestamp)</code>. The column is timezone-aware and queries arrive in Asia/Saigon (UTC+7), so the computed end sits <b>7 hours ahead of UTC now</b>. CubeStore refuses a partition that ends in its own future — so the current month never builds, and every current-period revenue query falls through to a full Trino scan.</p>
+
+  <div class="timeline">
+    <div class="tl-title">Why CubeStore rejects the open partition</div>
+    <div class="axis">
+      <div class="axisline"></div>
+      <div class="bar utc"></div>
+      <div class="now"><span class="cap">UTC now</span></div>
+      <div class="gap"></div>
+      <div class="gaplbl">+7h ahead</div>
+      <div class="maxend"><span class="cap">MAX(pay_time) @ UTC+7</span></div>
+    </div>
+    <div style="font-family:var(--mono);font-size:12px;color:var(--danger);margin-top:4px">CubeStore: "Internal: second time provided was later than self" → partition discarded</div>
+  </div>
+
+  <div class="cols">
+    <div class="col broken">
+      <div class="col-head"><span class="tag">Before</span><h3>uncapped MAX</h3></div>
+      <pre class="codeblk">build_range_end:
+  <span class="rm">SELECT MAX(pay_time)</span>
+  <span class="rm">FROM etl_ingame_recharge</span></pre>
+      <ul class="chain">
+        <li>end = latest pay_time, +7h ahead of UTC now</li>
+        <li>CubeStore rejects the open-month partition</li>
+        <li>current month never seals → full <code>etl_ingame_recharge</code> scan (seconds, not ms)</li>
+      </ul>
+    </div>
+    <div class="col fixed">
+      <div class="col-head"><span class="tag">After</span><h3>LEAST cap (cfm-proven pattern)</h3></div>
+      <pre class="codeblk">build_range_end:
+  <span class="add">SELECT LEAST(MAX(pay_time),</span>
+  <span class="add">             current_timestamp)</span>
+  FROM etl_ingame_recharge</pre>
+      <ul class="chain">
+        <li>end clamped to never exceed UTC now</li>
+        <li>CubeStore accepts the partition</li>
+        <li>current month seals → rollup serves from CubeStore (ms)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="games">
+    <div class="game"><div class="g">jus</div><div class="col2"><span class="x">MAX(</span>pay_time<span class="x">)</span></div></div>
+    <div class="game"><div class="g">muaw</div><div class="col2"><span class="x">MAX(</span>recharge_time<span class="x">)</span></div></div>
+    <div class="game"><div class="g">ptg</div><div class="col2"><span class="x">COALESCE(LEAST(MAX(</span>rechargetime<span class="x">)…))</span></div></div>
+    <div class="game"><div class="g">pubg</div><div class="col2"><span class="x">MAX(</span>dteventtime<span class="x">)</span></div></div>
+  </div>
+
+  <div class="warn"><b>Verification pending:</b> the YAML change mirrors the verified-correct <code>cfm/etl_login.yml</code> pattern, but confirming the partition actually re-seals requires a cube-dev rollup build against Trino (full stack + credentials). The fix is applied; the build-and-confirm step is a separate run.</div>
+
+  <p class="note"><b>ptg note:</b> its <code>build_range_end</code> wraps the fallback in <code>COALESCE(…, '2025-01-01')</code> for the empty-table case. The cap goes <i>inside</i> — <code>COALESCE(LEAST(MAX(rechargetime), current_timestamp), …)</code> — so <code>LEAST</code> only ever compares the two tz-aware values and the empty-table fallback is preserved.</p>
+</div>

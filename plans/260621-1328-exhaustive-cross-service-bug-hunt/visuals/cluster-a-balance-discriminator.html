@@ -1,0 +1,109 @@
+<title>Cluster A — Balance-Error Discriminator Drift</title>
+<style>
+  :root {
+    --ink:#15171a; --ink-soft:#4a4f57; --ink-faint:#8a909a;
+    --paper:#f6f5f2; --card:#fffefb; --line:#e3e0d8;
+    --danger:#b3261e; --danger-soft:#fbeae8; --danger-line:#e7b3ad;
+    --safe:#1f7a4d; --safe-soft:#e8f3ec; --safe-line:#aed6bf;
+    --accent:#b5651d;
+    --mono:'SF Mono','JetBrains Mono',ui-monospace,Menlo,monospace;
+    --sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:48px 32px 72px}
+  .eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  h1{font-size:29px;font-weight:700;margin:8px 0 6px;letter-spacing:-.01em}
+  .sub{font-size:15px;color:var(--ink-soft);max-width:780px;margin:0}
+  code{font-family:var(--mono);font-size:12.5px;background:#eceae3;padding:1px 5px;border-radius:4px}
+
+  .shape{margin-top:30px;background:#1b1d21;border-radius:14px;padding:20px 24px;color:#d6d3cc;font-family:var(--mono);font-size:13px}
+  .shape .lbl{color:#8a909a;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px}
+  .shape pre{margin:0;line-height:1.7}
+  .shape .key{color:#f0c674}
+  .shape .bad{color:#f1948c;font-weight:700}
+  .shape .note{color:#6b7280;margin-top:10px;font-family:var(--sans);font-size:12.5px}
+
+  h2.sec{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint);margin:38px 0 14px;font-weight:600}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+  @media(max-width:840px){.cols{grid-template-columns:1fr}}
+  .col{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .col-head{padding:14px 20px;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line)}
+  .col.broken .col-head{background:var(--danger-soft);border-bottom-color:var(--danger-line)}
+  .col.fixed .col-head{background:var(--safe-soft);border-bottom-color:var(--safe-line)}
+  .tag{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border-radius:999px}
+  .col.broken .tag{background:var(--danger);color:#fff}
+  .col.fixed .tag{background:var(--safe);color:#fff}
+  .col-head h3{font-size:15px;margin:0;font-weight:650}
+  .codeblk{padding:16px 20px;font-family:var(--mono);font-size:12.5px;line-height:1.75;overflow-x:auto;margin:0}
+  .codeblk .rm{color:var(--danger)}
+  .codeblk .add{color:var(--safe)}
+  .codeblk .cmt{color:var(--ink-faint)}
+  .outcome{margin:0 20px 18px;padding:12px 14px;border-radius:10px;font-size:12.5px;display:flex;gap:8px}
+  .col.broken .outcome{background:var(--danger-soft);border:1px solid var(--danger-line);color:#7d1a14}
+  .col.fixed .outcome{background:var(--safe-soft);border:1px solid var(--safe-line);color:#14543a}
+
+  .sites{margin-top:24px;display:flex;gap:12px;flex-wrap:wrap}
+  .site{flex:1 1 240px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+  .site .f{font-family:var(--mono);font-size:11.5px;color:var(--accent)}
+  .site .sev{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--danger-soft);color:var(--danger);float:right}
+  .site.med .sev{background:#fdf0dd;color:#9a6512}
+  .site .w{font-size:12.5px;color:var(--ink-soft);margin-top:6px}
+  .fixstrip{margin-top:24px;background:var(--safe-soft);border:1px solid var(--safe-line);border-radius:12px;padding:16px 20px;font-size:13px;color:#14543a}
+  .fixstrip b{font-weight:700}
+  .note{margin-top:24px;font-size:12.5px;color:var(--ink-faint);border-top:1px solid var(--line);padding-top:16px}
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Cross-service bug hunt · Cluster A · Findings #1 #2 #14</div>
+  <h1>One discriminator, copied three times — minus the <code>is_error</code> clause</h1>
+  <p class="sub">The canonical detector in <code>claude-runner.ts</code> classifies a failed turn on <code>is_error === true || subtype !== 'success'</code>. Three peripheral one-shot calls copied only the <code>subtype</code> half. The live LiteLLM gateway reports a drained-balance 400 as <code>subtype:'success'</code> <b>with</b> <code>is_error:true</code> — so the copied guards are all false on a real exhaustion.</p>
+
+  <div class="shape">
+    <div class="lbl">The live gateway balance-400 message shape (verified)</div>
+    <pre>{ type: <span class="key">'result'</span>, <span class="bad">subtype: 'success'</span>, <span class="bad">is_error: true</span>, api_error_status: 400,
+  result: <span class="key">'Your credit balance is too low to access the Anthropic API'</span> }</pre>
+    <div class="note">A <code>subtype && subtype !== 'success'</code> check evaluates <b>false</b> here — the balance branch never runs.</div>
+  </div>
+
+  <h2 class="sec">The discriminator — before vs after</h2>
+  <div class="cols">
+    <div class="col broken">
+      <div class="col-head"><span class="tag">Before</span><h3>subtype-only — misses the gateway shape</h3></div>
+      <pre class="codeblk"><span class="cmt">// copied into salvage, segment-brief, title</span>
+if (m.type === 'result') {
+  <span class="rm">if (m.subtype && m.subtype !== 'success'</span>
+<span class="rm">      && isBalanceExhaustedError(m.result)) {</span>
+    reportKeyBalanceExhausted(...);   <span class="cmt">// never reached</span>
+  }
+  result = m.result;  <span class="cmt">// ← captures the error string</span>
+}</pre>
+      <div class="outcome"><span>⚠️</span><div>Drained key never reported (failover ladder defeated); in salvage the raw billing error is persisted + streamed as the user's answer.</div></div>
+    </div>
+    <div class="col fixed">
+      <div class="col-head"><span class="tag">After</span><h3>shared canonical detector</h3></div>
+      <pre class="codeblk"><span class="cmt">// anthropic-key-failover.ts — single source of truth</span>
+<span class="add">const balanceText = balanceErrorTextOf(m);</span>
+<span class="add">if (balanceText) {</span>
+  reportKeyBalanceExhausted(...);
+  <span class="add">return ''; // or throw — per site</span>
+}
+if (m.type === 'result') {
+  <span class="add">if (isFailureResultMessage(m)) return '';</span>
+  result = m.result;
+}</pre>
+      <div class="outcome"><span>✅</span><div>Both SDK shapes (result + assistant-echo) caught; drain reported → rotation advances; no failure text ever leaks as content.</div></div>
+    </div>
+  </div>
+
+  <h2 class="sec">Three call sites, one root cause</h2>
+  <div class="sites">
+    <div class="site"><span class="sev">High</span><div class="f">salvage-timeout-answer.ts:119</div><div class="w">Worst: error string persisted + streamed as the salvaged answer. Salvage is the canary path — drain detected nowhere else.</div></div>
+    <div class="site"><span class="sev">High</span><div class="f">segment-brief.ts:63</div><div class="w">Drain not reported (failover defeated for this route); 502 mis-attributed as <code style="font-size:11px">invalid_llm_response</code>.</div></div>
+    <div class="site med"><span class="sev">Med</span><div class="f">maybe-summarise-title.ts:82</div><div class="w">Key not reported from title path; session title could be overwritten with the error string. Fire-and-forget.</div></div>
+  </div>
+
+  <div class="fixstrip"><b>The fix is DRY:</b> promote <code>balanceErrorTextOf</code> + add <code>isFailureResultMessage</code> to <code>anthropic-key-failover.ts</code> (beside <code>isBalanceExhaustedError</code> + <code>reportKeyBalanceExhausted</code>). <code>claude-runner</code> and all 3 sites import the one detector — the discriminator can no longer drift. Regression tests assert the exact <code>subtype:'success'+is_error:true</code> shape is caught.</div>
+
+  <p class="note"><b>On finding #2:</b> a skeptic correctly narrowed it — <code>parseBriefResponse</code>'s <code>JSON.parse</code> blocks the error text from being served as a brief body, so the real bug is the failover-defeat + mis-attributed 502, not a content leak. The fix addresses both.</p>
+</div>
