@@ -22,6 +22,7 @@ import segmentMember360Routes from './routes/segment-member360.js';
 import segmentBriefRoutes from './routes/segment-brief.js';
 import segmentTrajectoryRoutes from './routes/segment-trajectory.js';
 import segmentCsCareRoutes from './routes/segment-cs-care.js';
+import segmentMemberTiersRoutes from './routes/segment-member-tiers.js';
 import segmentCsTicketsRoutes from './routes/segment-cs-tickets.js';
 import segmentMetricSeriesRoutes from './routes/segment-metric-series.js';
 import segmentMovementRoutes from './routes/segment-movement.js';
@@ -125,6 +126,7 @@ export async function buildApp() {
   await app.register(segmentBriefRoutes);
   await app.register(segmentTrajectoryRoutes);
   await app.register(segmentCsCareRoutes);
+  await app.register(segmentMemberTiersRoutes);
   await app.register(segmentCsTicketsRoutes);
   await app.register(segmentMetricSeriesRoutes);
   await app.register(segmentMovementRoutes);

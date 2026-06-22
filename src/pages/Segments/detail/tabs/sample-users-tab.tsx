@@ -30,7 +30,9 @@ import {
   formatCell,
 } from './member-table-shared';
 import { TieredMembersView } from './tiered-members-view';
+import { PayingMembersView } from './paying-members-view';
 import { tierOptions } from './tier-view-model';
+import { useSegmentScope } from '../segment-scope-context';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -53,6 +55,12 @@ function shuffle<T>(arr: readonly T[], seed: number): T[] {
 }
 
 export function SampleUsersTab({ segment, preset }: Props): ReactElement {
+  const { scope } = useSegmentScope();
+  // "Paying users only" sub-scope: live-recompute the payer tiers (the stored
+  // snapshot ranks the full cohort and can't be paying-filtered).
+  if (scope === 'paying') {
+    return <PayingMembersView segment={segment} preset={preset} />;
+  }
   // Server-computed LTV tiers win over the random sample. tierOptions()
   // filters empty/unusable payloads so a degenerate blob still falls back.
   if (segment.member_tiers && tierOptions(segment.member_tiers).length > 0) {

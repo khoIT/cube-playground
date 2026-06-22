@@ -131,4 +131,30 @@ describe('GET /api/segments/:id/cs-care', () => {
     expect(res.statusCode).toBe(502);
     expect(res.json().error.code).toBe('CS_CARE_UNAVAILABLE');
   });
+
+  it('scope=paying builds with payingOnly and serves a warm hit from the sub-cache', async () => {
+    buildMock.mockResolvedValue(payload(predicateId, 7));
+
+    const first = await app.inject({ method: 'GET', url: `/api/segments/${predicateId}/cs-care?scope=paying`, headers: auth });
+    expect(first.statusCode).toBe(200);
+    expect(buildMock).toHaveBeenCalledTimes(1);
+    // The builder is told to resolve the payer sub-cohort live.
+    expect(buildMock.mock.calls[0][1]).toMatchObject({ payingOnly: true });
+
+    const second = await app.inject({ method: 'GET', url: `/api/segments/${predicateId}/cs-care?scope=paying`, headers: auth });
+    expect(second.statusCode).toBe(200);
+    expect(buildMock).toHaveBeenCalledTimes(1); // warm hit on the paying sub-cache
+  });
+
+  it('paying and default scopes do not share a cache (each builds once)', async () => {
+    buildMock.mockResolvedValue(payload(predicateId, 5));
+
+    await app.inject({ method: 'GET', url: `/api/segments/${predicateId}/cs-care`, headers: auth });
+    expect(buildMock).toHaveBeenCalledTimes(1);
+    expect(buildMock.mock.calls[0][1]).toBeUndefined(); // default scope: no payingOnly
+
+    await app.inject({ method: 'GET', url: `/api/segments/${predicateId}/cs-care?scope=paying`, headers: auth });
+    expect(buildMock).toHaveBeenCalledTimes(2); // distinct cache → separate build
+    expect(buildMock.mock.calls[1][1]).toMatchObject({ payingOnly: true });
+  });
 });

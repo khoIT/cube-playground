@@ -18,7 +18,7 @@ import { CarePulseStrip } from './care/care-pulse-strip';
 import { CareWatchlist } from './care/care-watchlist';
 import { CareIssueMix } from './care/care-issue-mix';
 import { CareImpactStrip } from './care/care-impact-strip';
-import { ScopeNotAppliedNote } from '../components/scope-not-applied-note';
+import { useSegmentScope } from '../segment-scope-context';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -48,12 +48,15 @@ type State =
 
 export function CareTab({ segment }: Props): ReactElement {
   const { t } = useTranslation();
+  const { scope } = useSegmentScope();
   const [state, setState] = useState<State>({ kind: 'loading' });
 
+  // Re-fetch when the population scope flips — the payer sub-cohort is a
+  // distinct live read, so toggling Paying/Everyone reloads the whole overlay.
   useEffect(() => {
     let cancelled = false;
     setState({ kind: 'loading' });
-    fetchSegmentCsCare(segment.id)
+    fetchSegmentCsCare(segment.id, scope)
       .then((data) => {
         if (!cancelled) setState({ kind: 'ready', data });
       })
@@ -70,7 +73,7 @@ export function CareTab({ segment }: Props): ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [segment.id]);
+  }, [segment.id, scope]);
 
   if (state.kind === 'loading') {
     return (
@@ -103,7 +106,28 @@ export function CareTab({ segment }: Props): ReactElement {
   const { data } = state;
   return (
     <div className={styles.careTab}>
-      <ScopeNotAppliedNote surface="Care" />
+      {scope === 'paying' && (
+        <div
+          role="note"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            marginBottom: 12,
+            padding: '4px 10px',
+            fontSize: 12,
+            fontWeight: 600,
+            borderRadius: 'var(--radius-pill, 999px)',
+            background: 'var(--bg-muted)',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {t('segments.detail.care.payingScope', {
+            defaultValue: 'Paying users only — CS overlay scoped to {{n}} payers',
+            n: data.coverage.totalMembers,
+          })}
+        </div>
+      )}
       {data.stale && (
         <div
           style={{

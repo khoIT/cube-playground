@@ -31,29 +31,42 @@ Covers Headline KPIs + Insights + Monitor (all route through `useSegmentCubeQuer
 - `detail-view.tsx`: wrap in provider, render scope bar (mf_users only).
 - Verified: `tsc --noEmit` clean on touched files; 114 detail tests pass.
 
-## Phase 3 — Members tier view (TODO)
-Members uses `segment.member_tiers` (server snapshot: top/middle/bottom 50 by LTV) +
-live per-row enrichment. The snapshot is full-cohort; there is no paying-only tier set.
-Options:
-- (a) Client filter tier rows to `ltv > 0` — cheap, but counts/"of N members" header and
-  bottom-tier semantics drift (bottom-of-snapshot payers ≠ true bottom payers).
-- (b) Server: compute paying-only tiers in the refresh job (new `member_tiers_paying`)
-  or a live ranked-members query scoped to `paying_lifetime`. Correct, larger.
-Recommendation: (b) via the existing ranked-members pull path, scoped.
+## Phase 3 — Members tier view (DONE)
+Chose option (b) — correct, live server recompute (not the cheap `ltv>0` client filter,
+which drifts tier semantics). The payer sub-cohort is re-ranked into fresh
+top/middle/bottom-50 with offset windows sized off the PAYER total.
+- `services/segment-cohort-context.ts` (NEW): shared resolver — identity/preset/prefix/
+  meta/rank/nameDim + ANDs `<hub>.paying_lifetime` onto the cohort segments; reads the
+  predicate from stored `cube_query_json` (same basis as every live card). Plus
+  `countPayingCohort` + `resolveRankedPayingUids`.
+- `services/segment-paying-tiers.ts` (NEW): `computePayingMemberTiers` → reuses the exact
+  refresh-job `computeMemberTiers` engine (same query shape/dedup/name handling).
+- `routes/segment-member-tiers.ts` (NEW): `GET /member-tiers?scope=paying` + 10-min
+  process-local cache (sub-scope is never precomputed; no durable serve-stale).
+- FE: `api/segment-member-tiers.ts` (NEW), `tabs/paying-members-view.tsx` (NEW; loading/
+  empty/unavailable/error states → feeds the SAME `TieredMembersView`), `sample-users-tab.tsx`
+  branches on scope.
 
-## Phase 4 — Care tab (TODO — bigger than implied)
-**Constraint found during build:** `cs-care-builder.ts` resolves members from the
-stored `uid_list_json` snapshot, which has NO per-uid LTV — so Care cannot be
-paying-filtered from the snapshot alone. Needs:
-- Live resolution of the paying-uid subset (segment predicate ∩ `paying_lifetime`,
-  ranked by LTV, capped at `MAX_MEMBER_UIDS`), passed into `buildCsCarePayload`.
-- `GET /api/segments/:id/cs-care?scope=paying` param → thread `payingOnly` into the builder.
-- Scope-aware durable cache key (`segment_care_cache` is keyed by segment id today;
-  paying & all must not collide).
-- FE: `segment-cs-care.ts` client + `care-tab.tsx` pass the active scope.
+## Phase 4 — Care tab (DONE)
+Live paying-uid resolver as flagged. The snapshot lacks per-uid LTV, so under paying scope
+the builder resolves the payer subset live (predicate ∩ `paying_lifetime`, ranked, capped
+at `MAX_MEMBER_UIDS=5000`) and feeds it through the unchanged downstream build.
+- `cs-care-builder.ts`: `BuildCsCareOptions.payingOnly` (defaults off → precompute/refresh
+  paths untouched); `coverage.truncated` now reflects the live cap.
+- `routes/segment-cs-care.ts`: `?scope=paying` → separate process-local cache (no collision
+  with the durable full-cohort cache) + `buildCsCarePayload({payingOnly:true})`.
+- FE: `api/segment-cs-care.ts` scope param, `care-tab.tsx` re-fetches on scope flip + shows a
+  paying badge. Interim `ScopeNotAppliedNote` deleted (both tabs now covered).
+
+Tests: `server/test/segment-member-tiers-route.test.ts` (NEW), +2 paying cases in
+`segment-cs-care-route.test.ts`. server tsc / FE tsc (touched) / theme-lint clean; 114 FE
+detail tests + 38 server care/tier tests pass. Code-review: no blockers.
+
+## Resolved
+1. Members: built paying tiers server-side (option b) — correct over the cheap client filter.
+2. Care: proceeded with the live paying-uid resolver (user: "continue on member, care").
 
 ## Open questions
-1. Members Phase 3: accept the cheap client-side `ltv>0` filter (approx) or build
-   paying tiers server-side (correct)?
-2. Care Phase 4 confirmed bigger than the toggle (snapshot lacks LTV) — proceed with
-   the live paying-uid resolver, or defer Care to a follow-up?
+None. (Minor: FE `available` gate and backend hub gate are derived independently but both
+fail OPEN — a mismatch degrades to the full snapshot, never silently paying-filters a
+non-payer cohort. A shared gate helper is YAGNI today.)

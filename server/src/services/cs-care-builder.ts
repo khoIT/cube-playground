@@ -33,6 +33,8 @@ import {
   type WatchlistEntry,
 } from '../routes/segment-cs-care-assembly.js';
 import { resolveMemberNamesLive } from './resolve-member-names-live.js';
+import { resolvePayingCohortContext, resolveRankedPayingUids } from './segment-cohort-context.js';
+import type { SegmentRow } from '../routes/segments.js';
 
 /** History lookback — wide enough to anchor a ±30d recharge window with margin. */
 export const LOOKBACK_DAYS = 365;
@@ -144,6 +146,13 @@ export interface BuildCsCareOptions {
    *  The background precompute path passes one so a failed/slow pass records
    *  WHICH Trino read was at fault, even when the build throws. */
   stages?: CareStage[];
+  /** "Paying users only" sub-scope. When set, members are resolved LIVE as the
+   *  payer sub-cohort (segment predicate ∩ paying_lifetime, ranked by the
+   *  segment's measure, capped) instead of the full-cohort uid_list snapshot —
+   *  the snapshot carries no per-uid LTV, so it can't be paying-filtered. The
+   *  caller MUST pass the segment row so the live cohort context can be
+   *  resolved; a missing/non-mf_users row falls back to the snapshot uids. */
+  payingOnly?: boolean;
 }
 
 /**
@@ -159,9 +168,26 @@ export async function buildCsCarePayload(row: CareBuildRow, opts: BuildCsCareOpt
     throw new Error(`Game '${gameId}' has no CS product mapping`);
   }
 
-  // Resolve members from the refresh-time snapshot (no per-request Cube cost).
-  const allUids = parseUids(row.uid_list_json);
-  const uids = allUids.slice(0, MAX_MEMBER_UIDS);
+  // Resolve members: full-cohort from the refresh-time snapshot (no per-request
+  // Cube cost), OR — under the "paying users only" sub-scope — the payer
+  // sub-cohort resolved LIVE (the snapshot has no per-uid LTV to filter on).
+  // `truncated` means the cohort was capped before the CS join: in snapshot
+  // mode that's snapshot-size > cap; in paying mode the live pull hit the cap
+  // (more payers may exist beyond it).
+  const snapshotUids = parseUids(row.uid_list_json);
+  let uids: string[];
+  let truncated: boolean;
+  if (opts.payingOnly) {
+    const ctx = await resolvePayingCohortContext(row as unknown as SegmentRow);
+    const payingUids = ctx ? await resolveRankedPayingUids(ctx, MAX_MEMBER_UIDS) : null;
+    // No mf_users hub (ctx null) → the sub-scope doesn't apply; degrade to the
+    // full snapshot rather than blanking Care.
+    uids = payingUids ?? snapshotUids.slice(0, MAX_MEMBER_UIDS);
+    truncated = payingUids ? payingUids.length >= MAX_MEMBER_UIDS : snapshotUids.length > uids.length;
+  } else {
+    uids = snapshotUids.slice(0, MAX_MEMBER_UIDS);
+    truncated = snapshotUids.length > uids.length;
+  }
   const memberInfo = resolveMemberInfo(parseProfiles(row.member_profiles_json));
   const sinceDate = isoDaysAgo(LOOKBACK_DAYS);
   const asOf = isoDaysAgo(0);
@@ -225,7 +251,7 @@ export async function buildCsCarePayload(row: CareBuildRow, opts: BuildCsCareOpt
       totalMembers: uids.length,
       contactedMembers: pulse.contacted,
       pct: uids.length > 0 ? (pulse.contacted / uids.length) * 100 : null,
-      truncated: allUids.length > uids.length,
+      truncated,
     },
     freshness: { csMaxLogDate: rows.reduce<string | null>((m, r) => (m && m > r.logDate ? m : r.logDate), null) },
     pulse,

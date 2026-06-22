@@ -33,9 +33,20 @@ export type { CsCarePayload };
 
 const CACHE_TTL_MS = 6 * 60 * 60_000; // 6h — CS data is next-day fresh
 
-/** Test hook — clears the durable care cache (kept name so existing tests pass). */
+/** "Paying users only" sub-scope cache — process-local, not durable. The payer
+ *  sub-cohort is resolved live and is never precomputed by the nightly job, so
+ *  it can't share the durable segment_care_cache (keyed by segment id, written
+ *  by the precompute path). Same TTL/serve-stale-on-error contract, in memory. */
+interface PayingCareEntry {
+  payload: CsCarePayload;
+  computedAt: number;
+}
+const payingCareCache = new Map<string, PayingCareEntry>();
+
+/** Test hook — clears both the durable care cache and the paying sub-cache. */
 export function __clearCsCareCache(): void {
   __clearCareCache();
+  payingCareCache.clear();
 }
 
 export default async function segmentCsCareRoutes(app: FastifyInstance): Promise<void> {
@@ -50,6 +61,27 @@ export default async function segmentCsCareRoutes(app: FastifyInstance): Promise
       return reply.status(404).send({
         error: { code: 'NO_CS_CARE', message: 'CS care exists only for predicate segments of games with CS coverage' },
       });
+    }
+
+    const { scope } = req.query as { scope?: string };
+    const payingOnly = scope === 'paying';
+
+    // Paying sub-scope: process-local cache, live payer sub-cohort.
+    if (payingOnly) {
+      const warm = payingCareCache.get(id);
+      if (warm && Date.now() - warm.computedAt < CACHE_TTL_MS) return warm.payload;
+      try {
+        const payload = await buildCsCarePayload(row, { payingOnly: true });
+        payingCareCache.set(id, { payload, computedAt: Date.now() });
+        return payload;
+      } catch (err) {
+        const message = (err as Error).message;
+        if (warm) {
+          const stale: CareStaleMeta = { computedAt: new Date(warm.computedAt).toISOString(), ageMs: Date.now() - warm.computedAt, reason: message };
+          return { ...warm.payload, stale };
+        }
+        return reply.status(502).send({ error: { code: 'CS_CARE_UNAVAILABLE', message } });
+      }
     }
 
     // Warm hit: a recently-built payload — serve it without touching Trino.

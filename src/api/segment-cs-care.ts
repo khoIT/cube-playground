@@ -78,8 +78,14 @@ export interface CsCarePayload {
   stale?: CsCareStaleMeta;
 }
 
-export function fetchSegmentCsCare(id: string): Promise<CsCarePayload> {
-  return apiFetch<CsCarePayload>(`/api/segments/${encodeURIComponent(id)}/cs-care`);
+/** Fetch the Care overlay. `scope: 'paying'` requests the live payer sub-cohort
+ *  (server resolves it fresh — the snapshot has no per-uid LTV to filter on). */
+export function fetchSegmentCsCare(
+  id: string,
+  scope: 'all' | 'paying' = 'all',
+): Promise<CsCarePayload> {
+  const qs = scope === 'paying' ? '?scope=paying' : '';
+  return apiFetch<CsCarePayload>(`/api/segments/${encodeURIComponent(id)}/cs-care${qs}`);
 }
 
 /**
