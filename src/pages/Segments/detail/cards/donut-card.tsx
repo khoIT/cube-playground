@@ -8,6 +8,7 @@ import { resolveCardIcon } from './resolve-card-icon';
 import { cardUnitChip } from './resolve-card-unit';
 import { useSegmentCubeQuery } from '../use-segment-cube-query';
 import { getCachedRows, isCacheFresh } from './use-card-cache-lookup';
+import { categoryLabel } from './format-value';
 import type { DonutCardSpec, Preset } from '../../presets/types';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -34,7 +35,7 @@ export function DonutCard({ spec, segment, preset, cacheKey }: Props): ReactElem
   });
 
   const slices = useMemo(() => rows.map((r) => ({
-    label: String((r as Record<string, unknown>)[spec.groupBy] ?? '—'),
+    label: categoryLabel((r as Record<string, unknown>)[spec.groupBy]),
     value: Number((r as Record<string, unknown>)[spec.measure] ?? 0),
   })), [rows, spec]);
 

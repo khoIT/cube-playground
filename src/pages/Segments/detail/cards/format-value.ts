@@ -22,6 +22,19 @@ export function formatCompact(n: number): string {
 /** Values at/above this magnitude compact even in 'currency'/'number' formats. */
 export const COMPACT_THRESHOLD = 1_000_000;
 
+/**
+ * Label a categorical group-by value for breakdown cards (bar / donut /
+ * composition). A null/undefined/blank group is a real bucket — users whose
+ * dimension wasn't captured upstream (e.g. no first-seen country code) — so it
+ * reads "Unknown" rather than the bare "—" dash, which looks like a render
+ * glitch on a category axis.
+ */
+export function categoryLabel(value: unknown): string {
+  if (value == null) return 'Unknown';
+  const s = String(value).trim();
+  return s === '' ? 'Unknown' : s;
+}
+
 export function formatValue(value: unknown, format: FormatId | undefined): string {
   if (value == null) return '—';
   const n = typeof value === 'number' ? value : Number(value);
