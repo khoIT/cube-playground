@@ -169,7 +169,7 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
       <div
         style={{
           border: '1px solid var(--border-card)', borderRadius: 12, background: 'var(--surface-raised)',
-          padding: '16px 24px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: 8,
+          maxWidth: 560, padding: '16px 24px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: 8,
           fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-faint)',
         }}
       >
@@ -188,6 +188,7 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
         boxShadow: 'var(--shadow-sm)',
         overflow: 'hidden',
         width: '100%',
+        maxWidth: 560,
         margin: '12px 0',
       }}
     >

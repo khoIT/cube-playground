@@ -59,6 +59,7 @@ export function SegmentCreatedCard({ segment, chips, overflowCount, onView, onCr
         boxShadow: 'var(--shadow-sm)',
         overflow: 'hidden',
         width: '100%',
+        maxWidth: 560,
         margin: '12px 0',
       }}
     >
