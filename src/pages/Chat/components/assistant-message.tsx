@@ -588,32 +588,50 @@ function AssistantMessageImpl({
               marginBottom: compact ? 8 : 10,
               fontFamily: T.fSans,
               fontSize: 12,
-              color: 'var(--shell-text-subtle)',
+              color: 'var(--shell-text-muted)',
             }}
           >
-            <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, fontSize: 11 }}>
+            <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, fontSize: 11, color: 'var(--shell-text-secondary)' }}>
               Scope
             </span>
             {turnScope.members.map((m) => (
-              <React.Fragment key={m}>
-                <span style={{ opacity: 0.4 }}>·</span>
-                <code style={{ fontFamily: T.fMono, fontSize: 11, color: 'var(--shell-text-muted)' }}>{m}</code>
-              </React.Fragment>
+              <code
+                key={m}
+                style={{
+                  fontFamily: T.fMono,
+                  fontSize: 11,
+                  color: 'var(--shell-text-secondary)',
+                  background: 'var(--bg-muted)',
+                  border: '1px solid var(--border-card)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '1px 7px',
+                }}
+              >
+                {m}
+              </code>
             ))}
             {turnScope.hiddenMemberCount > 0 && (
               <>
-                <span style={{ opacity: 0.4 }}>·</span>
+                <span style={{ fontWeight: 700, opacity: 0.85 }}>·</span>
                 <span>+{turnScope.hiddenMemberCount} fields</span>
               </>
             )}
             {turnScope.dateRange && (
               <>
-                <span style={{ opacity: 0.4 }}>·</span>
+                <span style={{ fontWeight: 700, opacity: 0.85 }}>·</span>
                 <span>{turnScope.dateRange}</span>
               </>
             )}
             {turnScope.extraArtifacts > 0 && (
-              <b style={{ color: 'var(--shell-brand)', fontWeight: 600 }}>+{turnScope.extraArtifacts}</b>
+              <>
+                <span style={{ fontWeight: 700, opacity: 0.85 }}>·</span>
+                <span
+                  title={`This answer includes ${turnScope.extraArtifacts} more chart${turnScope.extraArtifacts > 1 ? 's' : ''} beyond the one summarized above`}
+                  style={{ color: 'var(--shell-brand)', fontWeight: 600 }}
+                >
+                  +{turnScope.extraArtifacts} chart{turnScope.extraArtifacts > 1 ? 's' : ''}
+                </span>
+              </>
             )}
           </div>
         )}
