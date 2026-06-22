@@ -41,7 +41,13 @@ COPY .npmrc ./
 COPY package.json package-lock.json ./
 COPY server/package.json server/package-lock.json ./server/
 COPY chat-service/package.json chat-service/package-lock.json ./chat-service/
-RUN npm ci \
+# BuildKit cache mount: persist npm's download cache on the builder host across
+# pipelines, independent of this image layer. When the layer is invalidated — a
+# lockfile change OR the shared runner's BuildKit cache being GC'd — npm re-reads
+# tarballs from /root/.npm instead of re-downloading the whole tree, cutting a
+# cold `npm ci` from ~130s to ~30-40s. The three installs share one cache dir.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci \
  && npm ci --prefix server \
  && npm ci --prefix chat-service
 
