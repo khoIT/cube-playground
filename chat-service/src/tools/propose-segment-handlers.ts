@@ -14,6 +14,7 @@ import type { LeafNode, GroupNode, LeafOperator, LeafValueType } from '../types/
 import type { CubeInputFilter } from '../utils/cube-query-to-predicate-tree.js';
 import { cubeQueryToPredicateTree } from '../utils/cube-query-to-predicate-tree.js';
 import * as cubeMetaCache from '../core/cube-meta-cache.js';
+import { fetchPreviewCount } from './segment-preview-count.js';
 import {
   buildDisclosures,
   buildQueryDisclosures,
@@ -263,6 +264,15 @@ export async function handleThreshold(opts: {
     );
   }
 
+  // Dry-run size so the user sees ~how many users match before saving. Strictly
+  // best-effort: null (slow/unavailable) falls back to the "computed on refresh"
+  // disclosure — the proposal always emits.
+  const previewCount = await fetchPreviewCount(ctx, {
+    game_id: args.game_id,
+    cube,
+    predicate_tree: predicate,
+  });
+
   const proposal: SegmentProposal = {
     type: 'segment_proposal',
     name: args.name,
@@ -270,22 +280,25 @@ export async function handleThreshold(opts: {
     cube,
     predicate_tree: predicate,
     resolved: {
-      // estCount unknown without a server call for a plain threshold; disclose this.
-      estCount: 0,
+      estCount: previewCount ?? 0,
       population: `${measure.label} ≥ ${args.threshold_value}${currencyNote} (${windowLabel})`,
     },
     disclosures: [
       ...disclosures,
-      isVi
-        ? 'Số lượng thành viên ước tính chưa được tính. Nhấn Xác nhận để lưu và làm mới.'
-        : 'Estimated count not pre-computed for fixed thresholds. Confirm to save and refresh.',
+      previewCount != null
+        ? isVi
+          ? `~${previewCount.toLocaleString('en-US')} người dùng khớp (số chính xác tính khi làm mới).`
+          : `~${previewCount.toLocaleString('en-US')} users match (exact size on refresh).`
+        : isVi
+          ? 'Số lượng thành viên ước tính chưa được tính. Nhấn Xác nhận để lưu và làm mới.'
+          : 'Estimated count not pre-computed for fixed thresholds. Confirm to save and refresh.',
     ],
     suggestedVisibility: suggested_visibility,
   };
 
   ctx.sseEmitter.emit('segment_proposal', proposal);
 
-  return { ok: true, proposal_emitted: true, name: args.name, estCount: 0 };
+  return { ok: true, proposal_emitted: true, name: args.name, estCount: previewCount ?? 0 };
 }
 
 // ---------------------------------------------------------------------------
@@ -348,6 +361,20 @@ export async function handleQuery(opts: {
   const cube = args.cube.trim();
   const disclosures = buildQueryDisclosures({ name: args.name, cube, isVi });
 
+  // Best-effort dry-run size (see handleThreshold) — null degrades silently.
+  const previewCount = await fetchPreviewCount(ctx, {
+    game_id: args.game_id,
+    cube,
+    predicate_tree: translateResult.predicate,
+  });
+  if (previewCount != null) {
+    disclosures.push(
+      isVi
+        ? `~${previewCount.toLocaleString('en-US')} người dùng khớp (số chính xác tính khi làm mới).`
+        : `~${previewCount.toLocaleString('en-US')} users match (exact size on refresh).`,
+    );
+  }
+
   const proposal: SegmentProposal = {
     type: 'segment_proposal',
     name: args.name,
@@ -355,8 +382,9 @@ export async function handleQuery(opts: {
     cube,
     predicate_tree: translateResult.predicate,
     resolved: {
-      // No cutoff for plain predicate segments. estCount is computed on confirm-refresh.
-      estCount: 0,
+      // No cutoff for plain predicate segments. estCount is the dry-run size when
+      // available, else 0 (computed on confirm-refresh).
+      estCount: previewCount ?? 0,
       population: `matching the explored query filters on ${cube}`,
     },
     disclosures,
@@ -365,5 +393,5 @@ export async function handleQuery(opts: {
 
   ctx.sseEmitter.emit('segment_proposal', proposal);
 
-  return { ok: true, proposal_emitted: true, name: args.name, estCount: 0 };
+  return { ok: true, proposal_emitted: true, name: args.name, estCount: previewCount ?? 0 };
 }

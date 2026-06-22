@@ -64,12 +64,17 @@ export async function getJson<T>(path: string, ctx: ToolContext): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function postJson<T>(path: string, body: unknown, ctx: ToolContext): Promise<T> {
-  return bodyRequest<T>('POST', path, body, ctx);
+export interface BodyRequestOpts {
+  /** Abort signal so latency-sensitive callers (propose-time preview) can bound the wait. */
+  signal?: AbortSignal;
 }
 
-export async function patchJson<T>(path: string, body: unknown, ctx: ToolContext): Promise<T> {
-  return bodyRequest<T>('PATCH', path, body, ctx);
+export async function postJson<T>(path: string, body: unknown, ctx: ToolContext, opts?: BodyRequestOpts): Promise<T> {
+  return bodyRequest<T>('POST', path, body, ctx, opts);
+}
+
+export async function patchJson<T>(path: string, body: unknown, ctx: ToolContext, opts?: BodyRequestOpts): Promise<T> {
+  return bodyRequest<T>('PATCH', path, body, ctx, opts);
 }
 
 async function bodyRequest<T>(
@@ -77,12 +82,14 @@ async function bodyRequest<T>(
   path: string,
   body: unknown,
   ctx: ToolContext,
+  opts?: BodyRequestOpts,
 ): Promise<T> {
   const url = `${config.serverBaseUrl}${path}`;
   const res = await fetch(url, {
     method,
     headers: buildHeaders(ctx),
     body: JSON.stringify(body),
+    ...(opts?.signal ? { signal: opts.signal } : {}),
   });
 
   if (!res.ok) {

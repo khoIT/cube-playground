@@ -309,7 +309,70 @@ describe('propose_segment — threshold', () => {
       ctx,
     );
 
-    expect(mockPostJson).not.toHaveBeenCalled();
+    // No CUTOFF round-trip for threshold/query (a preview-count POST is allowed).
+    expect(mockPostJson).not.toHaveBeenCalledWith(
+      '/api/segments/resolve-cutoff',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('surfaces the dry-run preview count as estCount when available', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+    // The preview-count POST resolves a real size → it flows into the proposal.
+    mockPostJson.mockResolvedValueOnce({ ok: true, estCount: 777 } as never);
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Sized threshold',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 500_000,
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.estCount).toBe(777);
+    const proposal = proposals[0] as { resolved: { estCount: number }; disclosures: string[] };
+    expect(proposal.resolved.estCount).toBe(777);
+    expect(proposal.disclosures.some((d) => d.includes('777'))).toBe(true);
+    // It used the preview-count path, not the cutoff path.
+    expect(mockPostJson).toHaveBeenCalledWith(
+      '/api/segments/preview-count',
+      expect.objectContaining({ cube: expect.any(String) }),
+      ctx,
+      expect.objectContaining({ signal: expect.anything() }),
+    );
+  });
+
+  it('falls back to estCount 0 when the preview count is unavailable', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+    // Count endpoint errors → fetchPreviewCount swallows to null → estCount 0.
+    mockPostJson.mockRejectedValueOnce(new Error('fetch failed'));
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Unsized threshold',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 500_000,
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.estCount).toBe(0);
+    const proposal = proposals[0] as { resolved: { estCount: number } };
+    expect(proposal.resolved.estCount).toBe(0);
   });
 });
 
@@ -630,7 +693,12 @@ describe('propose_segment — kind=query', () => {
     // Disclosures present, no cutoff server call made
     const disclosures = proposal.disclosures as string[];
     expect(disclosures.length).toBeGreaterThan(0);
-    expect(mockPostJson).not.toHaveBeenCalled();
+    // No CUTOFF round-trip for threshold/query (a preview-count POST is allowed).
+    expect(mockPostJson).not.toHaveBeenCalledWith(
+      '/api/segments/resolve-cutoff',
+      expect.anything(),
+      expect.anything(),
+    );
   });
 
   it('returns ok:false when a measure filter is present (guardrail)', async () => {
@@ -855,7 +923,12 @@ describe('propose_segment — additional_filters (compound)', () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(mockPostJson).not.toHaveBeenCalled();
+    // No CUTOFF round-trip for threshold/query (a preview-count POST is allowed).
+    expect(mockPostJson).not.toHaveBeenCalledWith(
+      '/api/segments/resolve-cutoff',
+      expect.anything(),
+      expect.anything(),
+    );
     const proposal = proposals[0] as Record<string, unknown>;
     const tree = proposal.predicate_tree as { children: Array<{ op: string; member: string }> };
     expect(tree.children).toHaveLength(2);

@@ -29,6 +29,7 @@ import {
   isCatalogTarget,
 } from '../services/segmentable-measures-catalog.js';
 import type { PredicateNode } from '../types/predicate-tree.js';
+import { computeSegmentSize, SegmentSizeError } from '../services/compute-segment-size.js';
 import type { MemberProfiles } from '../types/segment.js';
 import { ensureManualMemberProfiles } from '../services/member-profile-on-demand.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
@@ -618,6 +619,56 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       const code =
         err instanceof CutoffConnectorUnavailableError ? 'CUTOFF_CONNECTOR_UNAVAILABLE' : 'CUTOFF_FAILED';
       return reply.status(400).send({ error: { code, message: (err as Error).message } });
+    }
+  });
+
+  // POST /api/segments/preview-count
+  // Dry-run cohort size for a candidate predicate tree, BEFORE the segment is
+  // saved. The chat propose card calls this so the user sees ~how many users
+  // match and can iterate before committing. Uses the same Cube `/load
+  // total:true` mechanism as refresh, so the previewed number matches the
+  // post-save size. Best-effort by contract: any transient Cube/Trino trouble
+  // returns ok:false (HTTP 200) so the caller still emits its proposal.
+  const previewCountSchema = z.object({
+    game_id: z.string().min(1).max(64),
+    cube: z.string().min(1).max(128),
+    predicate_tree: z.unknown(),
+    cube_segments: z.array(z.string()).optional(),
+    // Propose-time callers bound the wait so a cold cohort scan never stalls the
+    // chat turn; capped server-side so it can't exceed the per-segment budget.
+    timeout_ms: z.number().int().positive().max(60_000).optional(),
+  });
+  app.post('/api/segments/preview-count', async (req, reply) => {
+    const parsed = previewCountSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const { game_id, cube, predicate_tree, cube_segments, timeout_ms } = parsed.data;
+    const startedAt = Date.now();
+    try {
+      const { count } = await computeSegmentSize({
+        cube,
+        gameId: game_id,
+        workspace: req.workspace.id,
+        predicateTree: predicate_tree as PredicateNode,
+        ...(cube_segments ? { cubeSegments: cube_segments } : {}),
+        ...(timeout_ms ? { timeoutMs: timeout_ms } : {}),
+      });
+      return { ok: true, estCount: count, tookMs: Date.now() - startedAt };
+    } catch (err) {
+      // Uncohortable cube = structural (4xx). Everything else (Cube introspection
+      // blip, /load timeout, predicate translation error) is non-fatal for the
+      // caller, which degrades to "size on refresh" — return ok:false (200) so
+      // the propose flow never breaks on a count hiccup.
+      if (err instanceof SegmentSizeError && err.kind === 'uncohortable') {
+        return reply.status(400).send({ error: { code: 'UNCOHORTABLE', message: err.message } });
+      }
+      return {
+        ok: false,
+        error: 'unavailable',
+        detail: (err as Error).message,
+        tookMs: Date.now() - startedAt,
+      };
     }
   });
 
