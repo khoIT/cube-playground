@@ -13,10 +13,11 @@ import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { LoadingOutlined } from '@ant-design/icons';
 import {
-  Activity, BarChart3, Banknote, Clock, Coins, Percent, TrendingUp,
-  User, UserMinus, Users, Wallet,
+  Activity, BarChart3, Banknote, Clock, Coins, DollarSign, HandCoins, Percent,
+  TrendingUp, User, UserMinus, Users, Wallet,
 } from 'lucide-react';
 import { Sparkline } from '../../visuals';
+import { WhaleIcon } from './whale-icon';
 import type { Preset, KpiSpec } from '../../presets/types';
 import type { Segment, RefreshLogRow } from '../../../../types/segment-api';
 import { StatsRow, StatItem, StatCellInner, useStatItemFromKpi } from './stats-row';
@@ -37,8 +38,10 @@ function resolveKpiIcon(spec: KpiSpec): ReactNode {
   const id = spec.id.toLowerCase();
   if (id.includes('size') || id === 'users') return <Users size={ICON_SIZE} aria-hidden />;
   if (id.includes('payer') || id.includes('paying')) return <Wallet size={ICON_SIZE} aria-hidden />;
-  if (id.includes('whale') || id.includes('arppu')) return <Coins size={ICON_SIZE} aria-hidden />;
-  if (id.includes('arpu') || id.includes('ltv') || id.includes('rev')) return <Banknote size={ICON_SIZE} aria-hidden />;
+  if (id.includes('whale')) return <WhaleIcon size={ICON_SIZE} />;
+  if (id.includes('arppu')) return <Coins size={ICON_SIZE} aria-hidden />;
+  if (id.includes('arpu')) return <HandCoins size={ICON_SIZE} aria-hidden />;
+  if (id.includes('ltv') || id.includes('rev')) return <DollarSign size={ICON_SIZE} aria-hidden />;
   if (id.includes('lapsed') || id.includes('churn')) return <UserMinus size={ICON_SIZE} aria-hidden />;
   if (id.includes('rate') || spec.format === 'percent') return <Percent size={ICON_SIZE} aria-hidden />;
   if (id.includes('retention') || id.includes('active')) return <Activity size={ICON_SIZE} aria-hidden />;
