@@ -21,6 +21,7 @@ import type { Preset, KpiSpec } from '../../presets/types';
 import type { Segment, RefreshLogRow } from '../../../../types/segment-api';
 import { StatsRow, StatItem, StatCellInner, useStatItemFromKpi } from './stats-row';
 import { formatCompact } from '../cards/format-value';
+import { useSegmentScope } from '../segment-scope-context';
 import styles from './stats-row.module.css';
 
 type Tone = 'neutral' | 'positive' | 'negative';
@@ -63,13 +64,11 @@ export function HeadlineStatsRow({
 
   if (preset && preset.headlineKpis.length > 0) {
     return (
-      <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
-        {preset.headlineKpis.map((spec) => (
-          <div key={spec.id} className={styles.statCell}>
-            <InlineKpi spec={spec} segment={segment} preset={preset} sizeComparison={sizeComparison} />
-          </div>
-        ))}
-      </div>
+      <ScopedHeadlineKpis
+        segment={segment}
+        preset={preset}
+        sizeComparison={sizeComparison}
+      />
     );
   }
 
@@ -126,21 +125,98 @@ export function HeadlineStatsRow({
   return <StatsRow items={items} />;
 }
 
-/** Inline preset-driven cell — same as StatsRow row but cell-scoped. */
-function InlineKpi({
-  spec, segment, preset, sizeComparison,
-}: {
+/** A headline KPI spec rewritten for the active scope, plus the flags the cell
+ *  needs to fetch it correctly. */
+interface ScopedKpi {
   spec: KpiSpec;
+  /** Render Size live (paying count) instead of the server-authoritative uid_count. */
+  renderSizeLive: boolean;
+  /** Fetch this card outside the paying sub-scope (base-segment stat). */
+  ignorePayingScope: boolean;
+  /** Skip the precomputed full-segment cache (its numbers don't match this card). */
+  suppressCache: boolean;
+}
+
+/** Rewrite a headline KPI for the active scope. Under "paying only" two cards
+ *  go degenerate, so we repurpose them (decision: Paying users → Paying rate,
+ *  ARPU → ARPPU) and let Size report the payer count live. Everything else is
+ *  scope-invariant (LTV total, Whales, Lapsed are already payer-side) and just
+ *  re-fetches under the sub-scope. */
+function resolveScopedKpi(spec: KpiSpec, paying: boolean): ScopedKpi {
+  if (!paying) {
+    return { spec, renderSizeLive: false, ignorePayingScope: false, suppressCache: false };
+  }
+  if (spec.id === 'size') {
+    return { spec, renderSizeLive: true, ignorePayingScope: false, suppressCache: true };
+  }
+  if (spec.id === 'paying') {
+    // Share of the WHOLE segment that pays — the "you're viewing X% of the
+    // segment" context. Scoped to payers it would always be 100%, so it opts
+    // out of the sub-scope and reports the base rate.
+    return {
+      spec: { ...spec, label: 'Paying rate', measure: 'mf_users.paying_rate', format: 'percent' },
+      renderSizeLive: false,
+      ignorePayingScope: true,
+      suppressCache: true,
+    };
+  }
+  if (spec.id === 'arpu') {
+    // Revenue ÷ payers == ARPPU; same number, now honestly named.
+    return {
+      spec: { ...spec, label: 'ARPPU', measure: 'mf_users.arppu_vnd' },
+      renderSizeLive: false,
+      ignorePayingScope: false,
+      suppressCache: true,
+    };
+  }
+  return { spec, renderSizeLive: false, ignorePayingScope: false, suppressCache: true };
+}
+
+/** Headline KPI grid that rewrites each spec for the active population scope. */
+function ScopedHeadlineKpis({
+  segment, preset, sizeComparison,
+}: {
   segment: Segment;
   preset: Preset;
   sizeComparison: { text: string; tone: Tone } | null;
 }): ReactElement {
-  // Special-case the Size KPI: the segment object already carries the true
-  // cohort count from the server-side refresh (which uses Cube's `total:true`
-  // to defeat the 10k rowLimit). Running another measure query here would be
-  // both redundant and prone to drift — the IN-filter version can return
-  // stale FE-cached values when Cube is still warming a pre-aggregation.
-  if (spec.id === 'size') {
+  const { scope } = useSegmentScope();
+  const paying = scope === 'paying';
+  return (
+    <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
+      {preset.headlineKpis.map((spec) => {
+        const resolved = resolveScopedKpi(spec, paying);
+        return (
+          <div key={spec.id} className={styles.statCell}>
+            <InlineKpi
+              resolved={resolved}
+              segment={segment}
+              preset={preset}
+              sizeComparison={sizeComparison}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Inline preset-driven cell — same as StatsRow row but cell-scoped. */
+function InlineKpi({
+  resolved, segment, preset, sizeComparison,
+}: {
+  resolved: ScopedKpi;
+  segment: Segment;
+  preset: Preset;
+  sizeComparison: { text: string; tone: Tone } | null;
+}): ReactElement {
+  const { spec, renderSizeLive, ignorePayingScope, suppressCache } = resolved;
+  // Special-case the Size KPI (unscoped only): the segment object already
+  // carries the true cohort count from the server-side refresh (Cube's
+  // `total:true` defeats the 10k rowLimit). Running another measure query here
+  // would be redundant and drift-prone. Under the paying sub-scope there is no
+  // precomputed payer count, so Size falls through to a live measure query.
+  if (spec.id === 'size' && !renderSizeLive) {
     return (
       <SizeStatCell
         icon={resolveKpiIcon(spec)}
@@ -150,7 +226,14 @@ function InlineKpi({
       />
     );
   }
-  const item = useStatItemFromKpi(spec, segment, preset, `kpi:${spec.id}`, null);
+  const item = useStatItemFromKpi(
+    spec,
+    segment,
+    preset,
+    suppressCache ? undefined : `kpi:${spec.id}`,
+    null,
+    { ignorePayingScope },
+  );
   return (
     <StatCellInner
       icon={resolveKpiIcon(spec)}

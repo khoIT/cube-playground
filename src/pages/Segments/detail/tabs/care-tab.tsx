@@ -18,6 +18,7 @@ import { CarePulseStrip } from './care/care-pulse-strip';
 import { CareWatchlist } from './care/care-watchlist';
 import { CareIssueMix } from './care/care-issue-mix';
 import { CareImpactStrip } from './care/care-impact-strip';
+import { ScopeNotAppliedNote } from '../components/scope-not-applied-note';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -102,6 +103,7 @@ export function CareTab({ segment }: Props): ReactElement {
   const { data } = state;
   return (
     <div className={styles.careTab}>
+      <ScopeNotAppliedNote surface="Care" />
       {data.stale && (
         <div
           style={{

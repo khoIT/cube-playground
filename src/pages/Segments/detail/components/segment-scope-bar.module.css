@@ -1,0 +1,101 @@
+/* Population-scope bar — a non-destructive "zoom into paying users" control
+   that sits above the headline KPIs and re-scopes the whole detail page.
+   Calm cream surface; turns a faint brand wash when the sub-scope is active. */
+
+.scopeBar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+/* Active: faint brand tint over the card + warm border — signals the page is filtered. */
+.scopeBar[data-active='true'] {
+  background:
+    linear-gradient(0deg, rgba(240, 90, 34, 0.05), rgba(240, 90, 34, 0.05)),
+    var(--bg-card);
+  border-color: var(--orange-200);
+}
+
+.scopeLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+/* Segmented control — recessed --bg-muted track, mirroring the Top/Middle/Bottom 50 control. */
+.seg {
+  display: inline-flex;
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.seg button .count {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.seg button[aria-pressed='true'] .count {
+  color: var(--brand);
+}
+
+.note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.note b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.clear {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--brand);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.clear:hover {
+  text-decoration: underline;
+}

@@ -31,6 +31,8 @@ import { AiBriefCard } from './components/ai-brief-card';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
+import { SegmentScopeBar } from './components/segment-scope-bar';
+import { SegmentScopeProvider } from './segment-scope-context';
 import { SegmentHealthPill } from '../status/segment-health-pill';
 import styles from '../segments.module.css';
 
@@ -127,6 +129,11 @@ export function DetailView(): ReactElement {
   const lastRefresh = segment.last_refreshed_at ?? segment.updated_at;
   const goActivation = () => setTab('activation');
 
+  // The "paying users only" sub-scope is offered only for cubes that model a
+  // lifetime-paying segment — today the mf_users hub. Gates both the scope bar
+  // and (via the provider) whether a `?scope=paying` deep-link takes effect.
+  const scopeAvailable = preset?.hubCube === 'mf_users';
+
   const sizeTone: 'positive' | 'negative' | null = sizeDelta.percent == null
     ? null
     : sizeDelta.percent >= 0
@@ -155,6 +162,7 @@ export function DetailView(): ReactElement {
     : null;
 
   return (
+    <SegmentScopeProvider available={scopeAvailable}>
     <main className={styles.page}>
       <div className={styles.detailStickyHeader}>
       <BrokenSegmentBanner segment={segment} onViewRefreshLog={() => setTab('monitor')} />
@@ -195,6 +203,8 @@ export function DetailView(): ReactElement {
           />
         </div>
       </header>
+
+      {scopeAvailable && preset && <SegmentScopeBar segment={segment} preset={preset} />}
 
       <HeadlineStatsRow
         segment={segment}
@@ -276,5 +286,6 @@ export function DetailView(): ReactElement {
         onCancel={() => setDeleteOpen(false)}
       />
     </main>
+    </SegmentScopeProvider>
   );
 }

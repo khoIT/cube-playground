@@ -19,6 +19,7 @@ import { useWorkspaceContext } from '../../../components/workspace-context';
 import { useActiveGameId } from '../../../components/Header/use-game-context';
 import { resolveGamePrefix, physicalizeQuery, logicalizeRows } from '../../../lib/cube-member-resolver';
 import type { Segment } from '../../../types/segment-api';
+import { useSegmentScope } from './segment-scope-context';
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_CONCURRENT = 3;
@@ -193,6 +194,11 @@ export interface UseSegmentCubeQueryOptions<T> {
    *  scoping to a paginated subset of segment members (e.g. visible page only)
    *  instead of the segment's full uid_list. */
   uidsOverride?: string[];
+  /** Opt this one query out of the active "paying users only" sub-scope. Used by
+   *  contextual cards that must report a BASE-segment stat even while the page is
+   *  scoped — e.g. the "Paying rate" tile (share of the whole segment that pays),
+   *  which scoped to payers would always be 100%. */
+  ignorePayingScope?: boolean;
 }
 
 export function useSegmentCubeQuery<T = Record<string, unknown>>(
@@ -225,9 +231,22 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
   const cubejsApi = useCubejsApi(apiUrl ?? null, currentToken ?? null, segmentGameId);
   const prefix = resolveGamePrefix(workspace, segmentGameId ?? activeGameId ?? null);
 
-  const hasInitial = options.initialRows !== undefined;
+  // "Paying users only" sub-scope (URL ?scope=paying). When active we AND the
+  // hub cube's `paying_lifetime` segment onto every query and IGNORE the
+  // server-precomputed cache (which is full-segment): the sub-scope numbers
+  // are never precomputed, so a stale `initialRows` would flash wrong values.
+  // The paying sub-scope applies to COHORT-level queries (KPIs, Insights,
+  // Monitor) — not to identity-IN enrichment of an explicit row set
+  // (`uidsOverride`), where ANDing the segment would silently drop the
+  // non-paying rows the caller asked to enrich.
+  const { scope } = useSegmentScope();
+  const payingScope =
+    scope === 'paying' && options.ignorePayingScope !== true && options.uidsOverride === undefined;
+
+  const effectiveInitial = payingScope ? undefined : options.initialRows;
+  const hasInitial = effectiveInitial !== undefined;
   const skipBackground = hasInitial && options.skipBackgroundFetch === true;
-  const [rows, setRows] = useState<T[]>(options.initialRows ?? []);
+  const [rows, setRows] = useState<T[]>(effectiveInitial ?? []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const lastKeyRef = useRef<string | null>(null);
@@ -246,7 +265,22 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     // member pages), then physicalize logical preset members for prefix
     // workspaces. Both are no-ops where they don't apply (prefix null, etc).
     const scopedLogical = scopeQueryToCohort(query, segment, identityDim, options.uidsOverride);
-    const scoped = physicalizeQuery(scopedLogical, prefix);
+    // Layer the paying sub-scope as an extra cube segment (ANDs with the
+    // cohort's own segments/filters). `paying_lifetime` lives on the hub cube,
+    // derived from the identity dim's cube prefix; physicalize handles the
+    // prefix-workspace rename just like the cohort's own segments.
+    const payingScoped = payingScope
+      ? {
+          ...scopedLogical,
+          segments: [
+            ...new Set([
+              ...(Array.isArray(scopedLogical.segments) ? scopedLogical.segments : []),
+              `${identityDim.split('.')[0]}.paying_lifetime`,
+            ]),
+          ],
+        }
+      : scopedLogical;
+    const scoped = physicalizeQuery(payingScoped, prefix);
     const key = hashKey(segment.id, scoped);
 
     const cached = cache.get(key);
@@ -299,7 +333,7 @@ export function useSegmentCubeQuery<T = Record<string, unknown>>(
     return () => {
       cancelled = true;
     };
-  }, [segment?.id, segment?.cube_query_json, segment?.type, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, prefix, JSON.stringify(options.uidsOverride)]);
+  }, [segment?.id, segment?.cube_query_json, segment?.type, JSON.stringify(query), identityDim, cubejsApi, hasInitial, skipBackground, prefix, payingScope, JSON.stringify(options.uidsOverride)]);
 
   return { loading, error, rows };
 }

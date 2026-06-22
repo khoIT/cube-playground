@@ -34,10 +34,12 @@ ltvMeasure: mf_users.ltv_total_vnd
 sizeMeasure: mf_users.user_count
 
 headlineKpis:
-  - { id: size,   label: Size,         measure: mf_users.user_count,    format: compact }
-  - { id: paying, label: Paying users, measure: mf_users.paying_users,  format: compact }
-  - { id: ltv,    label: LTV total,    measure: mf_users.ltv_total_vnd, format: currency }
-  - { id: arpu,   label: ARPU,         measure: mf_users.arpu_vnd,      format: currency }
+  - { id: size,   label: Size,              measure: mf_users.user_count,             format: compact }
+  - { id: paying, label: Paying users,      measure: mf_users.paying_users,           format: compact }
+  - { id: ltv,    label: LTV total,         measure: mf_users.ltv_total_vnd,          format: currency }
+  - { id: arpu,   label: ARPU,              measure: mf_users.arpu_vnd,               format: currency }
+  - { id: whales, label: Whales,            measure: mf_users.whales_count,           format: compact }
+  - { id: lapsed, label: Lapsed this month, measure: mf_users.lapsed_this_month_count, format: compact }
 
 # Per-member info on the Members tab (FE-only; server ignores).
 memberColumns:

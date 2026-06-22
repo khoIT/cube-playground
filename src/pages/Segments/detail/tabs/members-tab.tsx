@@ -10,6 +10,7 @@ import { Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SampleUsersTab } from './sample-users-tab';
 import { AutoPresetBanner } from '../../components/auto-preset-banner';
+import { ScopeNotAppliedNote } from '../components/scope-not-applied-note';
 import type { Segment } from '../../../../types/segment-api';
 import type { Preset } from '../../presets/types';
 import styles from '../../segments.module.css';
@@ -50,6 +51,7 @@ export function MembersTab({ segment, preset }: Props): ReactElement {
           </Tooltip>
         </div>
       </header>
+      <ScopeNotAppliedNote surface="Members" />
       {preset?.auto && (
         <AutoPresetBanner
           cube={preset.hubCube}

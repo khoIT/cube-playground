@@ -94,6 +94,7 @@ export function useStatItemFromKpi(
   preset: Preset,
   cacheKey?: string,
   comparison?: { text: string; tone: Tone } | null,
+  opts?: { ignorePayingScope?: boolean },
 ): StatItem {
   const query = useMemo<Query>(() => ({
     measures: [spec.measure],
@@ -107,6 +108,7 @@ export function useStatItemFromKpi(
   const { rows, loading, error } = useSegmentCubeQuery(segment, query, preset.identityDim, {
     initialRows,
     skipBackgroundFetch,
+    ignorePayingScope: opts?.ignorePayingScope,
   });
 
   const raw = rows[0]?.[spec.measure] ?? null;
