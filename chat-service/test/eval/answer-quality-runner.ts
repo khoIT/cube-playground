@@ -45,6 +45,14 @@ interface AqResult {
   nonEmpty: boolean;          // any emitted query returned rows
   trustGuardSeen: boolean;    // a trust/caveat surfaced
   errorDetail?: string;
+  // Reporting context — what the user actually got, so the readable report can
+  // show went-well / fell-short, not just a pass/fail bit.
+  answerText: string | null;  // final assistant text (the user-facing answer)
+  artifactTitle: string | null; // first emitted artifact's title
+  toolCalls: string[];        // tools the agent invoked this turn
+  latencyMs: number;          // wall-clock for the turn (slow cases = improve target)
+  costUsd: number | null;     // turn cost (budget tracking)
+  outputTokens: number | null;
 }
 
 async function setSubscriptionLane(): Promise<void> {
@@ -80,36 +88,45 @@ function sawTrustGuard(raw: string): boolean {
   return /\b(trust|caveat|uncertif|not certified|provisional|drift)\b/i.test(raw);
 }
 
-async function fetchTurnRaw(q: string): Promise<{ raw: string; httpStatus: number }> {
+async function fetchTurnRaw(q: string, ownerId: string): Promise<{ raw: string; httpStatus: number; latencyMs: number }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const started = Date.now();
   try {
     const res = await fetch(`${CHAT_BASE}/agent/turn`, {
       method: 'POST', signal: controller.signal,
       headers: {
         'Content-Type': 'application/json', 'X-Cube-Token': 'eval-runner',
-        'X-Bypass-Cache': '1', 'X-Cube-Game': GAME, 'X-Owner-Id': OWNER_ID,
+        'X-Bypass-Cache': '1', 'X-Cube-Game': GAME, 'X-Owner-Id': ownerId,
         'X-Cube-Workspace': WORKSPACE,
       },
-      body: JSON.stringify({ session_id: null, owner_id: OWNER_ID, game: GAME, message: q }),
+      body: JSON.stringify({ session_id: null, owner_id: ownerId, game: GAME, message: q }),
     });
-    return { raw: res.ok ? await res.text() : '', httpStatus: res.status };
+    return { raw: res.ok ? await res.text() : '', httpStatus: res.status, latencyMs: Date.now() - started };
   } catch (err) {
-    return { raw: '', httpStatus: (err as Error).name === 'AbortError' ? 408 : 0 };
+    return { raw: '', httpStatus: (err as Error).name === 'AbortError' ? 408 : 0, latencyMs: Date.now() - started };
   } finally { clearTimeout(timer); }
 }
 
 async function runCase(c: EvalCase): Promise<AqResult> {
-  const { raw, httpStatus } = await fetchTurnRaw(c.question);
+  // A pristine per-case owner so owner-keyed saved-default personalization
+  // (user_disambig_prefs) can't contaminate routing: a stray "by platform"
+  // dimension default leaks into later cases and makes the agent clarify-and-
+  // stop with no artifact. A real new user asking one question has empty prefs;
+  // that's exactly what a routing scorecard must measure.
+  const ownerId = `aqeval-${c.id}`;
+  const { raw, httpStatus, latencyMs } = await fetchTurnRaw(c.question, ownerId);
   const summary = summariseSseText(raw);
   const artifacts = extractEvents(raw, 'query_artifact');
 
   let resolvedRef: string | null = null;
   let nonEmpty = false;
+  let artifactTitle: string | null = null;
   for (const a of artifacts) {
     const query = a['query'] as Record<string, unknown> | undefined;
     const measures = query?.['measures'] as string[] | undefined;
     if (!resolvedRef && measures?.length) resolvedRef = measures[0]!;
+    if (!artifactTitle && typeof a['title'] === 'string') artifactTitle = a['title'] as string;
     // non-empty: the artifact's chart carries originalRowCount (rows live on the
     // chart, not the artifact root; the 'result' SSE event is final text only).
     const chart = a['chart'] as Record<string, unknown> | undefined;
@@ -117,8 +134,23 @@ async function runCase(c: EvalCase): Promise<AqResult> {
     if (typeof rc === 'number' && rc > 0) nonEmpty = true;
   }
 
+  // The final 'result' event carries the user-facing answer text + token/cost.
+  const resultEv = extractEvents(raw, 'result').at(-1);
+  const answerText = typeof resultEv?.['text'] === 'string' ? (resultEv['text'] as string) : null;
+  const costUsd = typeof resultEv?.['cost_usd'] === 'number' ? (resultEv['cost_usd'] as number) : null;
+  const outputTokens = typeof resultEv?.['output_tokens'] === 'number' ? (resultEv['output_tokens'] as number) : null;
+
+  // The cap / fatal-turn signal arrives as a 'turn-error' event (httpStatus is
+  // still 200), which summariseSseText doesn't fold in — capture it here so
+  // fail-fast cap detection actually fires.
+  const turnErr = extractEvents(raw, 'turn-error').at(-1);
+  const turnErrMsg = turnErr
+    ? String(turnErr['errorMessage'] ?? turnErr['message'] ?? turnErr['error'] ?? '')
+    : null;
+  const errorDetail = summary.errorMessage ?? (turnErrMsg || undefined);
+
   const status: AqResult['status'] = httpStatus !== 200 ? 'http-error'
-    : summary.errorMessage || !summary.sawDone ? 'turn-error'
+    : errorDetail || !summary.sawDone ? 'turn-error'
     : summary.artifactCount === 0 ? 'no-artifact' : 'ok';
 
   return {
@@ -126,7 +158,8 @@ async function runCase(c: EvalCase): Promise<AqResult> {
     expectedRef: c.expectedRef, status, httpStatus, resolvedRef,
     resolvedCube: resolvedRef ? resolvedRef.split('.')[0]! : null,
     artifactCount: summary.artifactCount, nonEmpty, trustGuardSeen: sawTrustGuard(raw),
-    errorDetail: summary.errorMessage ?? undefined,
+    errorDetail,
+    answerText, artifactTitle, toolCalls: summary.toolCalls, latencyMs, costUsd, outputTokens,
   };
 }
 
@@ -142,18 +175,42 @@ async function main(): Promise<void> {
   // already answered, and only re-runs the rest — windowed runs converge.
   const outPathEarly = process.env['SNAPSHOT_OUT']
     ? resolve(process.env['SNAPSHOT_OUT']) : join(__dir, `${GAME}-aq-snapshot.json`);
-  let priorOk = new Map<string, AqResult>();
+  // priorAll = every result from the prior snapshot (the merge baseline, so a
+  // case we filter out of this window survives even if the window aborts before
+  // its turn). priorSkip = the subset we won't re-run this window. These roles
+  // MUST stay separate: merging from priorSkip alone would silently drop cases
+  // that were queued for retry but never reached before a cap/kill.
+  let priorAll = new Map<string, AqResult>();
+  let priorSkip = new Map<string, AqResult>();
   if (process.env['RESUME'] === '1') {
+    // By default resume keeps only 'ok' and re-runs the rest. RESUME_KEEP is a
+    // comma-list of extra statuses to preserve — e.g. RESUME_KEEP=no-artifact
+    // retries only transport/turn errors and leaves structural gaps untouched
+    // (avoids burning quota re-running cases that are known-unanswerable).
+    const keepStatuses = new Set(['ok',
+      ...(process.env['RESUME_KEEP'] ?? '').split(',').map((s) => s.trim()).filter(Boolean)]);
     try {
       const prev = JSON.parse(readFileSync(outPathEarly, 'utf8')) as { results: AqResult[] };
-      for (const r of prev.results) if (r.status === 'ok') priorOk.set(r.caseId, r);
-      cases = cases.filter((c) => !priorOk.has(c.id));
-      console.log(`[runner] RESUME: ${priorOk.size} already ok, ${cases.length} remaining`);
+      for (const r of prev.results) {
+        priorAll.set(r.caseId, r);
+        if (keepStatuses.has(r.status)) priorSkip.set(r.caseId, r);
+      }
+      cases = cases.filter((c) => !priorSkip.has(c.id));
+      console.log(`[runner] RESUME: ${priorAll.size} prior (${priorSkip.size} kept ${[...keepStatuses].join('+')}), ${cases.length} remaining`);
     } catch { /* no prior snapshot — full run */ }
   }
 
   console.log(`[runner] ${GAME} | ${cases.length} cases | ${CHAT_BASE} | ws=${WORKSPACE}`);
   await setSubscriptionLane();
+
+  // Warmup: the first turn(s) after a lane switch hit a cold path (agent boot +
+  // cold Trino) and can fail spuriously. Burn one throwaway turn so the scored
+  // cases run against a warm service — don't let case #1 eat the cold start.
+  if (process.env['SKIP_WARMUP'] !== '1' && cases.length > 0) {
+    process.stdout.write('[runner] warmup turn… ');
+    const w = await runCase({ ...cases[0]!, question: 'dau yesterday' } as EvalCase);
+    console.log(w.status === 'ok' ? `ok (${w.latencyMs}ms)` : `(${w.status}, continuing)`);
+  }
 
   // Pace between turns; a sustained back-to-back batch trips the subscription
   // session cap. PACE_MS gives the lane breathing room (default 2s).
@@ -164,29 +221,66 @@ async function main(): Promise<void> {
   const isCapHit = (r: AqResult) =>
     /session limit|usage limit|rate.?limit/i.test(r.errorDetail ?? '');
 
+  // Bounded concurrency: N turns in flight at once. The bottleneck is the single
+  // shared subscription quota (one chat-service, one OAuth token), so concurrency
+  // doesn't raise the cap — it spends it faster for less wall-clock. Default 1 =
+  // original sequential behaviour; raise (e.g. 4) only with fresh window headroom.
+  const CONCURRENCY = process.env['CONCURRENCY'] ? Math.max(1, Number(process.env['CONCURRENCY'])) : 1;
   const results: AqResult[] = [];
-  for (let i = 0; i < cases.length; i++) {
-    const c = cases[i]!;
+  let aborted = false;
+  let nextIdx = 0;
+
+  // Checkpoint after every case: a hard kill or a cap-abort must not lose the
+  // turns already spent (subscription quota is the scarce resource). RESUME=1
+  // then picks up exactly where the last flush left off.
+  const flush = (): void => {
+    const merged = new Map<string, AqResult>(priorAll);
+    for (const r of results) merged.set(r.caseId, r);
+    writeFileSync(outPathEarly, JSON.stringify({
+      capturedAt: new Date().toISOString(), gameId: GAME, workspace: WORKSPACE,
+      chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, results: [...merged.values()],
+    }, null, 2), 'utf8');
+  };
+
+  async function runOne(c: EvalCase): Promise<void> {
+    if (aborted) return;
     let r = await runCase(c);
-    // Retry once on a transient transport failure (timeout / conn reset).
     if (r.status === 'http-error' && (r.httpStatus === 408 || r.httpStatus === 0)) {
       await sleep(PACE_MS);
       r = await runCase(c);
     }
     results.push(r);
+    flush();
     const ok = r.status === 'ok' ? '✓' : '✗';
     const hit = r.expectedRef ? (r.resolvedRef === r.expectedRef ? '=' : '≠') : '·';
     console.log(`  ${ok} [${r.curationGroup}] "${c.question.slice(0, 44)}" ${hit} ${r.resolvedRef ?? '(none)'}${r.nonEmpty ? ' rows' : ''}`);
     if (isCapHit(r)) {
+      aborted = true;
       console.error(`\n[runner] ABORT — auth lane cap hit: "${r.errorDetail}". ` +
-        `Ran ${results.length}/${cases.length}. Resume after the cap resets.`);
-      break;
+        `Done ${results.length}/${cases.length}. Resume after the cap resets.`);
     }
-    if (i < cases.length - 1) await sleep(PACE_MS);
   }
 
-  // Merge resumed-ok results with this run's results (this run wins on caseId).
-  const merged = new Map<string, AqResult>(priorOk);
+  async function worker(slot: number): Promise<void> {
+    // Stagger worker starts so N cold turns don't all hit the lane at t=0.
+    await sleep(slot * PACE_MS);
+    while (!aborted) {
+      const i = nextIdx++;
+      if (i >= cases.length) return;
+      await runOne(cases[i]!);
+      // In sequential mode keep the original inter-turn pacing; under real
+      // concurrency the in-flight depth already paces the lane.
+      if (CONCURRENCY === 1 && !aborted) await sleep(PACE_MS);
+    }
+  }
+
+  console.log(`[runner] concurrency=${CONCURRENCY}`);
+  await Promise.all(
+    Array.from({ length: Math.min(CONCURRENCY, cases.length) }, (_, s) => worker(s)),
+  );
+
+  // Merge prior snapshot with this run's results (this run wins on caseId).
+  const merged = new Map<string, AqResult>(priorAll);
   for (const r of results) merged.set(r.caseId, r);
   const allResults = [...merged.values()];
 
