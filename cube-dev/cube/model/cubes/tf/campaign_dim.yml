@@ -1,0 +1,26 @@
+cubes:
+  - name: campaign_dim
+    # Deduped acquisition-campaign labels from the marketing-cost feed (ad-network
+    # / MMP spend), collapsed to ONE row per campaign_id so a many_to_one join off
+    # mf_users.campaign_id cannot fan out user counts. Source rows are per
+    # day x ad; max_by keeps the latest-seen name for the few ids whose label
+    # changed across the feed window. A campaign_id outside the feed's date window
+    # has no row here — consumers COALESCE to the raw id (see mf_users.campaign_label).
+    sql: >
+      SELECT
+        campaign_id,
+        max_by(campaign_name, log_date) AS campaign_name
+      FROM std_marketing_cost_all_channels_by_game
+      WHERE campaign_id IS NOT NULL AND campaign_name IS NOT NULL
+      GROUP BY campaign_id
+    title: Acquisition Campaign Dimension
+    description: One row per acquisition campaign_id with its ad-ops campaign name (label source for the Top campaigns breakdown).
+    dimensions:
+      - name: campaign_id
+        sql: campaign_id
+        type: string
+        primary_key: true
+        public: false
+      - name: campaign_name
+        sql: campaign_name
+        type: string
