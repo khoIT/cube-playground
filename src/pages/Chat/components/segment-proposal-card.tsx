@@ -4,23 +4,25 @@
  *
  * Three actions:
  *   Create      → POST /api/segments (type predicate, tags ['ai-generated'])
- *                 → success toast with link + card dismisses
+ *                 → success toast with link + card morphs into the created
+ *                   hand-off view (view segment / create another)
  *   Open editor → /segments/new pre-seeded via EditorLocationState.advisorPrefill
  *   Cancel      → dismiss (no write)
  *
  * Sub-components (PredicateChip, StatPill, VisibilitySelect, summarisePredicate)
  * live in segment-proposal-card-parts.tsx to keep each file under 200 lines.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Users, ExternalLink, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { message } from 'antd';
 import { T, Icon } from '../../../shell/theme';
 import { segmentsClient } from '../../../api/segments-client';
+import { useServerPref } from '../../../hooks/use-server-pref';
 import { invalidateSegmentIds } from '../../Segments/use-segment-ids';
 import { SegmentApiError } from '../../../api/api-client';
 import type { SegmentProposalPayload } from '../../../api/segment-proposal';
-import type { SegmentVisibility, PredicateNode } from '../../../types/segment-api';
+import type { SegmentVisibility, PredicateNode, Segment } from '../../../types/segment-api';
 import type { EditorLocationState } from '../../Segments/editor/editor-route-state';
 import { stashEditorPrefill } from '../../Segments/editor/editor-prefill-store';
 import { formatCompact } from '../../Segments/detail/cards/format-value';
@@ -30,9 +32,20 @@ import {
   StatPill,
   VisibilitySelect,
 } from './segment-proposal-card-parts';
+import { SegmentCreatedCard } from './segment-created-card';
 
 interface SegmentProposalCardProps {
   proposal: SegmentProposalPayload;
+}
+
+/** Stable per-proposal key derived from its content. The proposal is replayed
+ *  verbatim from chat message history on reload, so the same proposal hashes to
+ *  the same key — letting us remember which segment it already created. */
+function proposalKey(p: SegmentProposalPayload): string {
+  const basis = `${p.game_id}|${p.cube}|${p.name}|${JSON.stringify(p.predicate_tree)}`;
+  let h = 5381;
+  for (let i = 0; i < basis.length; i += 1) h = ((h << 5) + h + basis.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
 }
 
 export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
@@ -41,6 +54,24 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
   const [visibility, setVisibility] = useState<SegmentVisibility>(proposal.suggestedVisibility);
   const [creating, setCreating] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  // On success the card stays mounted and morphs into the created receipt view
+  // (view-segment / create-another) rather than vanishing.
+  const [created, setCreated] = useState<Segment | null>(null);
+  // Persisted across reloads: which segment id this proposal already created.
+  const prefKey = useMemo(() => `gds-cube:chat-seg-created:${proposalKey(proposal)}`, [proposal]);
+  const [createdId, setCreatedId, clearCreatedId] = useServerPref<string | null>(prefKey, null);
+
+  // Re-hydrate the created receipt on reload: if this proposal already created a
+  // segment, fetch it fresh (so status/count reflect the completed refresh). A
+  // deleted/missing segment clears the pref and falls back to the proposal form.
+  useEffect(() => {
+    if (!createdId || created) return;
+    let cancelled = false;
+    segmentsClient.get(createdId)
+      .then((seg) => { if (!cancelled) setCreated(seg); })
+      .catch(() => { if (!cancelled) clearCreatedId(); });
+    return () => { cancelled = true; };
+  }, [createdId, created, clearCreatedId]);
 
   if (dismissed) return null;
 
@@ -51,7 +82,7 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
     if (!trimmed) { void message.warning('Please enter a segment name.'); return; }
     setCreating(true);
     try {
-      const created = await segmentsClient.create({
+      const seg = await segmentsClient.create({
         name: trimmed,
         type: 'predicate',
         cube,
@@ -69,9 +100,9 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
         <span>
           Segment created —{' '}
           <a
-            href={`#/segments/${created.id}`}
+            href={`#/segments/${seg.id}`}
             style={{ color: 'var(--brand)', textDecoration: 'underline' }}
-            onClick={(e) => { e.preventDefault(); history.push(`/segments/${created.id}`); }}
+            onClick={(e) => { e.preventDefault(); history.push(`/segments/${seg.id}`); }}
           >
             view {trimmed}
           </a>{' '}
@@ -79,7 +110,10 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
         </span>,
         5,
       );
-      setDismissed(true);
+      // Keep the toast AND morph the card into its created receipt state.
+      // Persist the id so the receipt survives a chat reload.
+      setCreatedId(seg.id);
+      setCreated(seg);
     } catch (err) {
       const msg = err instanceof SegmentApiError ? err.message
         : err instanceof Error ? err.message
@@ -111,6 +145,39 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
   const overflowCount = allChips.length - chips.length;
 
   const btnDisabled = creating || !name.trim();
+
+  // Success → receipt view. "Create another" clears it (and the persisted id)
+  // back to the form so the user can spin up a second segment in the same turn.
+  // View nav is allowed even while refreshing — the detail page shows its own
+  // building state.
+  if (created) {
+    return (
+      <SegmentCreatedCard
+        segment={created}
+        chips={chips}
+        overflowCount={overflowCount}
+        onView={() => history.push(`/segments/${created.id}`)}
+        onCreateAnother={() => { clearCreatedId(); setCreated(null); }}
+      />
+    );
+  }
+
+  // Persisted as created but the re-hydration fetch is still in flight — hold a
+  // quiet placeholder so the proposal form doesn't flash before the receipt.
+  if (createdId) {
+    return (
+      <div
+        style={{
+          border: '1px solid var(--border-card)', borderRadius: 12, background: 'var(--surface-raised)',
+          padding: '16px 24px', margin: '12px 0', display: 'flex', alignItems: 'center', gap: 8,
+          fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-faint)',
+        }}
+      >
+        <Icon icon={CheckCircle} size={13} color="var(--shell-text-faint)" />
+        Loading created segment…
+      </div>
+    );
+  }
 
   return (
     <div
