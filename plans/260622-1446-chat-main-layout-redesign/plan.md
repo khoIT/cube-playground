@@ -1,6 +1,6 @@
 # Chat Main Layout Redesign
 
-Status: **P01 shipped · P02 awaiting commit approval** · Created 2026-06-22 · Branch: main
+Status: **SHIPPED** (P01 d892cf1f · P02 8c9b1980 · live-verified) · Created 2026-06-22 · Branch: main
 
 Redesign the main `/chat` assistant turn so the answer leads with a synthesized
 **verdict**, charts read as supporting evidence, and per-card chrome is lighter.
@@ -17,7 +17,7 @@ so every change lands on both surfaces automatically — each must be verified i
 | Phase | Scope | Stack | Depends | Status |
 |-------|-------|-------|---------|--------|
 | [01](phase-01-frontend-layout.md) | Charts 2-col + y-axis autoscale + refine collapse + scope badge + control consistency (fixes 3–6) | Frontend only | — | DONE (committed d892cf1f) |
-| [02](phase-02-verdict-field-and-prompt.md) | Structured `verdict` field end-to-end + prompt hardening to kill meta-narration (fixes 1–2) | Full-stack | — | DONE (implemented + reviewed; commit pending approval) |
+| [02](phase-02-verdict-field-and-prompt.md) | Structured `verdict` field end-to-end + prompt hardening to kill meta-narration (fixes 1–2) | Full-stack | — | DONE (committed 8c9b1980; live-verified) |
 
 **Sequencing (red-team):** P01 and P02 both edit `assistant-message.tsx` within
 ~10 lines of the `bodyUnits` map (`:659`) — they are NOT independent on that file.

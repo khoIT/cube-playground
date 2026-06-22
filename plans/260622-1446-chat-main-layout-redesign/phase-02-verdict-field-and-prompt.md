@@ -1,6 +1,10 @@
 # Phase 02 — Verdict Field + Prompt Hardening (fixes 1–2)
 
-Priority: **High** (top user value) · Status: TODO · Stack: Full-stack.
+Priority: **High** (top user value) · Status: **DONE** (committed 8c9b1980; live-verified) · Stack: Full-stack.
+
+**Live eval (subscription lane, host :3005):** direct data answer → verdict+artifact, no
+clarify; specific analytical judgment → verdict+artifact; vague "numbers" → clarify, no
+verdict. All three PASS. Cache parity is unit-verified (replay-artifacts.test.ts).
 
 ## Overview
 
@@ -156,6 +160,8 @@ Frontend modify: `src/api/chat-sse-client.ts`, `src/pages/Chat/chat-thread-page.
    - emit the `verdict` event on replay (`replay-cached-turn.ts`)
    - persist verdict onto the replayed row (`try-response-cache-hit.ts:92–117`) — else
      reloading a replayed turn loses the verdict even after the live replay showed it.
-   Cheaper alternative if cost not worth it: don't cache verdict, gate the verdict
-   block to `cacheHit===false` (replayed turns simply show no verdict block).
-   **Pending user confirm — see plan "Decisions needing input".**
+   **RESOLVED (user-confirmed): FULL PARITY shipped** — all four cache files extended:
+   `CachedValue.verdict`, write-gate `collectedVerdict`, replay re-emits the verdict
+   before tokens (re-attached after the refresh hook overwrites the outcome), and
+   `try-response-cache-hit` persists `verdictJson` on the replayed row. A cache-hit
+   turn now renders identically to a fresh one. Covered by replay-artifacts.test.ts.
