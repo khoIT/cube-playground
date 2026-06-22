@@ -18,6 +18,9 @@ cubes:
     description: |
       Wide feature store with one row per user. Pre-aggregates lifetime metrics (LTV, total active days, max role level) and rolling 30-day metrics (LTV 30d, recharge count 30d). Use this cube whenever a metric is already materialized here — Cube will read a single column instead of scanning event tables.
     joins:
+      - name: campaign_dim
+        relationship: many_to_one
+        sql: "{CUBE}.campaign_id = {campaign_dim}.campaign_id"
       - name: active_daily
         relationship: one_to_many
         sql: '{CUBE}.user_id = {active_daily}.user_id'
@@ -55,6 +58,12 @@ cubes:
       - name: campaign_id
         sql: campaign_id
         type: string
+      - name: campaign_label
+        # Human-readable campaign: ad-ops name when the campaign is in the
+        # marketing-cost feed's window, else the raw campaign_id (older
+        # campaigns predate the feed). Powers the Top campaigns breakdown.
+        sql: "COALESCE({campaign_dim.campaign_name}, {CUBE}.campaign_id)"
+        type: string
       - name: is_paid_install
         sql: is_paid_install
         type: boolean
@@ -78,6 +87,8 @@ cubes:
       - name: last_login_date
         sql: from_iso8601_timestamp(CAST({CUBE}.sdk_last_login_date AS VARCHAR) || 'T00:00:00Z')
         type: time
+        title: Last SDK Login Date
+        description: "SDK login timestamp (source: sdk_last_login_date) — when the player last authenticated via the SDK. NOT the same as Last In-game Active Date; days_since_last_active is NOT derived from this."
       - name: first_login_channel
         sql: sdk_first_login_channel
         type: string
@@ -99,6 +110,8 @@ cubes:
       - name: last_active_date
         sql: from_iso8601_timestamp(CAST({CUBE}.ingame_last_active_date AS VARCHAR) || 'T00:00:00Z')
         type: time
+        title: Last In-game Active Date
+        description: "In-game last-active timestamp (source: ingame_last_active_date) — when the player was last active in-game. days_since_last_active is derived from THIS column, not from Last SDK Login Date."
       - name: total_active_days
         sql: ingame_total_active_days
         type: number
@@ -181,6 +194,7 @@ cubes:
       - name: days_since_last_active
         sql: DATE_DIFF('day', {CUBE}.ingame_last_active_date, CURRENT_DATE)
         type: number
+        description: "Days between ingame_last_active_date and today (in-game activity recency). Mirrors Last In-game Active Date — NOT Last SDK Login Date (SDK auth)."
       - name: days_since_last_recharge
         sql: DATE_DIFF('day', {CUBE}.ingame_last_recharge_date, CURRENT_DATE)
         type: number
