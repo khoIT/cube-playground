@@ -1,34 +1,13 @@
-/* Population-scope bar — a non-destructive "zoom into paying users" control
-   that sits above the headline KPIs and re-scopes the whole detail page.
-   Calm cream surface; turns a faint brand wash when the sub-scope is active. */
+/* Population-scope toggle — a non-destructive "zoom into paying users" control
+   that sits inline above the headline KPIs and re-scopes the whole detail page.
+   Borderless: just the segmented toggle (+ an inline note when active). */
 
 .scopeBar {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding: 10px 14px;
-  margin-bottom: 16px;
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  transition: background 0.18s ease, border-color 0.18s ease;
-}
-
-/* Active: faint brand tint over the card + warm border — signals the page is filtered. */
-.scopeBar[data-active='true'] {
-  background:
-    linear-gradient(0deg, rgba(240, 90, 34, 0.05), rgba(240, 90, 34, 0.05)),
-    var(--bg-card);
-  border-color: var(--orange-200);
-}
-
-.scopeLabel {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--text-muted);
+  margin-bottom: 12px;
 }
 
 /* Segmented control — recessed --bg-muted track, mirroring the Top/Middle/Bottom 50 control. */

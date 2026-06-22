@@ -48,8 +48,7 @@ export function SegmentScopeBar({ segment, preset }: Props): ReactElement | null
   const isPaying = scope === 'paying';
 
   return (
-    <div className={styles.scopeBar} data-active={isPaying} role="group" aria-label="Population scope">
-      <span className={styles.scopeLabel}>Scope</span>
+    <div className={styles.scopeBar} role="group" aria-label="Population scope">
       <div className={styles.seg}>
         <button type="button" aria-pressed={!isPaying} onClick={() => setScope('all')}>
           Everyone <span className={styles.count}>{formatCompact(total)}</span>
