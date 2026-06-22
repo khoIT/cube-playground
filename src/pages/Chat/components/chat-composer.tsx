@@ -151,23 +151,15 @@ export function ChatComposer({
           compact={compact}
         />
         {onToggleBypassCache != null && (
-          <button
-            type="button"
-            onClick={onToggleBypassCache}
-            title="Bypass response cache — forces a fresh LLM call even on cache hit"
-            style={{
-              fontSize: compact ? 10 : 11,
-              padding: '2px 8px',
-              border: `1px solid ${bypassCache ? 'var(--shell-brand)' : 'var(--shell-border-strong)'}`,
-              borderRadius: 4,
-              background: bypassCache ? 'var(--shell-brand-soft)' : 'transparent',
-              color: bypassCache ? 'var(--shell-brand)' : 'var(--shell-text-subtle)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Bypass cache
-          </button>
+          // Same flip-switch control as Web Search / DeepThink so the composer
+          // action row reads as one consistent family of toggles.
+          <ComposerToolToggle
+            active={!!bypassCache}
+            onToggle={onToggleBypassCache}
+            label="Bypass cache"
+            title={bypassCache ? 'Bypass cache: On' : 'Bypass cache: Off'}
+            compact={compact}
+          />
         )}
         <div style={{ flex: 1 }} />
         <button

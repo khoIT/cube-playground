@@ -287,6 +287,35 @@ function ChartBody({ spec, labels }: { spec: ChartSpec; labels: LabelMap }) {
 }
 
 // ---------------------------------------------------------------------------
+// Trend-axis autoscale
+// ---------------------------------------------------------------------------
+
+/**
+ * Padded autoscale domain for a single-series trend axis. Zooms to the data's
+ * own range with ~6% headroom so a high-baseline series (e.g. a 185K–197K DAU
+ * line) shows its real shape instead of flattening against a zero-based axis.
+ *
+ * Returns undefined — recharts then falls back to its zero-based default — when
+ * the range is degenerate (every point equal, a single point, or no finite
+ * values), guarding against a collapsed domain. The lower bound is clamped to 0
+ * for all-non-negative data so the padding never invents a negative floor.
+ *
+ * Single-series only: autoscaling a multi-series line where one series sits near
+ * zero would visually exaggerate the others, so multi-series lines keep the zero
+ * floor. Bar magnitudes are read by length from zero and are never autoscaled.
+ */
+function paddedTrendDomain(values: Array<number | string>): [number, number] | undefined {
+  const nums = values.map(Number).filter((v) => Number.isFinite(v));
+  if (nums.length === 0) return undefined;
+  const min = Math.min(...nums);
+  const max = Math.max(...nums);
+  if (min === max) return undefined;
+  const pad = (max - min) * 0.06;
+  const lo = min - pad;
+  return [min >= 0 && lo < 0 ? 0 : lo, max + pad];
+}
+
+// ---------------------------------------------------------------------------
 // renderChartBody — switch on spec.type → recharts component tree
 // ---------------------------------------------------------------------------
 
@@ -412,7 +441,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
         <LineChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
           <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} domain={paddedTrendDomain(spec.data.map((r) => r[spec.encoding.value]))} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Line
             type="monotone"
@@ -508,7 +537,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
         <AreaChart data={spec.data} margin={cartesianMargin}>
           <CartesianGrid strokeDasharray="3 3" stroke={'var(--shell-border)'} />
           <XAxis dataKey={spec.encoding.category} stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={categoryTick} />
-          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} />
+          <YAxis stroke={'var(--shell-text-subtle)'} fontSize={11} tickFormatter={axisTick} label={valueAxisLabel} domain={paddedTrendDomain(spec.data.map((r) => r[spec.encoding.value]))} />
           <Tooltip formatter={tooltipFormatter} labelFormatter={tooltipLabel} />
           <Area
             type="monotone"
@@ -575,6 +604,10 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
             fontSize={11}
             tickFormatter={(v) => formatAxisValue(v, rightUnit, rightScale)}
             label={{ value: labelOf(labels, rightCol), angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: 'var(--shell-text-subtle)', fontSize: 11 } }}
+            // The right axis carries the single line series — autoscale it to its
+            // own range so a small-magnitude metric (e.g. a sub-1% paying rate)
+            // shows its shape. The left (bar) axis stays zero-based.
+            domain={paddedTrendDomain(spec.data.map((r) => r[rightCol]))}
           />
           <Tooltip formatter={comboTooltip} labelFormatter={tooltipLabel} />
           <Legend formatter={legendFormatter} />

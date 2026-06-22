@@ -35,6 +35,7 @@ import { suggestFollowups, type FollowupChip } from '../services/followup-sugges
 import type { QueryArtifact, ChartArtifact } from '../../../api/chat-sse-client';
 import type { SegmentProposalPayload } from '../../../api/segment-proposal';
 import { SegmentProposalCard } from './segment-proposal-card';
+import { deriveTurnScope } from './derive-turn-scope';
 
 // Short local-time formatter for the assistant header timestamp.
 // Mirrors user-message styling (HH:MM 24h, no seconds).
@@ -534,6 +535,16 @@ function AssistantMessageImpl({
     ? suggestFollowups(extractFollowupContext(bodyUnits))
     : [];
 
+  // Per-turn scope badge: the members + date window this answer actually
+  // queried, derived from its own query artifact(s). Anchored under the question
+  // so scanning history shows what each turn was about. Null (no data-backed
+  // artifact) → no badge.
+  const turnScope = deriveTurnScope(
+    bodyUnits
+      .filter((s): s is QueryArtifactSection => s.type === 'query_artifact')
+      .map((s) => s.artifact),
+  );
+
   // Explicit options (engine disambiguation or agent-authored choices) take
   // precedence over the heuristic followup row.
   const hasExplicitOptions = !!disambigOptions && disambigOptions.options.length > 0;
@@ -553,6 +564,46 @@ function AssistantMessageImpl({
       {/* Answer block — the CUBE reply sits flush beneath its question heading;
           no rail or card, the agent header + spacing carry the separation. */}
       <div>
+        {/* Per-turn scope badge — anchored under the question, above the byline. */}
+        {turnScope && (
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: 7,
+              marginBottom: compact ? 8 : 10,
+              fontFamily: T.fSans,
+              fontSize: 12,
+              color: 'var(--shell-text-subtle)',
+            }}
+          >
+            <span style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600, fontSize: 11 }}>
+              Scope
+            </span>
+            {turnScope.members.map((m) => (
+              <React.Fragment key={m}>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <code style={{ fontFamily: T.fMono, fontSize: 11, color: 'var(--shell-text-muted)' }}>{m}</code>
+              </React.Fragment>
+            ))}
+            {turnScope.hiddenMemberCount > 0 && (
+              <>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <span>+{turnScope.hiddenMemberCount} fields</span>
+              </>
+            )}
+            {turnScope.dateRange && (
+              <>
+                <span style={{ opacity: 0.4 }}>·</span>
+                <span>{turnScope.dateRange}</span>
+              </>
+            )}
+            {turnScope.extraArtifacts > 0 && (
+              <b style={{ color: 'var(--shell-brand)', fontWeight: 600 }}>+{turnScope.extraArtifacts}</b>
+            )}
+          </div>
+        )}
         {/* Agent header */}
         <div
           style={{
@@ -657,15 +708,37 @@ function AssistantMessageImpl({
       {/* Sections — hung-indented under the "Cube" wordmark so the answer body
           reads as subordinate to the question heading + byline above it. */}
       <div style={{ marginLeft: bodyIndent }}>
-        {groupToolCallRuns(bodyUnits).map((unit, i) =>
-          unit.kind === 'tool_run' ? (
-            unit.calls.length === 1 ? (
-              <SectionRenderer key={i} section={unit.calls[0]} onRefine={onFollowupPick} />
-            ) : (
-              <ToolCallGroup key={i} calls={unit.calls} />
-            )
+        {groupChartRuns(groupToolCallRuns(bodyUnits)).map((group, i) =>
+          group.kind === 'chart_grid' ? (
+            <div
+              key={i}
+              style={{
+                display: 'grid',
+                // Two-up on the full page; the narrow side panel (compact) keeps
+                // charts stacked. minmax(0,1fr) lets the chart's responsive width
+                // shrink inside its track instead of overflowing the column.
+                gridTemplateColumns: compact ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                gap: 16,
+                alignItems: 'start',
+              }}
+            >
+              {group.units.map((u, j) => (
+                <div
+                  key={j}
+                  // An odd trailing card spans both columns so it never sits as a
+                  // lonely half-width tile beside an empty column.
+                  style={
+                    !compact && group.units.length % 2 === 1 && j === group.units.length - 1
+                      ? { gridColumn: '1 / -1', minWidth: 0 }
+                      : { minWidth: 0 }
+                  }
+                >
+                  {renderRenderUnit(u, onFollowupPick, j)}
+                </div>
+              ))}
+            </div>
           ) : (
-            <SectionRenderer key={i} section={unit.section} onRefine={onFollowupPick} />
+            renderRenderUnit(group.unit, onFollowupPick, i)
           ),
         )}
         {disambigOptions && disambigOptions.options.length > 0 ? (
@@ -730,6 +803,70 @@ function groupToolCallRuns(sections: AssistantSection[]): RenderUnit[] {
     }
   }
   return units;
+}
+
+// ---------------------------------------------------------------------------
+// Chart-run grouping — tile consecutive charts two-up
+// ---------------------------------------------------------------------------
+
+type LayoutGroup =
+  | { kind: 'single'; unit: RenderUnit }
+  | { kind: 'chart_grid'; units: RenderUnit[] };
+
+/** A render unit whose visible body is a chart — a standalone chart section, or
+ *  a query-artifact card that carries an embedded chart. Chartless artifacts
+ *  (table-only / summary-only) and everything else are NOT chart-bearing. */
+function isChartBearing(unit: RenderUnit): boolean {
+  if (unit.kind !== 'section') return false;
+  const s = unit.section;
+  if (s.type === 'chart') return true;
+  if (s.type === 'query_artifact') return !!s.artifact.chart;
+  return false;
+}
+
+/**
+ * Groups consecutive chart-bearing units into a grid run so the renderer can
+ * tile them two-up. A run of one stays `single` (full width) — a lone chart
+ * shouldn't render as a half-width tile. Non-chart units break the run and
+ * render full width in their original order, so interleaved text/charts keep
+ * their sequence.
+ */
+function groupChartRuns(units: RenderUnit[]): LayoutGroup[] {
+  const out: LayoutGroup[] = [];
+  let run: RenderUnit[] = [];
+  const flush = () => {
+    if (run.length === 0) return;
+    if (run.length === 1) out.push({ kind: 'single', unit: run[0] });
+    else out.push({ kind: 'chart_grid', units: run });
+    run = [];
+  };
+  for (const u of units) {
+    if (isChartBearing(u)) {
+      run.push(u);
+    } else {
+      flush();
+      out.push({ kind: 'single', unit: u });
+    }
+  }
+  flush();
+  return out;
+}
+
+/** Renders a single RenderUnit (tool run or section) — shared by the full-width
+ *  and grid-cell paths so both stay in sync. */
+function renderRenderUnit(
+  unit: RenderUnit,
+  onRefine: ((text: string) => void) | undefined,
+  key: React.Key,
+): React.ReactElement {
+  if (unit.kind === 'tool_run') {
+    return unit.calls.length === 1 ? (
+      <SectionRenderer key={key} section={unit.calls[0]} onRefine={onRefine} />
+    ) : (
+      <ToolCallGroup key={key} calls={unit.calls} />
+    );
+  }
+  return <SectionRenderer key={key} section={unit.section} onRefine={onRefine} />;
 }
 
 // ---------------------------------------------------------------------------

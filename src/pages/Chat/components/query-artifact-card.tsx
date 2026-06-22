@@ -217,21 +217,22 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
             display: 'inline-flex',
             alignItems: 'center',
             gap: 6,
-            // Shared height + radius with the disambig action chips so all chat
-            // action buttons read as one consistent family.
+            // Secondary action: the answer + chart are the focus, so this reads
+            // as a quiet ghost link (transparent fill, hairline border) rather
+            // than a solid brand CTA competing with the data.
             height: 34,
             padding: '0 14px',
             borderRadius: 'var(--radius-md)',
-            background: 'var(--shell-brand)',
-            border: 'none',
+            background: 'transparent',
+            border: '1px solid var(--shell-border-strong)',
             cursor: 'pointer',
             fontFamily: T.fSans,
             fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--text-on-brand)',
+            fontWeight: 500,
+            color: 'var(--shell-text-muted)',
           }}
         >
-          <Icon icon={ExternalLink} size={14} color="var(--text-on-brand)" />
+          <Icon icon={ExternalLink} size={14} color={'var(--shell-text-muted)'} />
           Open in Playground
         </button>
       </div>

@@ -69,9 +69,18 @@ describe('diffCubeQueries', () => {
 describe('QueryRefineRow', () => {
   const query = { measures: ['mf_users.dau'], timeDimensions: [{ dimension: 'mf_users.day', granularity: 'day' }] };
 
+  // The row is collapsed by default — expand it before asserting on chips/input.
+  it('is collapsed by default, expands on the toggle', () => {
+    render(<QueryRefineRow query={query} onRefine={vi.fn()} />);
+    expect(screen.queryByText('Show this weekly instead')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Refine query' }));
+    expect(screen.getByText('Show this weekly instead')).toBeTruthy();
+  });
+
   it('sends the chip text on click', () => {
     const onRefine = vi.fn();
     render(<QueryRefineRow query={query} onRefine={onRefine} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Refine query' }));
     fireEvent.click(screen.getByText('Show this weekly instead'));
     expect(onRefine).toHaveBeenCalledWith('Show this weekly instead');
   });
@@ -79,6 +88,7 @@ describe('QueryRefineRow', () => {
   it('sends typed free-text on Refine click', () => {
     const onRefine = vi.fn();
     render(<QueryRefineRow query={query} onRefine={onRefine} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Refine query' }));
     fireEvent.change(screen.getByPlaceholderText(/Refine this query/), { target: { value: 'break down by platform' } });
     fireEvent.click(screen.getByRole('button', { name: 'Refine' }));
     expect(onRefine).toHaveBeenCalledWith('break down by platform');
