@@ -63,7 +63,8 @@ tabs:
       - { kind: bar,           id: top-countries,    label: Top countries,   measure: mf_users.user_count_approx, groupBy: mf_users.country,         limit: 10, format: compact }
       - { kind: donut,         id: platform-donut,   label: Device platform, measure: mf_users.user_count_approx, groupBy: mf_users.os_platform,     limit: 5 }
       - { kind: line,          id: installs-90d,     label: Installs (last 90 days), measure: mf_users.user_count_approx, timeDimension: mf_users.install_date, dateRange: last 90 days, granularity: day, format: compact }
-      - { kind: bar,           id: top-campaigns,    label: Top campaigns,   measure: mf_users.user_count, groupBy: mf_users.campaign_label, limit: 8, format: compact }
+      - { kind: bar,           id: top-campaigns,    label: Top campaigns,   measure: mf_users.user_count, groupBy: mf_users.campaign_label, chipBy: mf_users.campaign_platform, limit: 8, format: compact }
+      - { kind: bar,           id: acq-platform,     label: Acquisition platform, measure: mf_users.user_count, groupBy: mf_users.ad_platform, limit: 7, format: compact }
 
   - id: engagement
     label: Engagement

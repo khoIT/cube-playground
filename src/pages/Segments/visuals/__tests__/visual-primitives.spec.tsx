@@ -215,6 +215,24 @@ describe('BarList', () => {
     const meters = screen.getAllByRole('meter');
     expect(meters).toHaveLength(2);
   });
+
+  it('renders a leading chip beside the label when present, and omits it otherwise', () => {
+    render(
+      <BarList
+        items={[
+          { label: 'JUS_VN_A70_UA_ASA', value: 9000, chip: 'Apple Search' },
+          { label: '23231746441', value: 8000 },
+        ]}
+      />,
+    );
+    // chip text shows for the row that has one
+    expect(screen.getByText('Apple Search')).toBeInTheDocument();
+    // both campaign labels still render
+    expect(screen.getByText('JUS_VN_A70_UA_ASA')).toBeInTheDocument();
+    expect(screen.getByText('23231746441')).toBeInTheDocument();
+    // exactly one chip — the chip-less row gets no chip element
+    expect(screen.queryAllByText('Apple Search')).toHaveLength(1);
+  });
 });
 
 // ─── Donut ────────────────────────────────────────────────────────────────────

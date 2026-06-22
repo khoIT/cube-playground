@@ -22,7 +22,7 @@ interface Props {
 export function BarListCard({ spec, segment, preset, cacheKey }: Props): ReactElement {
   const query = useMemo<Query>(() => ({
     measures: [spec.measure],
-    dimensions: [spec.groupBy],
+    dimensions: spec.chipBy ? [spec.groupBy, spec.chipBy] : [spec.groupBy],
     order: { [spec.measure]: 'desc' as never },
     limit: spec.limit ?? 6,
   }), [spec]);
@@ -34,10 +34,16 @@ export function BarListCard({ spec, segment, preset, cacheKey }: Props): ReactEl
     skipBackgroundFetch,
   });
 
-  const items = useMemo(() => rows.map((r) => ({
-    label: categoryLabel((r as Record<string, unknown>)[spec.groupBy]),
-    value: Number((r as Record<string, unknown>)[spec.measure] ?? 0),
-  })), [rows, spec]);
+  const items = useMemo(() => rows.map((r) => {
+    const row = r as Record<string, unknown>;
+    const chipRaw = spec.chipBy ? row[spec.chipBy] : undefined;
+    const chip = chipRaw == null || String(chipRaw).trim() === '' ? undefined : String(chipRaw).trim();
+    return {
+      label: categoryLabel(row[spec.groupBy]),
+      value: Number(row[spec.measure] ?? 0),
+      chip,
+    };
+  }), [rows, spec]);
 
   return (
     <CardShell

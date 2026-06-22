@@ -48,6 +48,12 @@ export interface BarListCardSpec {
   label: string;
   measure: string;
   groupBy: string;
+  /**
+   * Optional second dimension whose value renders as a small leading chip on
+   * each row (e.g. the acquisition platform beside a campaign name). Rows where
+   * it resolves null/blank render with no chip. Widens the label column.
+   */
+  chipBy?: string;
   limit?: number;
   format?: FormatId;
 }

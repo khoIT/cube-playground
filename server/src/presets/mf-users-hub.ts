@@ -37,6 +37,13 @@ export interface BarListCardSpec {
   label: string;
   measure: string;
   groupBy: string;
+  /**
+   * Optional second dimension rendered as a leading chip on each row (FE-only
+   * presentation). Functionally determined by groupBy at the data layer, so it
+   * adds no rows to the GROUP BY; the card-runner queries it so cached rows
+   * carry the chip value.
+   */
+  chipBy?: string;
   limit?: number;
   format?: FormatId;
 }

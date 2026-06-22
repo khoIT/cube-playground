@@ -128,10 +128,15 @@ function queryForCard(spec: CardSpec): CubeQuery {
       ],
     };
   }
-  // bar + composition share the same query shape
+  // bar + composition share the same query shape. A bar card may carry a
+  // chipBy dimension (a leading per-row chip) that is functionally determined
+  // by groupBy, so adding it to the projection does not split rows — but it
+  // must be queried for the cached rows to carry the chip value.
+  const dimensions =
+    spec.kind === 'bar' && spec.chipBy ? [spec.groupBy, spec.chipBy] : [spec.groupBy];
   return {
     measures: [spec.measure],
-    dimensions: [spec.groupBy],
+    dimensions,
     order: { [spec.measure]: 'desc' },
     limit: spec.limit ?? 6,
   };

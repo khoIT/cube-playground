@@ -57,6 +57,23 @@ cubes:
       - name: media_source
         sql: media_source
         type: string
+      - name: ad_platform
+        # Acquisition channel bucketed from the AppsFlyer media_source into core
+        # ad platforms; the long *_int MMP/partner tail collapses to Other. Per-user
+        # (full coverage), unlike campaign_label whose platform prefix only covers
+        # campaigns inside the marketing-cost feed window.
+        sql: >
+          CASE
+            WHEN {CUBE}.media_source IS NULL THEN 'Unknown'
+            WHEN lower({CUBE}.media_source) LIKE '%google%' THEN 'Google'
+            WHEN lower({CUBE}.media_source) LIKE '%facebook%' THEN 'Facebook'
+            WHEN lower({CUBE}.media_source) LIKE '%tiktok%' THEN 'TikTok'
+            WHEN lower({CUBE}.media_source) LIKE '%apple%' THEN 'Apple Search'
+            WHEN lower({CUBE}.media_source) = 'organic' THEN 'Organic'
+            ELSE 'Other'
+          END
+        type: string
+        description: Acquisition platform (bucketed from media_source).
       - name: campaign_id
         sql: campaign_id
         type: string
@@ -65,6 +82,12 @@ cubes:
         # marketing-cost feed's window, else the raw campaign_id (older
         # campaigns predate the feed). Powers the Top campaigns breakdown.
         sql: "COALESCE({campaign_dim.campaign_name}, {CUBE}.campaign_id)"
+        type: string
+      - name: campaign_platform
+        # Core ad platform for this campaign, from the cost feed (one platform per
+        # campaign_id via the campaign_dim join). NULL when the campaign predates
+        # the feed window — the Top campaigns card shows it as a chip only when set.
+        sql: "{campaign_dim.platform}"
         type: string
       - name: is_paid_install
         sql: is_paid_install

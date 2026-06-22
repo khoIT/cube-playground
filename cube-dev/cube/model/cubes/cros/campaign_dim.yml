@@ -9,7 +9,8 @@ cubes:
     sql: >
       SELECT
         campaign_id,
-        max_by(campaign_name, log_date) AS campaign_name
+        max_by(campaign_name, log_date) AS campaign_name,
+        max_by(media_source, log_date) AS media_source
       FROM std_marketing_cost_all_channels_by_game
       WHERE campaign_id IS NOT NULL AND campaign_name IS NOT NULL
       GROUP BY campaign_id
@@ -23,4 +24,20 @@ cubes:
         public: false
       - name: campaign_name
         sql: campaign_name
+        type: string
+      - name: platform
+        # Core ad platform this campaign ran on, bucketed from the cost feed's
+        # media_source. Used only to prefix mf_users.campaign_label; kept out of
+        # the public API surface.
+        public: false
+        sql: >
+          CASE
+            WHEN {CUBE}.media_source IS NULL THEN NULL
+            WHEN lower({CUBE}.media_source) LIKE '%google%' THEN 'Google'
+            WHEN lower({CUBE}.media_source) LIKE '%facebook%' THEN 'Facebook'
+            WHEN lower({CUBE}.media_source) LIKE '%tiktok%' THEN 'TikTok'
+            WHEN lower({CUBE}.media_source) LIKE '%apple%' THEN 'Apple Search'
+            WHEN lower({CUBE}.media_source) = 'organic' THEN 'Organic'
+            ELSE 'Other'
+          END
         type: string
