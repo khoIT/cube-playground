@@ -388,12 +388,6 @@
   border-radius: var(--radius-md);
   overflow: hidden;
 }
-/* Clean divider between each command — a clearly-visible hairline (the faint
-   --border-card washed out on the cream box, so the buttons read as one blur).
-   --border-strong gives each action a crisp, evenly-spaced cell. */
-.commandBar > * + * {
-  border-left: 1px solid var(--border-strong);
-}
 .commandBar :global(.ant-btn) {
   border: 0;
   border-radius: 0;
@@ -405,6 +399,14 @@
 .commandBar :global(.ant-btn):hover:not(:disabled) {
   background: var(--bg-muted);
   color: var(--text-primary);
+}
+/* Clean divider between each command. The doubled `.commandBar.commandBar`
+   selector + source order after the reset above beats `.commandBar .ant-btn`
+   (which zeroes every border) — without it the dividers were silently wiped
+   and the three actions read as one undivided blur. Targets every direct child
+   after the first, so it works whether the child is a button or a Tooltip span. */
+.commandBar.commandBar > * + * {
+  border-left: 1px solid var(--border-strong);
 }
 
 .detailTitle {
