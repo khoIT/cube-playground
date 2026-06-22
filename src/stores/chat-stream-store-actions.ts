@@ -11,6 +11,7 @@ import type {
   QueryArtifact,
   ChartArtifact,
   SseDisambigOptions,
+  VerdictData,
 } from '../api/chat-sse-client';
 import type { SegmentProposalPayload } from '../api/segment-proposal';
 import type { SessionFocusClient } from '../api/chat-session-focus-client';
@@ -61,6 +62,8 @@ export interface StreamEntry {
   currentCharts: ChartArtifact[];
   /** Segment proposals emitted during this turn — rendered as confirm cards. */
   currentProposals: SegmentProposalPayload[];
+  /** Lead takeaway emitted via emit_verdict — rendered above the body. Null until one arrives. */
+  currentVerdict: VerdictData | null;
   currentToolCalls: ToolCallState[];
   error: string | null;
   /** Classifier headline + actionable hint, set alongside `error` (server-classified). */
@@ -101,6 +104,7 @@ export function makeIdleEntry(sessionId: string | null): StreamEntry {
     currentArtifacts: [],
     currentCharts: [],
     currentProposals: [],
+    currentVerdict: null,
     currentToolCalls: [],
     error: null,
     errorTitle: null,
@@ -226,6 +230,11 @@ export function applySseEvent(entry: StreamEntry, event: SseEvent): StreamEntry 
     case 'chart':
       return { ...entry, currentCharts: [...entry.currentCharts, event.data] };
 
+    case 'verdict':
+      // Most-recent verdict wins (the model usually emits one; a later call
+      // overwrites). Cleared in clearStreamBuffers on the next turn.
+      return { ...entry, currentVerdict: event.data };
+
     case 'segment_proposal':
       return {
         ...entry,
@@ -308,6 +317,7 @@ export function clearStreamBuffers(entry: StreamEntry): StreamEntry {
     currentArtifacts: [],
     currentCharts: [],
     currentProposals: [],
+    currentVerdict: null,
     currentToolCalls: [],
     cacheHit: false,
     cacheFreshness: null,

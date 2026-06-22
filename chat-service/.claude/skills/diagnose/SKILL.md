@@ -28,6 +28,7 @@ allowed_tools:
   - emit_query_artifact
   - emit_combined_artifact
   - emit_chart
+  - emit_verdict
   - get_business_metric_history
   - offer_choices
 enable_web_search: false

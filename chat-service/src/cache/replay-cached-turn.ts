@@ -13,7 +13,7 @@
  */
 
 import { writeSseEvent } from '../core/sse-stream.js';
-import type { SseEvent, QueryArtifact, ChartArtifact } from '../types.js';
+import type { SseEvent, QueryArtifact, ChartArtifact, VerdictData } from '../types.js';
 import { chunkText } from './response-cache-key.js';
 import type { CachedResponse, CachedValue } from '../db/response-cache-store.js';
 import type { Writable } from 'node:stream';
@@ -23,6 +23,9 @@ export interface ReplayOutcome {
   artifacts: QueryArtifact[];
   charts: ChartArtifact[];
   freshness: 'refreshed' | 'stale';
+  /** Lead takeaway from the cached value — static (not refreshed); persisted on
+   *  the replayed row so reload matches the live replay. Undefined when none. */
+  verdict?: VerdictData;
 }
 
 /**
@@ -60,6 +63,7 @@ export async function replayCachedTurn(
   const text = value.text ?? '';
   const cachedArtifacts = value.artifacts ?? [];
   const cachedCharts = value.charts ?? [];
+  const cachedVerdict = value.verdict;
 
   // Best-effort refresh — failures fall through to the stale fallback.
   let outcome: ReplayOutcome = {
@@ -74,8 +78,17 @@ export async function replayCachedTurn(
       // swallow; stale fallback already prepared
     }
   }
+  // Verdict is static text — never refreshed — so re-attach it regardless of
+  // whether the refresh hook ran (it returns a fresh outcome without verdict).
+  outcome.verdict = cachedVerdict;
 
   emit({ type: 'loading', data: {} });
+
+  // Verdict leads, before the body tokens — mirrors a fresh turn where the
+  // model emits emit_verdict first.
+  if (cachedVerdict) {
+    emit({ type: 'verdict', data: cachedVerdict });
+  }
 
   for (const chunk of chunkText(text, 80)) {
     emit({ type: 'token', data: { delta: chunk } });

@@ -24,7 +24,7 @@
 import type Database from 'better-sqlite3';
 import { insertCacheEntry } from '../db/response-cache-store.js';
 import { normalize } from './response-cache-key.js';
-import type { QueryArtifact, ChartArtifact } from '../types.js';
+import type { QueryArtifact, ChartArtifact, VerdictData } from '../types.js';
 
 export interface MaybeWriteParams {
   db: Database.Database;
@@ -41,6 +41,8 @@ export interface MaybeWriteParams {
   stopReason: string | undefined;
   collectedArtifacts: QueryArtifact[];
   collectedCharts: ChartArtifact[];
+  /** Lead takeaway emitted this turn; cached so replay re-emits it. Null/undefined when none. */
+  collectedVerdict?: VerdictData | null;
   hadError: boolean;
   turnId: string;
   sessionId: string;
@@ -79,6 +81,7 @@ export function maybeWriteResponseCache(params: MaybeWriteParams): boolean {
       toolCalls: [],
       artifacts: params.collectedArtifacts.length > 0 ? params.collectedArtifacts : undefined,
       charts: params.collectedCharts.length > 0 ? params.collectedCharts : undefined,
+      verdict: params.collectedVerdict ?? undefined,
     },
     inputTokens: params.inputTokens,
     outputTokens: params.outputTokens,

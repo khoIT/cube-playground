@@ -105,6 +105,9 @@ export async function tryResponseCacheHit(args: Args): Promise<CacheHitResult> {
       cacheHit: 1,
       originalTurnId: cached.original_turn_id,
       cacheFreshness: outcome.freshness,
+      // Persist the replayed verdict so reloading the cache-hit turn renders the
+      // same lead block the live replay just streamed.
+      verdictJson: outcome.verdict ? JSON.stringify(outcome.verdict) : undefined,
       skill,
       model: resolvedModel,
       // Cache hits are gated at write time on stop_reason='end_turn', so a

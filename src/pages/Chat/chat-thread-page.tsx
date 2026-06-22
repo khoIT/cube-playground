@@ -61,6 +61,7 @@ export function sessionTurnsToMessages(
     // live → persisted state: thinking (reasoning + tool chips) → answer text
     // → supporting evidence (artifacts + charts).
     if (t.reasoning) sections.push({ type: 'reasoning', text: t.reasoning });
+    if (t.verdict) sections.push({ type: 'verdict', headline: t.verdict.headline, rationale: t.verdict.rationale });
     for (const tc of t.toolCalls ?? []) {
       sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.ok ? 'ok' : 'error', ms: tc.ms, summary: tc.summary });
     }
@@ -174,7 +175,7 @@ export function ChatThreadPage() {
 
   const {
     status, sessionId: streamSessionId, turnId: streamTurnId,
-    currentText, currentReasoning, currentArtifacts, currentCharts, currentProposals, currentToolCalls,
+    currentText, currentReasoning, currentArtifacts, currentCharts, currentProposals, currentVerdict, currentToolCalls,
     cacheHit: streamCacheHit, cacheFreshness: streamCacheFreshness,
     disambigOptions: streamDisambigOptions,
     lastCompactWarning, retryAfterMs,
@@ -217,6 +218,7 @@ export function ChatThreadPage() {
     // evidence (artifacts + standalone charts). During streaming this means
     // artifacts appear once text starts arriving — natural reading flow.
     if (currentReasoning) sections.push({ type: 'reasoning', text: currentReasoning });
+    if (currentVerdict) sections.push({ type: 'verdict', headline: currentVerdict.headline, rationale: currentVerdict.rationale });
     for (const tc of currentToolCalls) sections.push({ type: 'tool_call', id: tc.id, name: tc.name, status: tc.status, ms: tc.ms, summary: tc.summary });
     if (currentText) sections.push({ type: 'text', text: currentText });
     for (const art of currentArtifacts) sections.push({ type: 'query_artifact', artifact: art });

@@ -14,7 +14,7 @@ import * as chatStore from '../db/chat-store.js';
 import { canAccessOwnedResource } from './debug-shared.js';
 import { writeChatSnapshot } from '../db/snapshot-store.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
-import type { ChatTurnRow, QueryArtifact, ChartArtifact, DisambigOptionsData } from '../types.js';
+import type { ChatTurnRow, QueryArtifact, ChartArtifact, DisambigOptionsData, VerdictData } from '../types.js';
 import type { SegmentProposal } from '../tools/propose-segment.js';
 
 // ---------------------------------------------------------------------------
@@ -48,6 +48,8 @@ interface TurnDto {
   disambig?: DisambigOptionsData | null;
   /** Segment proposals emitted during this turn; re-rendered on reload. */
   proposals?: SegmentProposal[];
+  /** Lead takeaway this turn emitted (emit_verdict), re-rendered on reload. Null when none. */
+  verdict?: VerdictData | null;
 }
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
@@ -85,6 +87,10 @@ function rowToTurn(row: ChatTurnRow): TurnDto {
       row.role === 'assistant'
         ? safeParseJson<SegmentProposal[]>(row.proposals_json ?? null, [])
         : [],
+    verdict:
+      row.role === 'assistant'
+        ? safeParseJson<VerdictData | null>(row.verdict_json ?? null, null)
+        : null,
   };
 }
 

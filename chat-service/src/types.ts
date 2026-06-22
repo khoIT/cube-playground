@@ -66,6 +66,21 @@ export interface QueryArtifact {
 }
 
 // ---------------------------------------------------------------------------
+// Verdict — the lead takeaway emitted by emit_verdict tool
+// ---------------------------------------------------------------------------
+
+/**
+ * One-sentence headline takeaway (+ optional short rationale) for a data-backed
+ * analytical answer. Rendered as a lead block above the answer body so the turn
+ * opens with the conclusion. Emitted via emit_verdict, persisted on the turn
+ * row (verdict_json), and replayed on cache hit — same lifecycle as proposals.
+ */
+export interface VerdictData {
+  headline: string;
+  rationale?: string;
+}
+
+// ---------------------------------------------------------------------------
 // SSE event union — all 10 types (+ session_created)
 // ---------------------------------------------------------------------------
 
@@ -79,6 +94,7 @@ export type SseEvent =
   | { type: 'token'; data: { delta: string } }
   | { type: 'query_artifact'; data: QueryArtifact }
   | { type: 'chart'; data: ChartArtifact }
+  | { type: 'verdict'; data: VerdictData }
   | {
       type: 'disambig_options';
       data: {
@@ -377,6 +393,12 @@ export interface ChatTurnRow {
    * ("the chips above…") dangles on reload. NULL for turns that emitted none.
    */
   disambig_json?: string | null;
+  /**
+   * Serialized VerdictData ({headline, rationale?}) the turn emitted via
+   * emit_verdict. Persisted so a reloaded session leads with the same takeaway
+   * block. NULL for turns that emitted no verdict and for legacy turns.
+   */
+  verdict_json?: string | null;
 }
 
 // ---------------------------------------------------------------------------

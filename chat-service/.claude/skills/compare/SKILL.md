@@ -23,6 +23,7 @@ allowed_tools:
   - emit_query_artifact
   - emit_combined_artifact
   - emit_chart
+  - emit_verdict
   - offer_choices
 enable_web_search: false
 enable_research_mode: false

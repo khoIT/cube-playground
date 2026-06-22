@@ -22,6 +22,7 @@ import * as listSegments from './list-segments.js';
 import * as getSegment from './get-segment.js';
 import * as explainCubeSql from './explain-cube-sql.js';
 import * as emitChart from './emit-chart.js';
+import * as emitVerdict from './emit-verdict.js';
 import * as updateBusinessMetricTrust from './update-business-metric-trust.js';
 import * as parseDateRange from './parse-date-range.js';
 import * as getBusinessMetricHistory from './get-business-metric-history.js';
@@ -151,6 +152,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: emitChart.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: emitChart.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: emitVerdict.name,
+    description: emitVerdict.description,
+    inputSchema: emitVerdict.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: emitVerdict.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
   {
     name: updateBusinessMetricTrust.name,

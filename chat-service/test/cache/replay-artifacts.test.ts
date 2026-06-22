@@ -105,6 +105,39 @@ describe('replayCachedTurn — cache_hit + freshness', () => {
     expect(hookCalled).toBe(false);
   });
 
+  it('re-emits a cached verdict before tokens and returns it in the outcome', async () => {
+    const cachedValue = {
+      text: 'body text',
+      toolCalls: [],
+      verdict: { headline: 'Conversion is the bottleneck.', rationale: 'Payer rate 1.8%.' },
+    };
+    const events: SseEvent[] = [];
+    const outcome = await replayCachedTurn(
+      makeCached(JSON.stringify(cachedValue)),
+      nullStream,
+      (e) => events.push(e),
+    );
+    const verdictIdx = events.findIndex((e) => e.type === 'verdict');
+    const firstTokenIdx = events.findIndex((e) => e.type === 'token');
+    expect(verdictIdx).toBeGreaterThanOrEqual(0);
+    // Verdict leads, before the body tokens (mirrors a fresh turn).
+    expect(verdictIdx).toBeLessThan(firstTokenIdx);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((events[verdictIdx] as any).data.headline).toMatch(/bottleneck/i);
+    expect(outcome.verdict?.headline).toMatch(/bottleneck/i);
+  });
+
+  it('emits no verdict event when the cached value carries none', async () => {
+    const events: SseEvent[] = [];
+    const outcome = await replayCachedTurn(
+      makeCached(JSON.stringify({ text: 'plain', toolCalls: [] })),
+      nullStream,
+      (e) => events.push(e),
+    );
+    expect(events.some((e) => e.type === 'verdict')).toBe(false);
+    expect(outcome.verdict).toBeUndefined();
+  });
+
   it('refresh hook errors fall through to stale (no throw to caller)', async () => {
     const cachedValue = {
       text: 'hi',

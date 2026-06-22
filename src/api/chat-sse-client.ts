@@ -242,6 +242,20 @@ export interface SseFocusReset extends SseEventBase {
   data: { sessionId: string };
 }
 
+/** One-sentence lead takeaway (+ optional rationale) emitted by emit_verdict.
+ *  Rendered as a lead block above the answer body. */
+export interface VerdictData {
+  headline: string;
+  rationale?: string;
+}
+
+/** Emitted by emit_verdict — the headline answer the turn leads with. Persisted
+ *  on the turn row and re-emitted on cache replay (full lifecycle parity). */
+export interface SseVerdict extends SseEventBase {
+  type: 'verdict';
+  data: VerdictData;
+}
+
 /**
  * Emitted when the agent decides the user's query maps to a segment that can
  * be materialized. The FE renders a confirm card; on confirm it POSTs to
@@ -272,7 +286,8 @@ export type SseEvent =
   | SseTurnAborted
   | SseFocusUpdated
   | SseFocusReset
-  | SseSegmentProposal;
+  | SseSegmentProposal
+  | SseVerdict;
 
 // ---------------------------------------------------------------------------
 // Owner ID helper — re-exported for tests; sourced from shared module so

@@ -346,6 +346,11 @@ export interface AppendTurnParams {
    * re-render the clickable choice chips. Undefined when no choices were offered.
    */
   disambigJson?: string;
+  /**
+   * Serialized VerdictData ({headline, rationale?}) the turn led with. Lets a
+   * reloaded session re-render the takeaway block. Undefined when no verdict.
+   */
+  verdictJson?: string;
   startedAt: number;
   endedAt?: number;
 }
@@ -367,9 +372,9 @@ export function appendTurn(
         cache_creation_tokens, cache_read_tokens,
         cache_hit, original_turn_id, cache_freshness,
         skill, system_prompt_text, model,
-        stop_reason, llm_auth_label, disambig_json,
+        stop_reason, llm_auth_label, disambig_json, verdict_json,
         started_at, ended_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     params.sessionId,
@@ -396,6 +401,7 @@ export function appendTurn(
     params.stopReason ?? null,
     params.llmAuthLabel ?? null,
     params.disambigJson ?? null,
+    params.verdictJson ?? null,
     params.startedAt,
     params.endedAt ?? null,
   );

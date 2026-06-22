@@ -89,6 +89,10 @@ export function migrate(db: Database.Database): void {
   // so a reloaded session can re-render the clickable choice chips instead of
   // dropping them. NULL on turns that offered no choices and on legacy turns.
   addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN disambig_json TEXT;');
+  // Serialized verdict ({headline, rationale?}) the turn led with, so a reloaded
+  // session re-renders the takeaway block. NULL on turns with no verdict and on
+  // legacy turns.
+  addColumnIfMissing(db, 'ALTER TABLE chat_turns ADD COLUMN verdict_json TEXT;');
 
   // Index for the admin cost-breakdown rollup: time-windowed scans over
   // assistant turns (default window is all-time, so without this every cost

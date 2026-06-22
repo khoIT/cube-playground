@@ -65,6 +65,8 @@ export interface ChatTurn {
   disambig?: DisambigOptionsPayload | null;
   /** Segment proposals emitted during this turn; re-rendered as confirm cards on reload. */
   proposals?: SegmentProposalPayload[];
+  /** Lead takeaway this turn emitted (emit_verdict), re-rendered above the body on reload. */
+  verdict?: import('../../../api/chat-sse-client').VerdictData | null;
 }
 
 export interface ChatSession {

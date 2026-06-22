@@ -392,6 +392,12 @@ export interface ReasoningSection {
   text: string;
 }
 
+export interface VerdictSection {
+  type: 'verdict';
+  headline: string;
+  rationale?: string;
+}
+
 export interface ToolCallSection {
   type: 'tool_call';
   id: string;
@@ -427,6 +433,7 @@ export interface SegmentProposalSection {
 export type AssistantSection =
   | TextSection
   | ReasoningSection
+  | VerdictSection
   | ToolCallSection
   | ToolResultSection
   | QueryArtifactSection
@@ -529,7 +536,13 @@ function AssistantMessageImpl({
     .map((s) => s.text)
     .join('\n\n')
     .trim();
-  const bodyUnits = merged.filter((s) => s.type !== 'reasoning');
+  // Verdict is lifted out of the body and rendered as the lead block at the top
+  // of the answer (the last one wins if the model emitted more than once). Like
+  // reasoning, it never reaches the body section loop.
+  const verdict = merged
+    .filter((s): s is VerdictSection => s.type === 'verdict')
+    .at(-1);
+  const bodyUnits = merged.filter((s) => s.type !== 'reasoning' && s.type !== 'verdict');
 
   const followupChips: FollowupChip[] = showFollowups
     ? suggestFollowups(extractFollowupContext(bodyUnits))
@@ -708,6 +721,57 @@ function AssistantMessageImpl({
       {/* Sections — hung-indented under the "Cube" wordmark so the answer body
           reads as subordinate to the question heading + byline above it. */}
       <div style={{ marginLeft: bodyIndent }}>
+        {/* Verdict lead block — the takeaway, above the supporting evidence. */}
+        {verdict && (
+          <div
+            style={{
+              border: '1px solid var(--border-strong)',
+              borderLeft: '3px solid var(--shell-brand)',
+              borderRadius: 'var(--radius-xl)',
+              background: 'var(--surface-raised)',
+              padding: compact ? '12px 14px' : '14px 18px',
+              marginBottom: 16,
+            }}
+          >
+            <div
+              style={{
+                fontFamily: T.fSans,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.09em',
+                textTransform: 'uppercase',
+                color: 'var(--shell-brand)',
+                marginBottom: 8,
+              }}
+            >
+              Verdict
+            </div>
+            <div
+              style={{
+                fontFamily: T.fSans,
+                fontSize: compact ? 15 : 16,
+                fontWeight: 700,
+                lineHeight: 1.35,
+                color: 'var(--shell-text)',
+              }}
+            >
+              {verdict.headline}
+            </div>
+            {verdict.rationale && (
+              <div
+                style={{
+                  fontFamily: T.fSans,
+                  fontSize: 13,
+                  lineHeight: 1.6,
+                  color: 'var(--shell-text-muted)',
+                  marginTop: 8,
+                }}
+              >
+                {verdict.rationale}
+              </div>
+            )}
+          </div>
+        )}
         {groupChartRuns(groupToolCallRuns(bodyUnits)).map((group, i) =>
           group.kind === 'chart_grid' ? (
             <div
@@ -917,9 +981,10 @@ function SectionRenderer({
     case 'text':
       return <TextParagraph text={section.text} />;
 
-    // 'reasoning' is handled in the header (lifted out of bodyUnits), so it
-    // never reaches the body renderer.
+    // 'reasoning' is handled in the header and 'verdict' is rendered as the lead
+    // block (both lifted out of bodyUnits), so neither reaches the body renderer.
     case 'reasoning':
+    case 'verdict':
       return null;
 
     case 'tool_call':

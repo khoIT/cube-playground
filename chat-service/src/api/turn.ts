@@ -432,6 +432,14 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
       collectedProposals.push(data as SegmentProposal);
       emit({ type: 'segment_proposal', data });
     });
+    // Last verdict the turn emitted (emit_verdict), kept so it can be persisted
+    // on the assistant row + replayed on cache hit. The model usually emits it
+    // once; a later call overwrites (the most recent takeaway wins).
+    let lastVerdict: Extract<SseEvent, { type: 'verdict' }>['data'] | null = null;
+    sseEmitter.on('verdict', (data: Extract<SseEvent, { type: 'verdict' }>['data']) => {
+      lastVerdict = data;
+      emit({ type: 'verdict', data });
+    });
     let clarifyEmitted = false;
     // Last disambig_options frame the turn emitted, kept so it can be persisted
     // on the assistant row and re-rendered as choice chips when the session
@@ -715,6 +723,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
         model: resolvedModel,
         llmAuthLabel,
         disambigJson: lastDisambig ? JSON.stringify(lastDisambig) : undefined,
+        verdictJson: lastVerdict ? JSON.stringify(lastVerdict) : undefined,
         startedAt,
         endedAt,
       });
@@ -786,6 +795,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
             stopReason: persistedStopReason,
             collectedArtifacts,
             collectedCharts,
+            collectedVerdict: lastVerdict,
             hadError: false,
             turnId,
             sessionId,
@@ -865,6 +875,7 @@ const turnRoutes: FastifyPluginAsync<TurnRouteOptions> = async (fastify, opts) =
             model: resolvedModel,
             llmAuthLabel,
             disambigJson: lastDisambig ? JSON.stringify(lastDisambig) : undefined,
+            verdictJson: lastVerdict ? JSON.stringify(lastVerdict) : undefined,
             startedAt,
             endedAt: Date.now(),
           });

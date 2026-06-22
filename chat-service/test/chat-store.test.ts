@@ -266,6 +266,39 @@ describe('chatStore', () => {
       expect(chatStore.listTurns(db, session.id)[0].disambig_json).toBeNull();
     });
 
+    it('round-trips verdictJson on the assistant row (lead block survives reload)', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      const verdict = JSON.stringify({
+        headline: 'Payer conversion is the most pressing problem.',
+        rationale: 'Paying DAU sits at 1.8% vs a 3%+ genre baseline.',
+      });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'Here is the analysis…',
+        verdictJson: verdict,
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+      const turns = chatStore.listTurns(db, session.id);
+      expect(turns[0].verdict_json).toBe(verdict);
+      expect(JSON.parse(turns[0].verdict_json!).headline).toMatch(/payer conversion/i);
+    });
+
+    it('leaves verdict_json NULL when no verdict was emitted', () => {
+      const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
+      chatStore.appendTurn(db, {
+        sessionId: session.id,
+        turnIndex: 0,
+        role: 'assistant',
+        assistantText: 'plain answer',
+        startedAt: Date.now(),
+        endedAt: Date.now(),
+      });
+      expect(chatStore.listTurns(db, session.id)[0].verdict_json).toBeNull();
+    });
+
     it('appends and lists turns in order', () => {
       const session = chatStore.createSession(db, { ownerId: 'o', gameId: 'g' });
 

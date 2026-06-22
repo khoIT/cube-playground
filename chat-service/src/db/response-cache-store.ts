@@ -11,7 +11,7 @@
  */
 
 import type Database from 'better-sqlite3';
-import type { QueryArtifact, ChartArtifact } from '../types.js';
+import type { QueryArtifact, ChartArtifact, VerdictData } from '../types.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +27,9 @@ export interface CachedValue {
   toolCalls: never[];
   artifacts?: QueryArtifact[];
   charts?: ChartArtifact[];
+  /** Lead takeaway, re-emitted + persisted on replay so a cached turn renders
+   *  identically to a fresh one. Optional for rows written before verdicts. */
+  verdict?: VerdictData;
 }
 
 /** Full row as returned by the DB. */
