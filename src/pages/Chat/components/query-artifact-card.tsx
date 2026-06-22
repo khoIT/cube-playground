@@ -23,6 +23,7 @@ import { buildLabelMap } from './chart-column-labels';
 import { openArtifactInPlayground } from './open-artifact-in-playground';
 import { useBuildSegmentFromQuery } from './use-build-segment-from-query';
 import { SegmentProposalCard } from './segment-proposal-card';
+import { SegmentSeedValuePicker } from './segment-seed-value-picker';
 import type { QueryArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 interface QueryArtifactCardProps {
@@ -60,7 +61,9 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
 
   // "Build segment from this" bridge — eager segmentability probe gates the
   // button; clicking lands a pre-filled SegmentProposalCard inline (below).
-  const { segmentable, proposal, build } = useBuildSegmentFromQuery(artifact);
+  // `seed` is set for breakdown queries: the button opens a value picker first.
+  const { segmentable, seed, proposal, build, buildFromSeed } = useBuildSegmentFromQuery(artifact);
+  const [seedOpen, setSeedOpen] = useState(false);
 
   function handleOpen() {
     openArtifactInPlayground(artifact, history);
@@ -216,15 +219,16 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
           alignItems: 'center',
           gap: 8,
           // Build (primary on-ramp) sits left; Open in Playground stays right.
-          justifyContent: segmentable && !proposal ? 'space-between' : 'flex-end',
+          justifyContent: (segmentable || seed) && !proposal && !seedOpen ? 'space-between' : 'flex-end',
           borderTop: artifact.summary || chart ? `1px solid var(--shell-bg-subtle)` : undefined,
         }}
       >
-        {/* Build-segment bridge — only for segmentable queries, pre-proposal. */}
-        {segmentable && !proposal && (
+        {/* Build-segment bridge — direct (segmentable) or seed (breakdown) path,
+            pre-proposal and before the seed picker opens. */}
+        {(segmentable || seed) && !proposal && !seedOpen && (
           <button
             type="button"
-            onClick={build}
+            onClick={seed && !segmentable ? () => setSeedOpen(true) : build}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -272,6 +276,20 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
         </button>
       </div>
     </div>
+    {/* Seed picker: a breakdown query asks which dimension value(s) to filter on
+        before it can become a cohort. Confirming hands back an equals/in predicate. */}
+    {seed && seedOpen && !proposal && artifact.game && (
+      <SegmentSeedValuePicker
+        gameId={artifact.game}
+        dimensions={seed.dimensions}
+        query={artifact.query}
+        onConfirm={(dimension, values) => {
+          buildFromSeed(dimension, values);
+          setSeedOpen(false);
+        }}
+        onCancel={() => setSeedOpen(false)}
+      />
+    )}
     {/* Inline proposal: one click from an explored result to a pre-filled cohort. */}
     {proposal && <SegmentProposalCard proposal={proposal} />}
     </>

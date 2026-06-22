@@ -317,12 +317,38 @@ export const segmentsClient = {
       body: { query },
     });
   },
+
+  /**
+   * Distinct values of one grouping dimension, for the "Build segment from this"
+   * seed picker (when translateQuery returns reason `breakdown_unfiltered`).
+   * Best-effort — returns an empty list rather than throwing.
+   */
+  dimensionValues(body: {
+    game_id: string;
+    dimension: string;
+    query: unknown;
+  }): Promise<{ values: string[]; reason?: string; took_ms: number }> {
+    return apiFetch('/api/segments/dimension-values', { method: 'POST', body });
+  },
 };
 
-/** Result of POST /api/segments/translate-query (segmentability probe). */
+/**
+ * Result of POST /api/segments/translate-query (segmentability probe).
+ *
+ * `breakdown_unfiltered` is a special rejection: the query groups by
+ * `seed_dimensions` but filters no rows. The bridge still shows, routing to a
+ * value picker that turns a chosen value into an equals/in predicate (rather
+ * than hiding, as for genuinely non-segmentable shapes).
+ */
 export type TranslateQueryResult =
   | { segmentable: true; predicate_tree: PredicateNode; cube: string }
-  | { segmentable: false; reason: string; hint?: string };
+  | {
+      segmentable: false;
+      reason: string;
+      hint?: string;
+      seed_dimensions?: string[];
+      cube?: string;
+    };
 
 export const identityMapClient = {
   list(): Promise<CubeIdentityMapping[]> {

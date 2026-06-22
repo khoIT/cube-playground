@@ -37,7 +37,12 @@ import type {
 
 export type TranslateResult =
   | { ok: true; predicate: PredicateNode }
-  | { ok: false; reason: string; hint: string };
+  // `seedDimensions` is set only for `breakdown_unfiltered`: the query groups by
+  // these dimension(s) but filters no rows, so it cannot become a cohort as-is.
+  // The caller turns a chosen dimension value into an equals/in leaf (the FE
+  // "Build segment from this" picker; the chat model re-issues with explicit
+  // filters). Absent on every other rejection.
+  | { ok: false; reason: string; hint: string; seedDimensions?: string[] };
 
 export interface CubeQueryFilters {
   measures?: string[];
@@ -90,9 +95,30 @@ export function cubeQueryToPredicate(
   }
 
   if (filters.length === 0) {
-    // Empty filter list → match-all; represent as an AND group with no children.
-    const root: GroupNode = { kind: 'group', id: randomUUID(), op: 'AND', children: [] };
-    return { ok: true, predicate: root };
+    // No row filter. An empty (match-all) predicate would silently save the
+    // ENTIRE population — never emit it. A breakdown (group-by dimension, no
+    // filter) is the common offender: its selectivity lives in a GROUP BY, not
+    // a WHERE, so the grouping dimension is offered back as a seed for the
+    // caller to turn into an equals/in leaf. A query with neither filters nor
+    // dimensions has nothing to segment on at all.
+    const dims = query.dimensions ?? [];
+    if (dims.length > 0) {
+      return {
+        ok: false,
+        reason: 'breakdown_unfiltered',
+        hint:
+          'This query groups by ' +
+          dims.join(' / ') +
+          ' but has no row filter, so it would match every user. Pick a value of that ' +
+          'dimension to define the cohort (equals/in), then it becomes segmentable.',
+        seedDimensions: dims,
+      };
+    }
+    return {
+      ok: false,
+      reason: 'no_predicate',
+      hint: 'The query has no filters to translate into a segment. Add a dimension filter first.',
+    };
   }
 
   const children: PredicateNode[] = [];

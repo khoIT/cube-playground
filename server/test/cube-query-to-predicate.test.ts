@@ -32,14 +32,18 @@ describe('cubeQueryToPredicate — gate / reject paths', () => {
     if (!result.ok) expect(result.reason).toBe('order_limit_without_measure');
   });
 
-  it('allows order+limit when a measure is present', () => {
+  it('order+limit gate is measure-aware (no order_limit rejection), but a filterless query is still not a cohort', () => {
     const q: CubeQueryFilters = {
       measures: ['mf_users.recharge_vnd'],
       filters: [],
       order: { 'mf_users.recharge_vnd': 'desc' },
       limit: 100,
     };
-    expect(cubeQueryToPredicate(q).ok).toBe(true);
+    const result = cubeQueryToPredicate(q);
+    // The order+limit gate does NOT fire (a measure is present); the rejection is
+    // the empty-filters guard, not order_limit_without_measure.
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no_predicate');
   });
 
   it('rejects a measure filter', () => {
@@ -101,12 +105,23 @@ describe('cubeQueryToPredicate — happy paths', () => {
     expect(child.values).toEqual(['VN']);
   });
 
-  it('produces an empty AND root for zero filters', () => {
+  it('rejects zero filters with no dimensions as no_predicate (never a silent match-all)', () => {
     const result = cubeQueryToPredicate({ filters: [] });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    if (result.predicate.kind !== 'group') return;
-    expect(result.predicate.children).toHaveLength(0);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no_predicate');
+  });
+
+  it('rejects an unfiltered breakdown but returns the grouping dimension(s) to seed', () => {
+    const result = cubeQueryToPredicate({
+      measures: ['mf_users.paying_users', 'mf_users.ltv_total_vnd'],
+      dimensions: ['mf_users.payer_tier'],
+      order: { 'mf_users.ltv_total_vnd': 'desc' },
+      limit: 10,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('breakdown_unfiltered');
+    expect(result.seedDimensions).toEqual(['mf_users.payer_tier']);
   });
 
   it('coerces numeric values for numeric dimensions', () => {

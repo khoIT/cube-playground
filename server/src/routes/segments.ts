@@ -38,6 +38,8 @@ import { computeSegmentSize, SegmentSizeError } from '../services/compute-segmen
 import type { MemberProfiles } from '../types/segment.js';
 import { ensureManualMemberProfiles } from '../services/member-profile-on-demand.js';
 import { parseUidCsv, MAX_ROWS } from '../services/csv-importer.js';
+import { loadWithContinueWait } from '../services/load-with-continue-wait.js';
+import { resolveCubeTokenForGame } from '../services/resolve-cube-token.js';
 import { enqueueRefresh } from '../jobs/refresh-queue.js';
 import { getCardCache } from '../services/card-cache-store.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
@@ -746,7 +748,18 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const measureNames = new Set(query.measures ?? []);
     const result = cubeQueryToPredicate(query, measureNames);
     if (!result.ok) {
-      return { segmentable: false, reason: result.reason, hint: result.hint };
+      // `breakdown_unfiltered` carries the grouping dimension(s) so the FE can
+      // offer a value picker (the seed path). Derive the cube too — the seeded
+      // proposal needs it just like the direct path. Other rejections stay bare
+      // (the bridge button hides).
+      const seedCube = deriveCubeFromQuery(query);
+      return {
+        segmentable: false,
+        reason: result.reason,
+        hint: result.hint,
+        ...(result.seedDimensions ? { seed_dimensions: result.seedDimensions } : {}),
+        ...(seedCube ? { cube: seedCube } : {}),
+      };
     }
     const cube = deriveCubeFromQuery(query);
     if (!cube) {
@@ -757,6 +770,61 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       };
     }
     return { segmentable: true, predicate_tree: result.predicate, cube };
+  });
+
+  // POST /api/segments/dimension-values
+  // Distinct values of one grouping dimension, for the "Build segment from this"
+  // seed picker (the breakdown_unfiltered case). Runs the explored breakdown
+  // query as-is — it already groups by the dimension, so each row is one value —
+  // and projects the chosen dimension column. Best-effort: any failure returns
+  // an empty list with a reason, never a 500 (the picker degrades to free text).
+  const dimensionValuesSchema = z.object({
+    game_id: z.string().min(1),
+    dimension: z.string().min(1),
+    query: z
+      .object({
+        measures: z.array(z.string()).optional(),
+        dimensions: z.array(z.string()).optional(),
+        order: z.unknown().optional(),
+        limit: z.number().optional(),
+      })
+      .passthrough(),
+  });
+  app.post('/api/segments/dimension-values', async (req, reply) => {
+    const start = Date.now();
+    const parsed = dimensionValuesSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const { game_id, dimension, query } = parsed.data;
+    try {
+      const token = resolveCubeTokenForGame(game_id) ?? undefined;
+      // Cap the pull: a breakdown's distinct values are few (tiers, channels);
+      // anything past 100 is not a sane equals/in cohort seed anyway.
+      const cubeQuery = {
+        dimensions: [dimension],
+        measures: (query.measures ?? []).slice(0, 1),
+        ...(query.order ? { order: query.order } : {}),
+        limit: Math.min(query.limit ?? 100, 100),
+      };
+      const res = (await loadWithContinueWait(cubeQuery, token, 20_000)) as {
+        data?: Array<Record<string, unknown>>;
+      };
+      const seen = new Set<string>();
+      const values: string[] = [];
+      for (const row of res.data ?? []) {
+        const raw = row[dimension];
+        if (raw == null) continue;
+        const v = String(raw);
+        if (seen.has(v)) continue;
+        seen.add(v);
+        values.push(v);
+      }
+      return { values, approx: false, took_ms: Date.now() - start };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { values: [], reason: `query_error: ${msg}`, took_ms: Date.now() - start };
+    }
   });
 
   // GET /api/segments/:id — includes prerendered card_cache for one-shot hydration

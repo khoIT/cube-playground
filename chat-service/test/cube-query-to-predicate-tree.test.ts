@@ -33,7 +33,7 @@ describe('cubeQueryToPredicateTree — reject paths', () => {
     if (!result.ok) expect(result.reason).toBe('order_limit_without_measure');
   });
 
-  it('allows order+limit when a measure is present (top-N exploration query)', () => {
+  it('order+limit gate is measure-aware (no order_limit rejection), but a filterless query is still not a cohort', () => {
     const q: CubeQueryFilters = {
       measures: ['mf_users.recharge_vnd'],
       filters: [],
@@ -41,8 +41,10 @@ describe('cubeQueryToPredicateTree — reject paths', () => {
       limit: 100,
     };
     const result = cubeQueryToPredicateTree(q);
-    // No filters → empty AND group is ok
-    expect(result.ok).toBe(true);
+    // The order+limit gate does NOT fire (a measure is present); the empty-filters
+    // guard rejects instead — never a silent match-all.
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no_predicate');
   });
 
   it('rejects a measure filter', () => {
@@ -115,13 +117,23 @@ describe('cubeQueryToPredicateTree — happy paths', () => {
     expect(child.values).toEqual(['VN']);
   });
 
-  it('produces an empty AND root for zero filters', () => {
+  it('rejects zero filters with no dimensions as no_predicate (never a silent match-all)', () => {
     const result = cubeQueryToPredicateTree({ filters: [] });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.predicate.kind).toBe('group');
-    if (result.predicate.kind !== 'group') return;
-    expect(result.predicate.children).toHaveLength(0);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe('no_predicate');
+  });
+
+  it('rejects an unfiltered breakdown but returns the grouping dimension(s) to seed', () => {
+    const result = cubeQueryToPredicateTree({
+      measures: ['mf_users.paying_users', 'mf_users.ltv_total_vnd'],
+      dimensions: ['mf_users.payer_tier'],
+      order: { 'mf_users.ltv_total_vnd': 'desc' },
+      limit: 10,
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('breakdown_unfiltered');
+    expect(result.seedDimensions).toEqual(['mf_users.payer_tier']);
   });
 
   it('wraps multiple top-level filters in AND', () => {
