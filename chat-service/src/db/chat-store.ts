@@ -430,6 +430,60 @@ export function listTurns(
     .all(sessionId) as ChatTurnRow[];
 }
 
+/** One persisted tool invocation, shaped for the FE tool-chip DTO. */
+export interface ToolInvocationDto {
+  id: string;
+  name: string;
+  ok: boolean;
+  ms: number;
+  summary: string;
+}
+
+/**
+ * Batched read of tool invocations for a set of turns, grouped by turn id and
+ * ordered by start time so replayed chips match the live tool-call order.
+ *
+ * The /agent/turn pipeline persists these (via the buffered observability
+ * recorder) but never copies them onto chat_turns.tool_calls_json, so the
+ * session-replay endpoint reconstructs the chips from here — otherwise the
+ * tool-progress trail a user watched live vanishes on reload.
+ */
+export function listToolInvocationsByTurn(
+  db: Database.Database,
+  turnIds: string[],
+): Map<string, ToolInvocationDto[]> {
+  const grouped = new Map<string, ToolInvocationDto[]>();
+  if (turnIds.length === 0) return grouped;
+  const placeholders = turnIds.map(() => '?').join(',');
+  const rows = db
+    .prepare(
+      `SELECT turn_id, tool_use_id, name, ok, latency_ms, result_summary
+       FROM tool_invocations
+       WHERE turn_id IN (${placeholders})
+       ORDER BY started_at ASC, rowid ASC`,
+    )
+    .all(...turnIds) as Array<{
+    turn_id: string;
+    tool_use_id: string;
+    name: string;
+    ok: number;
+    latency_ms: number | null;
+    result_summary: string | null;
+  }>;
+  for (const r of rows) {
+    const list = grouped.get(r.turn_id) ?? [];
+    list.push({
+      id: r.tool_use_id,
+      name: r.name,
+      ok: r.ok === 1,
+      ms: r.latency_ms ?? 0,
+      summary: r.result_summary ?? '',
+    });
+    grouped.set(r.turn_id, list);
+  }
+  return grouped;
+}
+
 /** Return the last N turns for a session, ordered ascending so they read naturally. */
 export function listTurnsRecent(
   db: Database.Database,

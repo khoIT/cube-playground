@@ -61,7 +61,10 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
-function rowToTurn(row: ChatTurnRow): TurnDto {
+function rowToTurn(
+  row: ChatTurnRow,
+  toolCalls: TurnDto['toolCalls'] = [],
+): TurnDto {
   const text = row.role === 'user' ? row.user_text ?? '' : row.assistant_text ?? '';
   const cacheHit = (row.cache_hit ?? 0) === 1;
   return {
@@ -69,7 +72,11 @@ function rowToTurn(row: ChatTurnRow): TurnDto {
     role: row.role,
     text,
     createdAt: new Date(row.started_at).toISOString(),
-    toolCalls: safeParseJson(row.tool_calls_json, []),
+    // Tool chips are reconstructed from the tool_invocations table by the
+    // caller — chat_turns.tool_calls_json is never populated by the turn
+    // pipeline, so reading it here would always yield []. Falls back to the
+    // (empty) column only when no reconstructed calls are supplied.
+    toolCalls: toolCalls.length > 0 ? toolCalls : safeParseJson(row.tool_calls_json, []),
     artifacts: safeParseJson(row.artifacts_json, []),
     charts: safeParseJson(row.charts_json, []),
     // reasoning_json is stored as the raw concatenated thinking text (no JSON
@@ -186,7 +193,15 @@ const sessionsRoutes: FastifyPluginAsync<SessionsRouteOptions> = async (fastify,
         return reply.status(403).send({ error: 'Forbidden' });
       }
 
-      const turns = chatStore.listTurns(opts.db, session.id).map(rowToTurn);
+      const turnRows = chatStore.listTurns(opts.db, session.id);
+      // Reconstruct tool-progress chips from the tool_invocations table so the
+      // work trail a user watched live (resolve terms → fetch measures → …)
+      // survives a reload instead of collapsing to a bare answer.
+      const toolCallsByTurn = chatStore.listToolInvocationsByTurn(
+        opts.db,
+        turnRows.filter((t) => t.role === 'assistant').map((t) => t.id),
+      );
+      const turns = turnRows.map((t) => rowToTurn(t, toolCallsByTurn.get(t.id) ?? []));
       // Surface the active turnId so a refreshed client knows to attach to
       // the live SSE replay endpoint instead of opening a fresh turn.
       // findRunning() resolves through the compact-alias map, so requesting
