@@ -26,6 +26,7 @@ allowed_tools:
   - propose_segment
   - get_cube_meta
   - resolve_query_terms
+  - list_dimension_values
   - list_business_metrics
   - get_business_metric
   - list_segments
@@ -96,6 +97,7 @@ User says "save that as a segment", "turn that into a segment", or "create a seg
 - Use this when the predicate is plain dimension filters (e.g. `country = VN AND level > 10`), NOT a measure threshold/percentile.
 - Pass `filters` = the `CubeQuery.filters` array from the last `emit_query_artifact` call (same shape — array of `{member, operator, values}` or `{and: [...]}` / `{or: [...]}`).
 - Pass `cube` = the logical cube name (member prefix, e.g. `"mf_users"`).
+- **Verify value casing on equals/contains filters.** Before emitting an `equals`/`contains`/`in` filter on a string dimension (country, tier, server, channel, payer_tier), call `list_dimension_values({ member })` to get the exact stored casing — `whale` not `Whale`, `VN` not `vn`. A wrong case silently produces an empty segment, which looks like a working save until the refresh returns 0 members. Skip only for filters lifted verbatim from a prior exploration artifact (already validated there).
 - Do **NOT** call `get_segmentable_measures` first — this path converts query filters directly, not a catalog measure.
 - The tool calls `cubeQueryToPredicateTree` internally. If the filters contain a measure filter, a time-leaf inside OR, or an order+limit without a ranked measure, it returns `ok:false` with a reason — relay the `detail` to the user and suggest they use `kind='threshold'` or `kind='percentile'` instead.
 - No cutoff is resolved; `estCount` is 0 and computed on confirm-refresh.

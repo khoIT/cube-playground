@@ -114,4 +114,47 @@ describe('routeIntent — keyword heuristic', () => {
     expect(result.autoRoute).toBe(false);
     expect(result.confidence).toBe(0.5);
   });
+
+  // --- segment-creation intent (verb→noun pattern, tolerant of articles) ---
+
+  it('routes "create a segment of players whose spend is between 200000 and 500000" → segment', () => {
+    // The original failing case: the article "a" defeats a flat "create segment"
+    // keyword, and "between" would otherwise steal the route to compare.
+    const result = routeIntent(
+      'create a segment of players whose lifetime spend is between 200000 and 500000 VND',
+    );
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('routes "save that as a cohort" → segment', () => {
+    const result = routeIntent('save that as a cohort');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('routes "turn this into an audience" → segment', () => {
+    const result = routeIntent('turn this into an audience');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('routes "build me a segment of inactive users" → segment', () => {
+    const result = routeIntent('build me a segment of inactive users');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('does NOT force segment for a descriptive query that merely mentions "segment"', () => {
+    // "show ... by segment" is an exploration breakdown, not a creation intent —
+    // no creation verb adjacent to the noun, so it must stay on explore.
+    const result = routeIntent('show daily revenue by segment last 7 days');
+    expect(result.skill).toBe('explore');
+  });
+
+  it('VN "tạo phân khúc người chơi chi tiêu cao" → segment', () => {
+    const result = routeIntent('tạo phân khúc người chơi chi tiêu cao');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
 });

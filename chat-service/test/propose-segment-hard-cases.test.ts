@@ -42,9 +42,20 @@ vi.mock('../src/services/server-client.js', () => ({
 import * as serverClient from '../src/services/server-client.js';
 const mockPostJson = serverClient.postJson as MockedFunction<typeof serverClient.postJson>;
 
-// Reset the mock before every test so call counts don't bleed between tests.
+// Mock only getMeta (network) — keep extractMeasureNames real so the measure-vs-
+// dimension distinction in kind=query is exercised end to end. Default resolves
+// undefined → empty measure set → prior behaviour for tests that don't set it.
+vi.mock('../src/core/cube-meta-cache.js', async (importActual) => {
+  const actual = await importActual<typeof import('../src/core/cube-meta-cache.js')>();
+  return { ...actual, getMeta: vi.fn() };
+});
+import * as cubeMetaCache from '../src/core/cube-meta-cache.js';
+const mockGetMeta = cubeMetaCache.getMeta as MockedFunction<typeof cubeMetaCache.getMeta>;
+
+// Reset the mocks before every test so call counts don't bleed between tests.
 beforeEach(() => {
   mockPostJson.mockReset();
+  mockGetMeta.mockReset();
 });
 
 // ---------------------------------------------------------------------------
@@ -654,6 +665,70 @@ describe('propose_segment — kind=query', () => {
       // Reason from the translator should be embedded in detail
       expect(result.detail).toContain('time_leaf_in_or');
     }
+  });
+
+  it('rejects a measure smuggled into kind=query, naming the corrected call', async () => {
+    const { ctx } = makeCtx();
+    // Meta resolves with ltv_vnd as a MEASURE of mf_users — the guard must fire.
+    mockGetMeta.mockResolvedValueOnce({
+      cubes: [
+        {
+          name: 'mf_users',
+          measures: [{ name: 'mf_users.ltv_vnd', type: 'number' }],
+          dimensions: [{ name: 'mf_users.country', type: 'string' }],
+        },
+      ],
+    });
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Measure-in-query (illegal)',
+        kind: 'query',
+        cube: 'mf_users',
+        filters: [{ member: 'mf_users.ltv_vnd', operator: 'gte', values: ['200000'] }],
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe('invalid_filters');
+      expect(result.detail).toContain('measure_filter');
+      // The hint steers the model to the threshold path rather than a retry.
+      expect(result.detail).toContain('threshold');
+    }
+  });
+
+  it('still accepts a dimension filter when meta is available (no false positive)', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+    mockGetMeta.mockResolvedValueOnce({
+      cubes: [
+        {
+          name: 'mf_users',
+          measures: [{ name: 'mf_users.ltv_vnd', type: 'number' }],
+          dimensions: [{ name: 'mf_users.country', type: 'string' }],
+        },
+      ],
+    });
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'VN dimension filter',
+        kind: 'query',
+        cube: 'mf_users',
+        filters: [{ member: 'mf_users.country', operator: 'equals', values: ['VN'] }],
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(proposals).toHaveLength(1);
   });
 
   it('returns ok:false when filters is missing', async () => {

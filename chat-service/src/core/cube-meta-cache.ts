@@ -120,6 +120,26 @@ export function extractMemberNames(
 }
 
 /**
+ * Like {@link extractMemberNames} but MEASURES ONLY. Used to reject measure
+ * members from dimension-only predicates (kind=query segments) without also
+ * rejecting legitimate dimension filters. Optionally scoped to a single cube.
+ */
+export function extractMeasureNames(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  meta: any,
+  cubeName?: string,
+): Set<string> {
+  const names = new Set<string>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cubes: any[] = meta?.cubes ?? [];
+  for (const cube of cubes) {
+    if (cubeName && cube.name !== cubeName) continue;
+    for (const m of cube.measures ?? []) names.add(m.name);
+  }
+  return names;
+}
+
+/**
  * Return a deterministic sha256 hash of the stable schema subset for
  * `(workspace, gameId)`. Stable subset: sorted cube names + sorted
  * measure/dimension names + types. Recomputed whenever the TTL-gated meta

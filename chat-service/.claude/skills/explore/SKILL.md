@@ -38,6 +38,8 @@ allowed_tools:
   - explain_cube_sql
   - emit_query_artifact
   - emit_combined_artifact
+  - get_segmentable_measures
+  - propose_segment
   - emit_chart
   - emit_verdict
   - get_business_metric_history
@@ -125,6 +127,16 @@ Every assistant round costs 25–40s of model latency regardless of what the too
 - Never echo more than 5 raw row values from `preview_cube_query`. Summarise counts instead.
 - Empty result on a recent range = probably stale data, not a wrong query. One `get_time_coverage` call beats N speculative previews — especially on billion-row cubes with a ≤31-day bound guard, where every "recent" probe is guaranteed empty when the pipeline lags.
 - Refuse non-analytics asks; redirect to /build.
+
+## Saving an exploration as a segment
+
+When the user — usually right after seeing an artifact — asks to **save / create / turn this into a segment, audience, or cohort**, do NOT tell them to "Save as Segment in the UI". You have the segment tools; call `propose_segment` and emit a real proposal. Pick the predicate `kind` from what they asked for:
+
+- **Plain dimension filters** (recency, tier, country, the filters already on the explored query) → `kind='query'`. Pass the `cube` and the same `filters` array from the artifact. Measure members are NOT allowed here — the tool rejects them with the corrected call to use.
+- **A measure bound** — "spend ≥ X" → `kind='threshold'`, `threshold_op='gte'`; "under X" → `threshold_op='lte'`; "between X and Y" → `threshold_value=X` + `threshold_value_max=Y`. Measure catalog comes from `get_segmentable_measures`.
+- **Top-N / top P%** of a measure → `kind='top_n'` or `kind='percentile'`.
+
+If `propose_segment` returns `ok:false`, the `detail` tells you the corrected call — apply it ONCE. Never silently re-issue the same shape; that hangs the turn. For full predicate-kind rules see the dedicated segment skill — this is the inline path so an explore turn doesn't have to bounce the user elsewhere.
 
 ## Charts
 

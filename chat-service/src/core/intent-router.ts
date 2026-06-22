@@ -3,9 +3,13 @@
  *
  * Priority order:
  *   1. Slash prefix (/explore, /metric, /metric_explain) → force-route, confidence 1.
- *   2. Keyword scoring (each keyword weighted by its character length).
- *   3. Tie between skills → autoRoute false (LLM chooses from master prompt).
- *   4. No match → default to 'explore', confidence 0, autoRoute false.
+ *   2. Segment-creation intent pattern → force-route to 'segment'. A verb+noun
+ *      regex tolerates the articles ("a", "an", "the", "me a") and connectors
+ *      ("that as a") that a flat keyword list misses — "create a segment",
+ *      "save that as a cohort", "turn this into an audience" all match.
+ *   3. Keyword scoring (each keyword weighted by its character length).
+ *   4. Tie between skills → autoRoute false (LLM chooses from master prompt).
+ *   5. No match → default to 'explore', confidence 0, autoRoute false.
  */
 
 export interface IntentResult {
@@ -75,6 +79,14 @@ const KEYWORDS: Record<string, string[]> = {
   ],
 };
 
+// Segment-creation intent. A flat keyword list cannot catch the article and
+// connector words a user naturally types ("create A segment", "save that AS A
+// cohort"), so detect the verb→noun shape directly. The bounded gap keeps it
+// from firing across unrelated clauses (e.g. "create a chart … by segment").
+// EN verbs that introduce a new audience; VN handled by the keyword list below.
+const SEGMENT_INTENT_EN =
+  /\b(create|creating|build|building|save|saving|make|making|turn|turning|convert|generate)\b[\s\w]{0,25}?\b(segment|segments|audience|audiences|cohort|cohorts)\b/;
+
 // Fixed denominator for confidence normalisation.
 // Reflects a realistic single-message score (one or two keyword hits).
 // A message scoring ≥ 6 chars (e.g. one 6-char keyword) yields confidence ≥ 0.6 → autoRoute.
@@ -89,6 +101,12 @@ export function routeIntent(message: string): IntentResult {
     if (lower.startsWith(prefix + ' ') || lower === prefix) {
       return { skill, confidence: 1, autoRoute: true };
     }
+  }
+
+  // Segment-creation intent force-routes before keyword scoring so a stray
+  // "between" / "compare" word in the same sentence cannot steal the route.
+  if (SEGMENT_INTENT_EN.test(lower)) {
+    return { skill: 'segment', confidence: 0.9, autoRoute: true };
   }
 
   // Score each skill by sum of matched keyword lengths.

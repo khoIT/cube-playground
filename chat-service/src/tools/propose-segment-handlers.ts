@@ -13,6 +13,7 @@ import type { SegmentableMeasure, PopulationOver } from './get-segmentable-measu
 import type { LeafNode, GroupNode, LeafOperator, LeafValueType } from '../types/predicate-tree.js';
 import type { CubeInputFilter } from '../utils/cube-query-to-predicate-tree.js';
 import { cubeQueryToPredicateTree } from '../utils/cube-query-to-predicate-tree.js';
+import * as cubeMetaCache from '../core/cube-meta-cache.js';
 import {
   buildDisclosures,
   buildQueryDisclosures,
@@ -319,10 +320,23 @@ export async function handleQuery(opts: {
     };
   }
 
+  // Resolve the measure members of the target cube so a measure smuggled into a
+  // kind=query filter is rejected (with the corrected threshold/percentile call)
+  // instead of silently producing a segment the refresh engine cannot evaluate.
+  // Best-effort: a meta-fetch failure falls back to an empty set, which only
+  // disables the measure-vs-dimension check — valid dimension filters still pass.
+  let measureNames = new Set<string>();
+  try {
+    const meta = await cubeMetaCache.getMeta(ctx.gameId, ctx.workspace);
+    measureNames = cubeMetaCache.extractMeasureNames(meta, args.cube.trim());
+  } catch {
+    // leave measureNames empty — preserves prior behaviour on meta outages
+  }
+
   // Translate the Cube filters array to a PredicateNode. cubeQueryToPredicateTree
   // enforces all segment-legality guardrails (no measure filters, no time-in-OR,
   // no order+limit without a ranked measure).
-  const translateResult = cubeQueryToPredicateTree({ filters: args.filters });
+  const translateResult = cubeQueryToPredicateTree({ filters: args.filters }, measureNames);
   if (!translateResult.ok) {
     return {
       ok: false,
