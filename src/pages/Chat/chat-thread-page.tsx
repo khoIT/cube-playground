@@ -23,6 +23,8 @@ import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { setActiveChatSession } from '../../shell/chat-overlay/use-active-chat-session';
 import { ChatThreadView } from './components/chat-thread-view';
+import { ChatWidthToggle } from './components/chat-width-toggle';
+import { useChatMainWidthFull, chatColumnMaxWidth } from './components/use-chat-main-width';
 import { ChatComposer } from './components/chat-composer';
 import { ChatEmptyHero } from './components/chat-empty-hero';
 import {
@@ -122,6 +124,8 @@ export function ChatThreadPage() {
   const [committedMessages, setCommittedMessages] = useState<ChatMessage[]>([]);
   /** Phase-06: bypass cache toggle — off by default; set per-send. */
   const [bypassCache, setBypassCache] = useState(false);
+  // Full-page chat column width: 70% reading column ↔ full width (charts).
+  const [isFullWidth] = useChatMainWidthFull();
   /** Web search toggle — when ON sends X-Web-Search: 1 per turn (subject to env master flag). */
   const [webSearch, setWebSearch] = useState(false);
   /** Research mode toggle — when ON sends X-Research-Mode: 1 per turn (extended timeout). */
@@ -463,7 +467,7 @@ export function ChatThreadPage() {
         <div
           style={{
             width: '100%',
-            maxWidth: 880,
+            maxWidth: chatColumnMaxWidth(isFullWidth),
             minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
@@ -481,6 +485,7 @@ export function ChatThreadPage() {
           >
             <ChatHeaderFocusChip sessionId={activeSessionId} />
             <ChatModeChip sessionId={activeSessionId} />
+            <ChatWidthToggle />
             {/* Share toggle — only for the session owner (not new, not readOnly) */}
             {!isNew && !isReadOnly && activeSessionId && session && (
               <ChatShareButton
