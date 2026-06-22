@@ -16,6 +16,7 @@ import type {
   GamesConfig,
   RefreshLogRow,
   ActivationInput,
+  PredicateNode,
 } from '../types/segment-api';
 
 export interface ListSegmentsParams {
@@ -247,7 +248,81 @@ export const segmentsClient = {
       body: { predicate_tree: predicateTree, primary_cube: primaryCube },
     });
   },
+
+  /** Distribution histogram for a numeric member (Phase 03 endpoint). */
+  distribution(body: {
+    game_id: string;
+    member: string;
+    population_predicate?: unknown;
+    buckets?: number;
+  }): Promise<{
+    buckets: Array<{ lo: number; hi: number; count: number }> | null;
+    total?: number;
+    p50?: number;
+    p90?: number;
+    took_ms: number;
+    approx?: boolean;
+    reason?: string;
+  }> {
+    return apiFetch('/api/distribution', { method: 'POST', body });
+  },
+
+  /** Pre-save cohort profile: top-k breakdown per dimension (Phase 05 endpoint). */
+  profile(body: {
+    game_id: string;
+    cube: string;
+    predicate: unknown;
+    dimensions?: string[];
+  }): Promise<{
+    total: number | null;
+    breakdowns: Array<{
+      dimension: string;
+      label: string;
+      top: Array<{ value: string; count: number; pct: number }>;
+    }>;
+    took_ms: number;
+    approx: boolean;
+  }> {
+    return apiFetch('/api/profile', { method: 'POST', body });
+  },
+
+  /** Candidate overlap against existing saved segments (Phase 06 endpoint). */
+  overlapCandidate(body: {
+    game_id: string;
+    cube: string;
+    predicate: unknown;
+  }): Promise<{
+    overlaps: Array<{
+      segment_id: string;
+      name: string;
+      candidate_size: number;
+      both_count: number;
+      pct_of_candidate: number;
+    }>;
+    approx: true;
+    took_ms: number;
+  }> {
+    return apiFetch('/api/overlap-candidate', { method: 'POST', body });
+  },
+
+  /**
+   * Segmentability probe for the chat "Build segment from this" bridge. Runs the
+   * server-side CubeQuery→predicate translator + gate. `segmentable:false` means
+   * the explored query can't become a segment (aggregate-only, measure filter,
+   * time-in-OR, …) — the bridge hides its button rather than emit a broken tree.
+   */
+  translateQuery(query: unknown): Promise<TranslateQueryResult> {
+    return apiFetch<TranslateQueryResult>('/api/segments/translate-query', {
+      method: 'POST',
+      body: { query },
+    });
+  },
 };
+
+/** Result of POST /api/segments/translate-query (segmentability probe). */
+export type TranslateQueryResult =
+  | { segmentable: true; predicate_tree: PredicateNode; cube: string }
+  | { segmentable: false; reason: string; hint?: string };
 
 export const identityMapClient = {
   list(): Promise<CubeIdentityMapping[]> {

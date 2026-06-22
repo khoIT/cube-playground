@@ -256,6 +256,12 @@ export type SseEvent =
         };
         disclosures: string[];
         suggestedVisibility: 'personal' | 'shared' | 'org';
+        /** Lineage — the exploration this proposal was crystallized from (kind=query). */
+        source_query?: {
+          artifact_id?: string;
+          question?: string;
+          cube_query?: unknown;
+        };
         /** Present only for edit proposals — FE PATCHes instead of POSTing. */
         edit?: {
           segment_id: string;

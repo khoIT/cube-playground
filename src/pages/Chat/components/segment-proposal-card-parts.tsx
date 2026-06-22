@@ -4,7 +4,51 @@
  */
 import React from 'react';
 import { T } from '../../../shell/theme';
-import type { PredicateNode, SegmentVisibility } from '../../../types/segment-api';
+import type { PredicateNode, LeafNode, GroupNode, SegmentVisibility } from '../../../types/segment-api';
+
+// ---------------------------------------------------------------------------
+// Single-tunable-threshold detection (used by SegmentProposalCard)
+// ---------------------------------------------------------------------------
+
+type NumericOp = 'gt' | 'gte' | 'lt' | 'lte';
+const NUMERIC_OPS: readonly string[] = ['gt', 'gte', 'lt', 'lte'];
+
+/**
+ * Returns the single tunable numeric leaf if the predicate qualifies:
+ * - root is a group (AND/OR)
+ * - exactly ONE leaf has a numeric op in {gt,gte,lt,lte} with a single numeric value
+ * - all other leaves (if any) are non-numeric equals/in/notIn/set/notSet filters
+ * Returns null otherwise.
+ */
+export function findTunableLeaf(node: PredicateNode): LeafNode | null {
+  if (node.kind !== 'group') return null;
+  const leaves = collectLeaves(node);
+  const tunable = leaves.filter(
+    (l) => NUMERIC_OPS.includes(l.op) && l.type === 'number' && l.values.length === 1 && typeof l.values[0] === 'number',
+  );
+  if (tunable.length !== 1) return null;
+  const others = leaves.filter((l) => l !== tunable[0]);
+  const allNonNumericComparators = others.every((l) => !NUMERIC_OPS.includes(l.op));
+  return allNonNumericComparators ? tunable[0] : null;
+}
+
+function collectLeaves(node: PredicateNode): LeafNode[] {
+  if (node.kind === 'leaf') return [node];
+  return (node as GroupNode).children.flatMap(collectLeaves);
+}
+
+/** Deep-clone the predicate tree and set a new numeric value on the leaf with the given id. */
+export function cloneTreeWithNewValue(node: PredicateNode, leafId: string, newValue: number): PredicateNode {
+  if (node.kind === 'leaf') {
+    return node.id === leafId ? { ...node, values: [newValue] } : node;
+  }
+  return { ...node, children: (node as GroupNode).children.map((c) => cloneTreeWithNewValue(c, leafId, newValue)) };
+}
+
+// ---------------------------------------------------------------------------
+// NumericOp export (consumed by CutoffDistributionPicker)
+// ---------------------------------------------------------------------------
+export type { NumericOp };
 
 // ---------------------------------------------------------------------------
 // Predicate summariser

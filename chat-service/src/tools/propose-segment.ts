@@ -198,6 +198,19 @@ export const inputSchema = {
     .enum(['personal', 'shared', 'org'])
     .default('personal')
     .describe('Suggested sharing level for the proposed segment.'),
+  /** query only: lineage of the explored query this segment is crystallized from */
+  source_query: z
+    .object({
+      artifact_id: z.string().optional(),
+      question: z.string().optional(),
+      cube_query: z.unknown().optional(),
+    })
+    .optional()
+    .describe(
+      'Lineage for kind=query. The explored query this segment came from — the ' +
+        'artifact id and/or the user question. Carried to the segment\'s born_from ' +
+        'so the cohort records its origin. Omit for threshold/percentile/top_n.',
+    ),
   language: z
     .enum(['en', 'vi', 'mixed'])
     .default('en')
@@ -223,6 +236,16 @@ export interface SegmentProposal {
   };
   disclosures: string[];
   suggestedVisibility: 'personal' | 'shared' | 'org';
+  /**
+   * Lineage — the exploration this proposal came from ("save that as a segment"
+   * after emit_query_artifact, or the FE "Build segment from this" bridge).
+   * Threaded to the segment's `born_from` on create. Set only on kind=query.
+   */
+  source_query?: {
+    artifact_id?: string;
+    question?: string;
+    cube_query?: unknown;
+  };
   /**
    * Present only for edit proposals (propose_segment_edit). When set, the FE
    * confirms by PATCHing /api/segments/:id with `predicate_tree` instead of
@@ -254,6 +277,7 @@ export async function handler(
     cube?: string;
     suggested_visibility?: 'personal' | 'shared' | 'org';
     language?: 'en' | 'vi' | 'mixed';
+    source_query?: { artifact_id?: string; question?: string; cube_query?: unknown };
   },
   ctx: ToolContext,
 ): Promise<OkResult | ErrResult> {

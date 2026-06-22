@@ -41,6 +41,17 @@ export interface SegmentProposalPayload {
   /** Visibility tier the agent recommends. User may override before confirming. */
   suggestedVisibility: SegmentVisibility;
   /**
+   * Lineage — the exploration this proposal was crystallized from (the "Build
+   * segment from this" bridge, or a "save that as a segment" chat turn). Carried
+   * through to the segment's `born_from` on create so the cohort remembers its
+   * origin. Absent for proposals authored from scratch (threshold/percentile).
+   */
+  source_query?: {
+    artifact_id?: string;
+    question?: string;
+    cube_query?: unknown;
+  };
+  /**
    * Present only on EDIT proposals (propose_segment_edit). When set, the card
    * confirms by PATCHing /api/segments/:id with the new `predicate_tree` instead
    * of POSTing a new segment; `previous_predicate_tree` powers the old→new diff.

@@ -12,7 +12,7 @@
  */
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { BarChart2, ExternalLink } from 'lucide-react';
+import { BarChart2, ExternalLink, Users } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 import { AssistantChartSection } from './assistant-chart-section';
 import { ChartSectionMenu, preferDualAxis, preferTableView } from './chart-section-menu';
@@ -21,6 +21,8 @@ import { QueryRefineRow } from './query-refine-row';
 import { ChartSectionDataTable } from './chart-section-data-table';
 import { buildLabelMap } from './chart-column-labels';
 import { openArtifactInPlayground } from './open-artifact-in-playground';
+import { useBuildSegmentFromQuery } from './use-build-segment-from-query';
+import { SegmentProposalCard } from './segment-proposal-card';
 import type { QueryArtifact, ChartSpec } from '../../../api/chat-sse-client';
 
 interface QueryArtifactCardProps {
@@ -56,6 +58,10 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
   const [overrideEncoding, setOverrideEncoding] = useState<ChartSpec['encoding'] | undefined>(undefined);
   const [comparisonView, setComparisonView] = useState<ComparisonView>('overlaid');
 
+  // "Build segment from this" bridge — eager segmentability probe gates the
+  // button; clicking lands a pre-filled SegmentProposalCard inline (below).
+  const { segmentable, proposal, build } = useBuildSegmentFromQuery(artifact);
+
   function handleOpen() {
     openArtifactInPlayground(artifact, history);
     onClick?.();
@@ -82,6 +88,7 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
     comparisonEligible && comparisonView === 'grouped' ? 'grouped-bar' : overrideType;
 
   return (
+    <>
     <div
       style={{
         // The card shares the page's cream, so a hairline alone reads blurry —
@@ -201,15 +208,43 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
         </div>
       )}
 
-      {/* Footer action */}
+      {/* Footer actions */}
       <div
         style={{
           padding: '12px 24px',
           display: 'flex',
-          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: 8,
+          // Build (primary on-ramp) sits left; Open in Playground stays right.
+          justifyContent: segmentable && !proposal ? 'space-between' : 'flex-end',
           borderTop: artifact.summary || chart ? `1px solid var(--shell-bg-subtle)` : undefined,
         }}
       >
+        {/* Build-segment bridge — only for segmentable queries, pre-proposal. */}
+        {segmentable && !proposal && (
+          <button
+            type="button"
+            onClick={build}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 34,
+              padding: '0 14px',
+              borderRadius: 'var(--radius-md)',
+              background: 'transparent',
+              border: '1px solid var(--shell-border-strong)',
+              cursor: 'pointer',
+              fontFamily: T.fSans,
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--shell-text-muted)',
+            }}
+          >
+            <Icon icon={Users} size={14} color={'var(--shell-text-muted)'} />
+            Build segment from this
+          </button>
+        )}
         <button
           type="button"
           onClick={handleOpen}
@@ -237,5 +272,8 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
         </button>
       </div>
     </div>
+    {/* Inline proposal: one click from an explored result to a pre-filled cohort. */}
+    {proposal && <SegmentProposalCard proposal={proposal} />}
+    </>
   );
 }

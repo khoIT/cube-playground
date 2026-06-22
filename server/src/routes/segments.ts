@@ -17,6 +17,11 @@ import { buildSegmentMembershipSql } from '../lakehouse/segment-snapshot-writer.
 import { schemaForGame } from '../services/trino-profiler-config.js';
 import { predicateToSql } from '../services/predicate-to-sql.js';
 import {
+  cubeQueryToPredicate,
+  type CubeQueryFilters,
+  type CubeInputFilter,
+} from '../services/cube-query-to-predicate.js';
+import {
   resolveSegmentCutoffs,
   resolveCutoffPreview,
   collectPercentileLeaves,
@@ -132,6 +137,19 @@ const segmentInputSchema = z.object({
   cube_segments: z.array(z.string().min(1)).nullable().optional(),
   /** Opt-in visibility. Defaults to 'personal'; 'org' is admin-only. */
   visibility: z.enum(VISIBILITY_VALUES).optional(),
+  /**
+   * Lineage — where this cohort came from. Set when a segment is crystallized
+   * from an explored chat query (the "Build segment from this" bridge) so the
+   * cohort can answer "why does this exist?" later. Stored as a JSON blob.
+   */
+  born_from: z
+    .object({
+      artifact_id: z.string().optional(),
+      question: z.string().optional(),
+      cube_query: z.unknown().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 const segmentPatchSchema = z.object({
@@ -180,6 +198,34 @@ function upperBound(sorted: string[], key: string): number {
     else hi = mid;
   }
   return lo;
+}
+
+/**
+ * Derive the logical cube (member prefix, e.g. "mf_users") from a Cube query.
+ * Prefers a dimension, then the first filter leaf member, then a measure — the
+ * cube is whatever sits before the first dot. Returns null when no member is
+ * present (a query with nothing to scope can't become a segment).
+ */
+function deriveCubeFromQuery(query: CubeQueryFilters): string | null {
+  const prefixOf = (member: string | undefined): string | null => {
+    if (!member) return null;
+    const dot = member.indexOf('.');
+    return dot > 0 ? member.slice(0, dot) : null;
+  };
+  const fromFilters = (filters: CubeInputFilter[] | undefined): string | null => {
+    for (const f of filters ?? []) {
+      const nested = fromFilters(f.and ?? f.or);
+      if (nested) return nested;
+      const p = prefixOf(f.member ?? f.dimension);
+      if (p) return p;
+    }
+    return null;
+  };
+  return (
+    prefixOf(query.dimensions?.[0]) ??
+    fromFilters(query.filters) ??
+    prefixOf(query.measures?.[0])
+  );
 }
 
 export type SegmentRow = Record<string, unknown> & { owner: string; visibility: string | null; workspace: string };
@@ -503,8 +549,8 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     db.prepare(`
       INSERT INTO segments
         (id, name, type, owner, owner_label, status, cube, predicate_tree_json, cube_query_json,
-         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace, visibility)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         uid_count, uid_list_json, refresh_cadence_min, created_at, updated_at, game_id, funnel_json, workspace, visibility, born_from)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       id,
       data.name,
@@ -524,6 +570,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       data.funnel_json ?? null,
       req.workspace.id,
       visibility,
+      data.born_from ? JSON.stringify(data.born_from) : null,
     );
 
     if (data.tags?.length) {
@@ -670,6 +717,46 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
         tookMs: Date.now() - startedAt,
       };
     }
+  });
+
+  // POST /api/segments/translate-query
+  // Segmentability probe for the chat "Build segment from this" bridge. Runs the
+  // shared CubeQuery→predicate translator + gate (mirrors chat-service) so the FE
+  // can (a) decide whether to show the bridge button and (b) seed an inline
+  // proposal with a predicate_tree — without a chat turn. Pure: no Trino call.
+  const translateQuerySchema = z.object({
+    query: z
+      .object({
+        measures: z.array(z.string()).optional(),
+        dimensions: z.array(z.string()).optional(),
+        filters: z.array(z.unknown()).optional(),
+        order: z.unknown().optional(),
+        limit: z.number().optional(),
+      })
+      .passthrough(),
+  });
+  app.post('/api/segments/translate-query', async (req, reply) => {
+    const parsed = translateQuerySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: { code: 'VALIDATION', message: parsed.error.message } });
+    }
+    const query = parsed.data.query as CubeQueryFilters;
+    // A filter on a member the query itself selects as a measure is not
+    // segmentable — the cheap, no-meta signal for the measure-filter gate.
+    const measureNames = new Set(query.measures ?? []);
+    const result = cubeQueryToPredicate(query, measureNames);
+    if (!result.ok) {
+      return { segmentable: false, reason: result.reason, hint: result.hint };
+    }
+    const cube = deriveCubeFromQuery(query);
+    if (!cube) {
+      return {
+        segmentable: false,
+        reason: 'no_cube',
+        hint: 'Could not determine the logical cube from the query members.',
+      };
+    }
+    return { segmentable: true, predicate_tree: result.predicate, cube };
   });
 
   // GET /api/segments/:id — includes prerendered card_cache for one-shot hydration

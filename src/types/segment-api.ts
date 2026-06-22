@@ -225,6 +225,16 @@ export interface SegmentInput {
   cube_segments?: string[] | null;
   /** Defaults to 'personal' server-side; 'org' requires admin. */
   visibility?: SegmentVisibility;
+  /**
+   * Lineage — the exploration this cohort was crystallized from (the "Build
+   * segment from this" bridge / "save that as a segment" chat turn). Persisted
+   * as the segment's `born_from` so the cohort remembers its origin.
+   */
+  born_from?: {
+    artifact_id?: string;
+    question?: string;
+    cube_query?: unknown;
+  };
 }
 
 export interface SegmentPatch {

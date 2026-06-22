@@ -12,7 +12,7 @@
  * Sub-components (PredicateChip, StatPill, VisibilitySelect, summarisePredicate)
  * live in segment-proposal-card-parts.tsx to keep each file under 200 lines.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Users, ExternalLink, X, CheckCircle, AlertCircle, Pencil } from 'lucide-react';
 import { message } from 'antd';
@@ -31,8 +31,13 @@ import {
   PredicateChip,
   StatPill,
   VisibilitySelect,
+  findTunableLeaf,
+  cloneTreeWithNewValue,
 } from './segment-proposal-card-parts';
 import { SegmentCreatedCard } from './segment-created-card';
+import { CutoffDistributionPicker } from './cutoff-distribution-picker';
+import { CohortProfilePanel } from './cohort-profile-panel';
+import { SegmentNoveltyBadge } from './segment-novelty-badge';
 
 interface SegmentProposalCardProps {
   proposal: SegmentProposalPayload;
@@ -50,12 +55,45 @@ function proposalKey(p: SegmentProposalPayload): string {
   return (h >>> 0).toString(36);
 }
 
+
 export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
   const history = useHistory();
   const [name, setName] = useState(proposal.name);
   const [visibility, setVisibility] = useState<SegmentVisibility>(proposal.suggestedVisibility);
   const [creating, setCreating] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+
+  // Local predicate tree — starts equal to proposal.predicate_tree. Updated
+  // when the user drags the cutoff picker; this is what gets sent to create/update.
+  const [localTree, setLocalTree] = useState<PredicateNode>(proposal.predicate_tree);
+
+  // Live count driven by localTree (updates debounced when picker fires onChange).
+  const [liveCount, setLiveCount] = useState<number | null>(proposal.resolved.estCount);
+  const [counting, setCounting] = useState(false);
+  // Generation counter: incremented on each new count request so stale responses
+  // from a superseded drag position are ignored without needing AbortController.
+  const countGenRef = useRef(0);
+
+  // Detect the single tunable leaf once from the original proposal tree.
+  const tunableLeaf = useMemo(() => findTunableLeaf(proposal.predicate_tree), [proposal.predicate_tree]);
+
+  // Called by the picker (already debounced 250 ms on the picker side).
+  const handleCutoffChange = useCallback((next: number) => {
+    if (!tunableLeaf) return;
+    const updated = cloneTreeWithNewValue(localTree, tunableLeaf.id, next);
+    setLocalTree(updated);
+    countGenRef.current += 1;
+    const gen = countGenRef.current;
+    setCounting(true);
+    segmentsClient.preview(updated, proposal.cube)
+      .then((res) => {
+        if (countGenRef.current !== gen) return; // stale
+        setLiveCount(res.estimated_count);
+      })
+      .catch(() => { /* keep previous count on error */ })
+      .finally(() => { if (countGenRef.current === gen) setCounting(false); });
+  }, [tunableLeaf, localTree, proposal.cube]);
+
   // On success the card stays mounted and morphs into the created receipt view
   // (view-segment / create-another) rather than vanishing.
   const [created, setCreated] = useState<Segment | null>(null);
@@ -88,9 +126,10 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
       // Edit proposals PATCH the existing segment (chat proposes, FE writes); a
       // rename rides along only when the user actually changed the name. Create
       // proposals POST a new predicate segment.
+      // Use localTree so the user's dragged cutoff (if any) is what gets saved.
       const seg = isEdit
         ? await segmentsClient.update(edit!.segment_id, {
-            predicate_tree,
+            predicate_tree: localTree,
             ...(trimmed !== proposal.name ? { name: trimmed } : {}),
           })
         : await segmentsClient.create({
@@ -98,9 +137,11 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
             type: 'predicate',
             cube,
             game_id,
-            predicate_tree,
+            predicate_tree: localTree,
             tags: ['ai-generated'],
             visibility,
+            // Carry lineage when this proposal grew out of an exploration.
+            ...(proposal.source_query ? { born_from: proposal.source_query } : {}),
           });
       // Drop the cached segment-id/row list so the sidebar nav reflects the new
       // or re-defined segment on its next render.
@@ -141,7 +182,8 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
       advisorPrefill: {
         name: name.trim() || proposal.name,
         cube,
-        predicateTree: predicate_tree as PredicateNode,
+        // Pass localTree so any dragged cutoff carries into the editor.
+        predicateTree: localTree as PredicateNode,
       },
     };
     // Hash history drops location.state, so bridge it through sessionStorage;
@@ -248,18 +290,55 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
           </div>
         </div>
 
-        {/* Stats: population + est. size + optional cutoff */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+        {/* Novelty badge — quiet, non-blocking, near the stats row */}
+        {!isEdit && (
+          <SegmentNoveltyBadge gameId={game_id} cube={cube} predicate={predicate_tree} />
+        )}
+
+        {/* Stats: population + est. size (live when picker active) + optional cutoff */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
           <StatPill label="Population" value={resolved.population} />
-          <StatPill label="Est. size" value={`≈ ${formatCompact(resolved.estCount)}`} title={`${resolved.estCount.toLocaleString()} users (approximate)`} />
-          {resolved.cutoff != null && <StatPill label="Cutoff" value={`≈ ${resolved.cutoff.toLocaleString()}`} title="Approximate — computed with approx_percentile" />}
+          <StatPill
+            label="Est. size"
+            value={counting ? '…' : `≈ ${formatCompact(liveCount ?? resolved.estCount)}`}
+            title={counting ? 'Recounting…' : `${(liveCount ?? resolved.estCount).toLocaleString()} users (approximate)`}
+          />
+          {resolved.cutoff != null && !tunableLeaf && (
+            <StatPill label="Cutoff" value={`≈ ${resolved.cutoff.toLocaleString()}`} title="Approximate — computed with approx_percentile" />
+          )}
         </div>
+
+        {/* Distribution cutoff picker — only when a single numeric threshold exists */}
+        {tunableLeaf && !isEdit && (
+          <CutoffDistributionPicker
+            gameId={game_id}
+            cube={cube}
+            member={tunableLeaf.member}
+            predicate={predicate_tree}
+            op={tunableLeaf.op as 'gt' | 'gte' | 'lt' | 'lte'}
+            value={typeof tunableLeaf.values[0] === 'number' ? (tunableLeaf.values[0] as number) : 0}
+            onChange={handleCutoffChange}
+            counting={counting}
+          />
+        )}
 
         {/* Disclosures verbatim */}
         {disclosures.length > 0 && (
           <div style={{ padding: '8px 12px', background: 'var(--warning-soft)', borderLeft: '3px solid var(--warning-ink)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 4 }}>
             {disclosures.map((d, i) => <span key={i} style={{ fontFamily: T.fSans, fontSize: 12, color: 'var(--warning-ink)', lineHeight: 1.5 }}>{d}</span>)}
           </div>
+        )}
+
+        {/* Cohort profile — collapsed by default, lazy fetch on expand */}
+        {!isEdit && (
+          <CohortProfilePanel gameId={game_id} cube={cube} predicate={predicate_tree} />
+        )}
+
+        {/* Lineage: where this cohort came from, when crystallized from an exploration. */}
+        {proposal.source_query?.question && (
+          <span style={{ fontFamily: T.fSans, fontSize: 11, color: 'var(--shell-text-faint)', fontStyle: 'italic' }}>
+            From exploration: “{proposal.source_query.question}”
+          </span>
         )}
 
         {/* Visibility is a create-time choice; an edit leaves it untouched. */}

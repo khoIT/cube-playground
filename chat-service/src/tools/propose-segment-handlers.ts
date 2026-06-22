@@ -154,6 +154,7 @@ export type QueryHandlerArgs = {
   cube?: string;
   suggested_visibility?: 'personal' | 'shared' | 'org';
   language?: 'en' | 'vi' | 'mixed';
+  source_query?: { artifact_id?: string; question?: string; cube_query?: unknown };
 };
 
 // ---------------------------------------------------------------------------
@@ -389,6 +390,8 @@ export async function handleQuery(opts: {
     },
     disclosures,
     suggestedVisibility: suggested_visibility,
+    // Lineage: remember the exploration this cohort was crystallized from.
+    ...(args.source_query ? { source_query: args.source_query } : {}),
   };
 
   ctx.sseEmitter.emit('segment_proposal', proposal);
