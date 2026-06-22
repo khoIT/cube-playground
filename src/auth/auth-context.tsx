@@ -3,24 +3,29 @@
  *
  * Lives at the top of the React tree (above HashRouter) so it can:
  *
- *   1. Intercept the OAuth callback. Keycloak redirects to
- *      http://localhost:3000/auth/callback?code=… ; vite's SPA fallback
- *      serves index.html for that path. Because the rest of the app uses
- *      HashRouter, the React Router tree never matches /auth/callback as
- *      a route. So we handle it here, BEFORE any router renders: extract
- *      the code, POST it to the server, persist the app JWT, then strip
- *      the search + bounce back to `#/`.
+ *   1. Run keycloak-js. /api/auth/keycloak/config hands the FE the raw realm
+ *      coords ({ url, realm, clientId, idpHint }). keycloak-js then owns the
+ *      OIDC + PKCE handshake: `init({ onLoad: 'check-sso', pkceMethod: 'S256' })`
+ *      silently probes the realm session, and `login({ idpHint })` routes the
+ *      user straight to the brokered SAML IdP. The OAuth redirect lands back on
+ *      the site root (responseMode 'query'); keycloak-js parses + strips the
+ *      `?code=` params before our HashRouter renders.
  *
- *   2. Decide whether SSO is on. /api/auth/keycloak/config returns
+ *   2. Trade the KC id_token for our app JWT. Once keycloak-js is authenticated,
+ *      we POST `keycloak.idToken` to /api/auth/keycloak/session; the server
+ *      JWKS-verifies it, runs the default-deny DB check, and returns the app
+ *      JWT we persist + send as `Authorization: Bearer` on every request.
+ *
+ *   3. Decide whether SSO is on. /api/auth/keycloak/config returns
  *      `{ enabled: false }` when AUTH_DISABLED=true (or KC env vars are
- *      missing). In that mode we silently call /api/auth/me, get the
- *      synthesized dev user, and never redirect.
+ *      missing). In that mode we skip keycloak-js entirely, call /api/auth/me,
+ *      get the synthesized dev user, and never redirect.
  *
- *   3. Gate the app until ready. While loading or when SSO is on but the
- *      user has no token, children are not rendered — we show a Login
- *      button (or auto-redirect, configurable).
+ *   4. Gate the app until ready. While loading or when SSO is on but the
+ *      user has no token, children are not rendered — we show a Login button.
  */
 
+import Keycloak from 'keycloak-js';
 import React, {
   createContext,
   type ReactNode,
@@ -63,11 +68,12 @@ export function allGamesUnion(
 
 interface KeycloakConfig {
   enabled: true;
-  authUrl: string;
-  tokenUrl: string;
-  logoutUrl: string;
-  clientId: string;
+  /** Raw realm base, e.g. https://login.gio.vng.vn — keycloak-js builds the rest. */
+  url: string;
   realm: string;
+  clientId: string;
+  /** Optional brokered-IdP alias (e.g. 'saml'); routes login past the picker. */
+  idpHint?: string;
 }
 
 type AuthState =
@@ -87,21 +93,37 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const CALLBACK_PATH = '/auth/callback';
+// keycloak-js holds the live SSO session. It is a singleton: init() may run only
+// ONCE per instance, so we memoize both the instance and its init promise across
+// re-bootstraps (and React StrictMode's double-invoked effects).
+let kcInstance: Keycloak | null = null;
+let kcInitPromise: Promise<boolean> | null = null;
 
-function callbackRedirectUri(): string {
-  const { origin } = window.location;
-  return `${origin}${CALLBACK_PATH}`;
+function getKeycloak(config: KeycloakConfig): Keycloak {
+  if (!kcInstance) {
+    kcInstance = new Keycloak({
+      url: config.url,
+      realm: config.realm,
+      clientId: config.clientId,
+    });
+  }
+  return kcInstance;
 }
 
-function buildAuthorizeUrl(kc: KeycloakConfig): string {
-  const params = new URLSearchParams({
-    client_id: kc.clientId,
-    response_type: 'code',
-    scope: 'openid profile email',
-    redirect_uri: callbackRedirectUri(),
-  });
-  return `${kc.authUrl}?${params.toString()}`;
+function initKeycloakOnce(kc: Keycloak): Promise<boolean> {
+  if (!kcInitPromise) {
+    kcInitPromise = kc.init({
+      onLoad: 'check-sso',
+      pkceMethod: 'S256',
+      // Keep OAuth params in the query string, not the hash — HashRouter owns
+      // the hash and would otherwise collide with the auth response.
+      responseMode: 'query',
+      silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+      // We rely on the app JWT for session lifetime, not KC's login iframe.
+      checkLoginIframe: false,
+    });
+  }
+  return kcInitPromise;
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
@@ -120,7 +142,7 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-interface CallbackResponse {
+interface SessionResponse {
   token: string;
   user: AuthUser;
 }
@@ -134,58 +156,64 @@ type ConfigResponse = { enabled: false } | KeycloakConfig;
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: 'loading' });
 
+  // Trade a realm-signed id_token for our app JWT. 403 = authenticated with the
+  // IdP but no active app grant (default-deny → pending approval queue).
+  const establishSession = useCallback(async (idToken: string, config: KeycloakConfig) => {
+    const res = await fetch('/api/auth/keycloak/session', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    });
+    if (res.status === 403) {
+      setState({ status: 'pending', keycloak: config });
+      return;
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`/api/auth/keycloak/session ${res.status} ${text.slice(0, 200)}`);
+    }
+    const data = (await res.json()) as SessionResponse;
+    writeAppToken(data.token);
+    setState({ status: 'authenticated', user: data.user, keycloak: config });
+  }, []);
+
   const bootstrap = useCallback(async () => {
     try {
       const config = await fetchJson<ConfigResponse>('/api/auth/keycloak/config');
 
-      // (1) Handle the OAuth callback BEFORE consulting the token.
-      // The redirect URL looks like .../auth/callback?code=…&state=…
-      const url = new URL(window.location.href);
-      const isCallback = url.pathname === CALLBACK_PATH && url.searchParams.has('code');
-      if (config.enabled && isCallback) {
-        const code = url.searchParams.get('code')!;
-        const res = await fetch('/api/auth/keycloak/callback', {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code, redirectUri: callbackRedirectUri() }),
-        });
-        // Strip ?code= regardless of outcome so a refresh doesn't replay it.
-        window.history.replaceState(null, '', '/');
-        window.location.hash = '#/';
-        // Default-deny: authenticated with the IdP but no active app grant.
-        if (res.status === 403) {
-          setState({ status: 'pending', keycloak: config });
-          return;
-        }
-        if (!res.ok) {
-          const text = await res.text().catch(() => '');
-          throw new Error(`/api/auth/keycloak/callback ${res.status} ${text.slice(0, 200)}`);
-        }
-        const data = (await res.json()) as CallbackResponse;
-        writeAppToken(data.token);
-        setState({ status: 'authenticated', user: data.user, keycloak: config });
-        return;
-      }
-
-      // (2) AUTH_DISABLED: /me synthesizes a dev/admin user; render directly.
+      // (1) AUTH_DISABLED: /me synthesizes a dev/admin user; skip keycloak-js.
       if (!config.enabled) {
         const me = await fetchJson<MeResponse>('/api/auth/me');
         setState({ status: 'disabled', user: me.user });
         return;
       }
 
-      // (3) SSO mode: try the existing token; on 401 stay unauthenticated.
-      const token = readAppToken();
-      if (token) {
+      // (2) A still-valid app JWT survives reloads without a KC round-trip.
+      const existing = readAppToken();
+      if (existing) {
         try {
           const me = await fetchJson<MeResponse>('/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${existing}` },
           });
           setState({ status: 'authenticated', user: me.user, keycloak: config });
           return;
         } catch {
           clearAppToken();
         }
+      }
+
+      // (3) Run keycloak-js. check-sso silently authenticates if a realm session
+      // exists, and parses + strips any ?code= left by a just-completed login.
+      const kc = getKeycloak(config);
+      const authenticated = await initKeycloakOnce(kc);
+      if (authenticated && kc.idToken) {
+        // Keep the KC tokens fresh while the tab is open so a later app-JWT
+        // expiry can re-establish silently (see onForceLogout below).
+        kc.onTokenExpired = () => {
+          void kc.updateToken(30);
+        };
+        await establishSession(kc.idToken, config);
+        return;
       }
       setState({ status: 'unauthenticated', keycloak: config });
     } catch (err) {
@@ -194,23 +222,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-  }, []);
+  }, [establishSession]);
 
   useEffect(() => {
     void bootstrap();
-    // Listen for 401-triggered force-logout from the api-client.
+    // Listen for 401-triggered force-logout from the api-client. When the app
+    // JWT expires we force-refresh the KC tokens (if the realm session is still
+    // alive) so re-bootstrap can mint a new app JWT without user interaction.
     const onForceLogout = () => {
       clearAppToken();
-      void bootstrap();
+      if (kcInstance?.authenticated) {
+        void kcInstance
+          .updateToken(-1)
+          .catch(() => {})
+          .finally(() => {
+            void bootstrap();
+          });
+      } else {
+        void bootstrap();
+      }
     };
     window.addEventListener('gds-cube:auth-force-logout', onForceLogout);
     return () => window.removeEventListener('gds-cube:auth-force-logout', onForceLogout);
   }, [bootstrap]);
 
   const loginWithKeycloak = useCallback(() => {
-    if (state.status === 'unauthenticated' || state.status === 'authenticated') {
-      window.location.assign(buildAuthorizeUrl(state.keycloak));
-    }
+    if (state.status !== 'unauthenticated' && state.status !== 'authenticated') return;
+    const kc = getKeycloak(state.keycloak);
+    // idpHint routes straight to the brokered SAML IdP; redirect lands on the
+    // site root where keycloak-js parses the OAuth response on next init.
+    void kc.login({
+      redirectUri: `${window.location.origin}/`,
+      idpHint: state.keycloak.idpHint,
+      scope: 'openid profile email',
+    });
   }, [state]);
 
   const logout = useCallback(async () => {
@@ -220,15 +265,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* server logout is a no-op anyway */
     }
-    // For SSO sessions, also end the KC session so the next login isn't
+    // For SSO sessions, also end the realm session so the next login isn't
     // silently re-bound to the same user via the KC SSO cookie. Pending users
     // log out too so they can retry with a different corporate account.
-    if (state.status === 'authenticated' || state.status === 'pending') {
-      const params = new URLSearchParams({
-        client_id: state.keycloak.clientId,
-        post_logout_redirect_uri: window.location.origin,
-      });
-      window.location.assign(`${state.keycloak.logoutUrl}?${params.toString()}`);
+    if ((state.status === 'authenticated' || state.status === 'pending') && kcInstance) {
+      await kcInstance.logout({ redirectUri: window.location.origin });
       return;
     }
     await bootstrap();

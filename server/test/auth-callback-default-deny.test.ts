@@ -1,9 +1,11 @@
 /**
- * Phase 3 — DB-authoritative login + default-deny.
+ * DB-authoritative login + default-deny (keycloak-js session endpoint).
  *
  * Active grant → app JWT minted with DB role. Unknown/pending/disabled →
  * 403 ACCESS_PENDING + a pending row auto-created. KC `sub` reconciled on first
- * active login. The KC code-exchange is mocked so no network/realm is needed.
+ * active login. The KC id_token JWKS verification is mocked so no network/realm
+ * is needed — the default-deny logic under test is unchanged from the old
+ * code-exchange route.
  */
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -25,8 +27,8 @@ const h = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('../src/services/keycloak-token-exchange.js', () => ({
-  exchangeKeycloakCode: async () => h.claims,
+vi.mock('../src/services/keycloak-id-token-verify.js', () => ({
+  verifyKeycloakIdToken: async () => h.claims,
 }));
 
 const { buildApp } = await import('../src/index.js');
@@ -56,12 +58,12 @@ beforeEach(() => {
 async function callback() {
   return app.inject({
     method: 'POST',
-    url: '/api/auth/keycloak/callback',
-    payload: { code: 'abc', redirectUri: 'http://localhost:3000/auth/callback' },
+    url: '/api/auth/keycloak/session',
+    payload: { idToken: 'fake.id.token' },
   });
 }
 
-describe('POST /api/auth/keycloak/callback — default-deny', () => {
+describe('POST /api/auth/keycloak/session — default-deny', () => {
   it('unknown email → 403 + pending row created', async () => {
     const res = await callback();
     expect(res.statusCode).toBe(403);

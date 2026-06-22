@@ -1,14 +1,18 @@
 /**
- * Public auth surface backing the Keycloak SSO flow.
+ * Public auth surface backing the Keycloak SSO flow (keycloak-js front door).
  *
- *   GET  /api/auth/keycloak/config    → enabled flag + KC URLs for the FE redirect
- *   POST /api/auth/keycloak/callback  → exchange ?code= for an app JWT
+ *   GET  /api/auth/keycloak/config    → enabled flag + raw KC coords for keycloak-js
+ *   POST /api/auth/keycloak/session   → verify KC id_token, mint an app JWT
  *   GET  /api/auth/me                 → echo current user (from Bearer JWT)
  *   POST /api/auth/logout             → server-side no-op; FE drops the token
  *
- * All routes are intentionally NOT behind requireRole — the config + callback
+ * All routes are intentionally NOT behind requireRole — the config + session
  * MUST be reachable to the unauthenticated browser. /me + /logout return 401
  * via authenticate.ts when no token is present.
+ *
+ * keycloak-js owns the OIDC + PKCE handshake in the browser; the server no
+ * longer does a code exchange. The browser hands us the realm-signed id_token,
+ * which we JWKS-verify before trusting any claim.
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -16,14 +20,13 @@ import { z } from 'zod';
 
 import { getDb } from '../db/sqlite.js';
 import { signAppJwt } from '../services/app-jwt.js';
-import { exchangeKeycloakCode } from '../services/keycloak-token-exchange.js';
+import { verifyKeycloakIdToken } from '../services/keycloak-id-token-verify.js';
 import { upsertUser } from '../services/users-store.js';
 import { getAccess } from '../auth/access-store.js';
 import { ensurePendingUser, reconcileSub } from '../auth/access-store-mutators.js';
 
-const callbackBody = z.object({
-  code: z.string().min(1),
-  redirectUri: z.string().url(),
+const sessionBody = z.object({
+  idToken: z.string().min(1),
 });
 
 function authDisabled(): boolean {
@@ -42,36 +45,37 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
     const clientId = process.env.KEYCLOAK_CLIENT_ID ?? '';
     if (!kcUrl || !realm || !clientId) {
       // Misconfigured — surface enabled=false so the UI doesn't try to
-      // redirect to an empty URL. Server log carries the diagnostics.
+      // init keycloak-js with empty coords. Server log carries the diagnostics.
       app.log.warn('Keycloak config incomplete; auth flow disabled');
       return { enabled: false };
     }
-    const realmBase = `${kcUrl}/realms/${encodeURIComponent(realm)}/protocol/openid-connect`;
+    // keycloak-js builds its own endpoint URLs from {url, realm, clientId}.
+    // idpHint (optional) routes the login straight to a brokered IdP (e.g. SAML)
+    // instead of showing Keycloak's IdP-picker page.
     return {
       enabled: true,
-      authUrl: `${realmBase}/auth`,
-      tokenUrl: `${realmBase}/token`,
-      logoutUrl: `${realmBase}/logout`,
-      clientId,
+      url: kcUrl,
       realm,
+      clientId,
+      idpHint: process.env.KEYCLOAK_IDP_HINT || undefined,
     };
   });
 
-  app.post('/api/auth/keycloak/callback', async (request, reply) => {
+  app.post('/api/auth/keycloak/session', async (request, reply) => {
     if (authDisabled()) {
       return reply.status(400).send({ error: 'AUTH_DISABLED — Keycloak flow not enabled' });
     }
-    const parse = callbackBody.safeParse(request.body);
+    const parse = sessionBody.safeParse(request.body);
     if (!parse.success) {
       return reply.status(400).send({ error: 'Invalid body', details: parse.error.flatten() });
     }
 
     let claims;
     try {
-      claims = await exchangeKeycloakCode(parse.data);
+      claims = await verifyKeycloakIdToken(parse.data.idToken);
     } catch (err) {
-      app.log.warn({ err }, 'Keycloak code exchange failed');
-      return reply.status(401).send({ error: 'Keycloak code exchange failed' });
+      app.log.warn({ err }, 'Keycloak id_token verification failed');
+      return reply.status(401).send({ error: 'Keycloak id_token verification failed' });
     }
 
     const username = claims.preferred_username ?? claims.sub;

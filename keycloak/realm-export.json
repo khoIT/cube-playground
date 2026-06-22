@@ -84,7 +84,7 @@
     {
       "clientId": "cube-playground-web",
       "name": "Cube Playground Web",
-      "description": "Public OIDC client for the React frontend. Authorization-code flow. No client secret.",
+      "description": "Public OIDC client for the React frontend (keycloak-js + PKCE S256). Authorization-code flow, no client secret. keycloak-js returns the OAuth response to the site root.",
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
@@ -92,9 +92,11 @@
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
       "protocol": "openid-connect",
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
       "redirectUris": [
-        "http://localhost:3000/auth/callback",
-        "http://localhost:3000/auth/callback/"
+        "http://localhost:3000/*"
       ],
       "webOrigins": ["http://localhost:3000"],
       "defaultClientScopes": ["openid", "profile", "email", "roles"],

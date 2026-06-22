@@ -1,7 +1,7 @@
 /**
  * App-JWT storage seam.
  *
- * The token comes from /api/auth/keycloak/callback and is sent on every
+ * The token comes from /api/auth/keycloak/session and is sent on every
  * subsequent request as `Authorization: Bearer <jwt>`. We persist it in
  * localStorage so a page reload doesn't kick the user back to Keycloak.
  *

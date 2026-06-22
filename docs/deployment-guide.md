@@ -5,9 +5,15 @@ authorization, Keycloak→Microsoft SSO, and the cube-dev shared authz source.
 
 ## Auth & Authz model (summary)
 
-- **Authentication** = Keycloak. In prod, KC brokers Microsoft/Entra OIDC with
-  JIT user creation; KC issues a token carrying a stable `sub`, `email`, `name`.
-  No app roles or per-game groups are configured in KC anymore.
+- **Authentication** = Keycloak via the **keycloak-js** browser adapter (public
+  client + PKCE/S256). In prod, KC brokers a SAML IdP (`idpHint=saml`) with JIT
+  user creation; the realm issues an id_token carrying a stable `sub`, `email`,
+  `name`. No app roles or per-game groups are configured in KC anymore.
+  - keycloak-js completes the OIDC + PKCE login in the browser, then POSTs the
+    id_token to `POST /api/auth/keycloak/session`. The server **JWKS-verifies**
+    that id_token (signature + issuer + audience) before trusting any claim —
+    mandatory because the token now arrives from the untrusted client — then
+    mints the HS256 app JWT used as `Authorization: Bearer` on every request.
 - **Authorization** = the app SQLite store, keyed by **lowercased email**:
   - `user_access(email, role, status, kc_sub, …)` — role + `pending|active|disabled`.
   - `user_workspace_access`, `user_game_access` — per-user grants.
@@ -26,8 +32,9 @@ authorization, Keycloak→Microsoft SSO, and the cube-dev shared authz source.
 |-----|----------|---------|
 | `JWT_SECRET` | yes | HS256 secret for the app JWT (≥16 chars). |
 | `AUTH_DISABLED` | no | `true` = dev bypass (synth admin, all games/features). Unset/false in prod. |
-| `KEYCLOAK_URL` / `KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` | prod | KC OIDC config for the code-exchange + FE redirect. |
-| `KEYCLOAK_CLIENT_SECRET` | prod | KC confidential-client secret. |
+| `KEYCLOAK_URL` / `KEYCLOAK_REALM` / `KEYCLOAK_CLIENT_ID` | prod | Realm coords handed to keycloak-js + used for JWKS verify. New no-VPN values: `https://login.gio.vng.vn` / `GS` / `playground-gds`. |
+| `KEYCLOAK_CLIENT_SECRET` | no | Empty — `playground-gds` is a **public** client (PKCE). Only set for a legacy confidential client. |
+| `KEYCLOAK_IDP_HINT` | no | Brokered-IdP alias to route login past the KC picker (e.g. `saml`). Omit to show the picker. |
 | `AUTH_BOOTSTRAP_ADMINS` | prod (cutover) | Comma-separated emails seeded as `active` admins on every boot. **Set before the first prod deploy to avoid lockout.** |
 | `ACCESS_CACHE_TTL_MS` | no | Access-store cache TTL (default 30000). Revocations take effect within this window. |
 | `AUTHZ_GRANT_FALLBACK` | no | `true` (default) = users with no grants in a dimension fall back to role-based defaults (eases migration). Flip **OFF** after grants are seeded so gates fail closed. |
@@ -46,18 +53,25 @@ authorization, Keycloak→Microsoft SSO, and the cube-dev shared authz source.
 | `AUTH_API_TIMEOUT_MS` | Internal API call timeout (default 3000). On error → **fail closed** (deny). |
 | `AUTH_USERS_FILE` | Local-dev file fallback used only when `AUTH_API_URL` is unset. |
 
-## Keycloak Microsoft (Entra) brokering — setup
+## Keycloak realm `playground-gds` client — setup (platform team)
 
-1. Register an Entra app (or reuse the VNG SSO app): client id/secret; redirect
-   URI = the KC broker endpoint `/realms/<realm>/broker/microsoft/endpoint`.
-2. In KC: add a Microsoft OIDC Identity Provider; enable "trust email";
-   first-broker-login flow = create user + link by email.
-3. Add attribute mappers for `email` and `name` only — **no** role/group mappers
-   (authorization is app-side now).
-4. Register the app's prod redirect URI (`<app-origin>/auth/callback`) on the KC
-   client.
-5. Smoke test: a Microsoft login completes the app callback. The user is
-   `pending` (403 ACCESS_PENDING) until an admin grants access — expected.
+The browser uses keycloak-js, so the realm client must be **public** + PKCE and
+whitelist the keycloak-js redirect (site root, not `/auth/callback`):
+
+1. Create client `playground-gds` in realm `GS`: access type **public**, Standard
+   flow ON, **PKCE method S256 required**, no client secret.
+2. Valid redirect URIs: `https://playground.gds.vng.vn/*` (prod) and
+   `http://localhost:3000/*` (dev). Web origins: the same origins (or `+`).
+   keycloak-js returns the OAuth response to the site root with `responseMode=query`.
+3. SAML IdP brokered with alias **`saml`** (matches `KEYCLOAK_IDP_HINT`); first-
+   broker-login flow = create user + link by email; "trust email" on.
+4. Attribute mappers for `email` and `preferred_username`/`name` only — **no**
+   role/group mappers (authorization is app-side).
+5. The realm JWKS at `https://login.gio.vng.vn/realms/GS/protocol/openid-connect/certs`
+   must be reachable from the playground server (used to verify the id_token).
+6. Smoke test: a SAML login lands back on the app; keycloak-js exchanges the
+   id_token at `/api/auth/keycloak/session`. The user is `pending`
+   (403 ACCESS_PENDING) until an admin grants access — expected.
 
 ## Rollout sequence (zero-lockout)
 

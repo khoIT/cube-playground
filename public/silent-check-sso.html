@@ -1,0 +1,10 @@
+<!doctype html>
+<html>
+  <body>
+    <script>
+      // keycloak-js silent SSO probe: this page loads inside a hidden iframe so
+      // the adapter can check the realm session without a full-page redirect.
+      parent.postMessage(location.href, location.origin);
+    </script>
+  </body>
+</html>

@@ -61,6 +61,7 @@
     "js-object-pretty-print": "^0.3.0",
     "js-yaml": "^4.1.0",
     "jwt-decode": "^3.1.2",
+    "keycloak-js": "^26.2.4",
     "less": "^4.1.1",
     "lucide-react": "^1.16.0",
     "mitt": "^2.1.0",
