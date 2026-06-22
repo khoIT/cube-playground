@@ -118,7 +118,28 @@ export const inputSchema = {
   threshold_value: z
     .number()
     .optional()
-    .describe('Required when kind=threshold. The minimum value (inclusive).'),
+    .describe('Required when kind=threshold. The bound value (inclusive). Direction set by threshold_op.'),
+  /** threshold only: bound direction (ignored when threshold_value_max is set — that is a range) */
+  threshold_op: z
+    .enum(['gte', 'lte'])
+    .default('gte')
+    .describe(
+      'Direction of the threshold bound for a SINGLE bound. gte (default) = "at least / ' +
+        'more than" — measure >= value (e.g. "spent > 1000"). lte = "at most / under / ' +
+        'fewer than" — measure <= value (e.g. "fewer than 3 active days"). Pick lte for any ' +
+        '"under/below/at most/no more than" phrasing. Ignored when threshold_value_max is ' +
+        'set (that makes it a range).',
+    ),
+  /** threshold only: upper bound of a range */
+  threshold_value_max: z
+    .number()
+    .optional()
+    .describe(
+      'Optional upper bound for a RANGE threshold (e.g. "spent between 500 and 1000"). ' +
+        'When set, the predicate is measure >= threshold_value AND measure <= ' +
+        'threshold_value_max (both inclusive); threshold_op is ignored. Must be ≥ ' +
+        'threshold_value. Omit for a single-bound threshold.',
+    ),
   /** percentile only: top P% means p = 100 - P */
   percentile_top_pct: z
     .number()
@@ -215,6 +236,8 @@ export async function handler(
     kind: 'threshold' | 'percentile' | 'top_n' | 'query';
     measure?: SegmentableMeasure;
     threshold_value?: number;
+    threshold_op?: 'gte' | 'lte';
+    threshold_value_max?: number;
     percentile_top_pct?: number;
     top_n?: number;
     filters?: CubeInputFilter[];

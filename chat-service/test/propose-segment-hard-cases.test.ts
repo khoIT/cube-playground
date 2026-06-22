@@ -141,6 +141,130 @@ describe('propose_segment — threshold', () => {
     expect(leaf.values).toEqual([1_000_000]);
   });
 
+  it('emits an lte (upper-bound) leaf when threshold_op="lte"', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Low spenders',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 1_000,
+        threshold_op: 'lte',
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { children: { op: string; values: unknown[] }[] };
+    expect(tree.children[0].op).toBe('lte');
+    expect(tree.children[0].values).toEqual([1_000]);
+    // Disclosure copy reflects the upper-bound direction (≤, not ≥).
+    const disclosures = proposal.disclosures as string[];
+    expect(disclosures.some((d) => d.includes('≤'))).toBe(true);
+    expect(disclosures.some((d) => d.includes('≥'))).toBe(false);
+  });
+
+  it('defaults to a gte leaf when threshold_op is omitted', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Default direction',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 42,
+        language: 'en',
+      },
+      ctx,
+    );
+
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { children: { op: string }[] };
+    expect(tree.children[0].op).toBe('gte');
+  });
+
+  it('emits a two-leaf range (gte..lte) when threshold_value_max is set', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Mid spenders',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 500,
+        threshold_value_max: 1_000,
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { children: { op: string; values: unknown[] }[] };
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[0].op).toBe('gte');
+    expect(tree.children[0].values).toEqual([500]);
+    expect(tree.children[1].op).toBe('lte');
+    expect(tree.children[1].values).toEqual([1_000]);
+    // Disclosure reads as a band (X ≤ label ≤ Y).
+    const disclosures = proposal.disclosures as string[];
+    expect(disclosures.some((d) => d.includes('500') && d.includes('1000') && d.includes('≤'))).toBe(true);
+  });
+
+  it('rejects a range whose max is below the lower bound', async () => {
+    const { ctx } = makeCtx();
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Bad range',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 1_000,
+        threshold_value_max: 500,
+        language: 'en',
+      },
+      ctx,
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  it('range ANDs with additional_filters (more than two leaves)', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'Mid spenders in VN',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 500,
+        threshold_value_max: 1_000,
+        additional_filters: [{ member: 'mf_users.country', operator: 'equals', values: ['VN'] }],
+        language: 'en',
+      },
+      ctx,
+    );
+
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { children: { op: string }[] };
+    expect(tree.children).toHaveLength(3);
+    expect(tree.children.map((c) => c.op)).toEqual(['gte', 'lte', 'equals']);
+  });
+
   it('returns error when threshold_value is missing', async () => {
     const { ctx } = makeCtx();
     const result = await handler(

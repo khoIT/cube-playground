@@ -73,6 +73,8 @@ export type MeasureHandlerArgs = {
   kind: 'threshold' | 'percentile' | 'top_n' | 'query';
   measure: SegmentableMeasure;
   threshold_value?: number;
+  threshold_op?: 'gte' | 'lte';
+  threshold_value_max?: number;
   percentile_top_pct?: number;
   top_n?: number;
   filters?: CubeInputFilter[];
@@ -198,14 +200,37 @@ export async function handleThreshold(opts: {
     };
   }
 
-  const leaf: LeafNode = {
-    kind: 'leaf',
-    id: randomUUID(),
-    member: measure.dimension,
-    type: 'number',
-    op: 'gte',
-    values: [args.threshold_value],
-  };
+  // Range threshold: when threshold_value_max is given, the predicate is a band
+  // (measure >= threshold_value AND measure <= threshold_value_max). Otherwise a
+  // single bound whose direction is threshold_op (gte default; lte = upper bound
+  // like "fewer than 3 active days"). Either way no query-path detour is needed —
+  // the query path rejects measure members, so measure bands live here.
+  const isRange = args.threshold_value_max != null;
+  if (isRange && (args.threshold_value_max as number) < args.threshold_value) {
+    return {
+      ok: false,
+      error: 'missing_threshold_value',
+      detail:
+        `threshold_value_max (${args.threshold_value_max}) must be ≥ threshold_value ` +
+        `(${args.threshold_value}) for a range threshold.`,
+    };
+  }
+
+  const thresholdLeaves: LeafNode[] = isRange
+    ? [
+        { kind: 'leaf', id: randomUUID(), member: measure.dimension, type: 'number', op: 'gte', values: [args.threshold_value] },
+        { kind: 'leaf', id: randomUUID(), member: measure.dimension, type: 'number', op: 'lte', values: [args.threshold_value_max as number] },
+      ]
+    : [
+        {
+          kind: 'leaf',
+          id: randomUUID(),
+          member: measure.dimension,
+          type: 'number',
+          op: args.threshold_op === 'lte' ? 'lte' : 'gte',
+          values: [args.threshold_value],
+        },
+      ];
 
   // Optional extra conditions (e.g. ltv_vnd = 0) AND-ed onto the threshold so a
   // single proposal can express a compound predicate.
@@ -216,7 +241,7 @@ export async function handleThreshold(opts: {
     kind: 'group',
     id: randomUUID(),
     op: 'AND',
-    children: [leaf, ...extra.leaves],
+    children: [...thresholdLeaves, ...extra.leaves],
   };
 
   const windowLabel = measure.window ?? 'lifetime';
@@ -225,6 +250,8 @@ export async function handleThreshold(opts: {
     kind: 'threshold',
     label: measure.label,
     value: args.threshold_value,
+    op: args.threshold_op === 'lte' ? 'lte' : 'gte',
+    valueMax: isRange ? (args.threshold_value_max as number) : undefined,
     currency: measure.currency,
     window: measure.window,
     isVi,

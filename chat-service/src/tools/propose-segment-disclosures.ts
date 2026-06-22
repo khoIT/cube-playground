@@ -20,6 +20,10 @@ export type DisclosureParams =
       kind: 'threshold';
       label: string;
       value: number;
+      /** Bound direction — gte = "≥ / at least", lte = "≤ / at most". Defaults to gte. */
+      op?: 'gte' | 'lte';
+      /** Upper bound — when set, the segment is a range (value ≤ measure ≤ valueMax); op is ignored. */
+      valueMax?: number;
       currency?: string;
       window?: string;
       isVi: boolean;
@@ -59,9 +63,18 @@ export function buildDisclosures(params: DisclosureParams): string[] {
   if (params.kind === 'threshold') {
     const win = params.window ?? 'lifetime';
     const cur = params.currency ? ` ${params.currency}` : '';
-    lines.push(`Segment: ${params.label} ≥ ${params.value}${cur} (${win} window).`);
-    if (isVi) {
-      lines.push(`Phân khúc: ${params.label} ≥ ${params.value}${cur} (cửa sổ ${win}).`);
+    if (params.valueMax != null) {
+      // Range: value ≤ measure ≤ valueMax.
+      lines.push(`Segment: ${params.value}${cur} ≤ ${params.label} ≤ ${params.valueMax}${cur} (${win} window).`);
+      if (isVi) {
+        lines.push(`Phân khúc: ${params.value}${cur} ≤ ${params.label} ≤ ${params.valueMax}${cur} (cửa sổ ${win}).`);
+      }
+    } else {
+      const sym = params.op === 'lte' ? '≤' : '≥';
+      lines.push(`Segment: ${params.label} ${sym} ${params.value}${cur} (${win} window).`);
+      if (isVi) {
+        lines.push(`Phân khúc: ${params.label} ${sym} ${params.value}${cur} (cửa sổ ${win}).`);
+      }
     }
     lines.push(
       'This is a fixed threshold — the count updates each time the segment is refreshed ' +

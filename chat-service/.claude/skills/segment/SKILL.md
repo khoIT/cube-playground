@@ -41,13 +41,25 @@ Turn a chat intent into a draft `segment_proposal` that the user can review and 
 
 ## Three entry points
 
-1. **Direct chat** — user describes the segment ("top 25% spenders", "users who spent > 1000", "top 100 payers").
-2. **After exploration** — user says "save that as a segment" or "create a segment from these users"; the prior turn's query filters become the predicate.
-3. **Named concept** — user names a concept the glossary defines (e.g. "whales", "VIP payers").
+1. **Direct chat (measure)** — user describes the segment by a measure ("top 25% spenders", "users who spent > 1000", "top 100 payers").
+2. **Direct chat (dimension/recency)** — user describes the segment by a dimension condition with no prior exploration ("haven't logged in ≥ 3 days", "dormant users", "level > 50 players in VN"). This is a cold `kind='query'` — see *Cold dimension predicate* below.
+3. **After exploration** — user says "save that as a segment" or "create a segment from these users"; the prior turn's query filters become the predicate.
+4. **Named concept** — user names a concept the glossary defines (e.g. "whales", "VIP payers").
 
-## Mandatory first step
+## First step depends on the predicate kind
 
-**Always call `get_segmentable_measures({ game: <game_id> })` before `propose_segment`.** Never fabricate a `dimension` member name or a `over` population spec — these reference server-controlled physical paths. Use the catalog entry verbatim.
+- **Measure-based** (`threshold` / `percentile` / `top_n`): **always call `get_segmentable_measures({ game: <game_id> })` first.** Never fabricate a `dimension` member name or an `over` population spec — these reference server-controlled physical paths. Use the catalog entry verbatim.
+- **Dimension-based** (`kind='query'`): do **NOT** call `get_segmentable_measures` — its catalog holds only ranking measures (spend, active_days), never filter dimensions like recency or attributes. Discover the dimension member another way (prior exploration filters, or `get_cube_meta` — see below), then emit `kind='query'`.
+
+### Cold dimension predicate — introspect, do not punt
+
+When the user asks cold (no prior exploration turn) for a segment defined by a **dimension condition** — recency ("haven't logged in / been active in ≥ N days", "dormant", "lapsed", "inactive"), or an attribute (country, level, server, channel) — the predicate is plain dimension filters, so it is `kind='query'`. The measures catalog will NOT contain the member, so finding "no matching measure" is **expected and not a dead end**:
+
+1. Call `get_cube_meta({ cubes: ['mf_users'] })` (or the relevant cube) to list its dimensions verbatim.
+2. Map the user's phrase to a real dimension. For recency, look for `days_since_last_active` (a numeric "days since last active" dimension — filter `>= N`), `last_active_date` / `last_login_date` (date dimensions — filter `beforeDate` `CURRENT_DATE - N`), or `days_since_last_recharge`. Recharge-recency uses the recharge member, not the active one.
+3. Build the `filters` array against the verbatim member name and emit `propose_segment({ kind: 'query', cube: 'mf_users', filters: [...] })`.
+
+Never tell the user "no measure matches" and ask them to supply a member name or pick a weaker lifetime proxy (e.g. `active_days`) **before** you have introspected the cube's dimensions. The member almost always exists — `get_cube_meta` is how you find it.
 
 ## Identifying the right measure entry
 
@@ -58,9 +70,12 @@ Turn a chat intent into a draft `segment_proposal` that the user can review and 
 ## Four predicate shapes
 
 ### 1. Threshold (`kind: 'threshold'`)
-User says "users who spent > X" or "users with LTV ≥ X".
+User says "users who spent > X", "users with LTV ≥ X", an **upper bound** like "fewer than 3 active days" / "spent under 1000", or a **range** like "spent between 500 and 1000".
 - No cutoff resolution needed.
-- `threshold_value` = the numeric lower bound (use `gte` semantics — inclusive).
+- `threshold_value` = the bound value (inclusive). For a range it is the **lower** bound.
+- `threshold_op` = the **direction** for a single bound: `gte` (default) for a lower bound ("at least / more than"); **`lte` for an upper bound** ("under / at most / fewer than / no more than"). A measure ceiling like "fewer than 3 active days" is `threshold_op='lte'`, value 3.
+- `threshold_value_max` = the **upper** bound for a **range** ("between X and Y"): set `threshold_value=X` + `threshold_value_max=Y` → `X ≤ measure ≤ Y` (`threshold_op` ignored). Must be ≥ `threshold_value`.
+- All of these are measure predicates → use `kind='threshold'`, NOT `kind='query'` (the query path rejects measure members).
 - `estCount` is unknown; disclose that count is computed on first refresh.
 
 ### 2. Percentile (`kind: 'percentile'`)
@@ -91,6 +106,7 @@ User says "save that as a segment", "turn that into a segment", or "create a seg
 - **Never** emit a percentile or top-N proposal when `measure.over` is absent — return an error so the user is asked for a scope.
 - If the measure concept is not in the catalog, list what IS available and ask the user to pick.
 - If the user's phrase is ambiguous (e.g. "top spenders" could match multiple windows), call `offer_choices` to let the user pick.
+- **Do not loop on errors.** `propose_segment` returning `ok:false` is terminal feedback, not a retry signal. Apply the fix its `detail`/`hint` names **once** (e.g. `threshold_op='lte'` for an upper bound, `threshold_value`+`threshold_value_max` for a range, or `kind='threshold'` for a measure filter the query path rejected), then re-call at most one more time. If it still fails — or the request is genuinely inexpressible — **stop and tell the user in one plain message** what isn't supported and the closest expressible alternative. Never silently re-issue the same shape repeatedly; that hangs the turn.
 
 ### Name fidelity — the `name` must match the predicate exactly
 
@@ -144,7 +160,11 @@ Target ≤ 2 tool rounds before emitting:
 1. `get_segmentable_measures` (+ optional `offer_choices` if ambiguous) — one round.
 2. `propose_segment` — one round; this handles `/resolve-cutoff` internally.
 
-**For kind='query' ("save that as a segment"):**
+**For kind='query' ("save that as a segment", filters from prior exploration):**
 1. `propose_segment` with `kind='query'` directly — one round. No catalog lookup needed.
+
+**For kind='query' (cold dimension predicate, e.g. recency):**
+1. `get_cube_meta({ cubes: ['mf_users'] })` to find the dimension member — one round.
+2. `propose_segment` with `kind='query'` — one round.
 
 Do not call `preview_cube_query` or `emit_query_artifact` in this skill — you are proposing a segment, not exploring data.

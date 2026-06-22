@@ -160,8 +160,12 @@ function translateFilter(
       ok: false,
       reason: 'measure_filter',
       hint:
-        `${member} is a measure; it cannot be used as a segment filter. ` +
-        'Use propose_segment with a threshold or percentile instead.',
+        `${member} is a measure; it cannot be used as a segment filter via kind=query. ` +
+        'Use kind=threshold instead: for a lower bound (>, ≥, "at least") pass ' +
+        "threshold_op='gte'; for an upper bound (<, ≤, \"under\", \"at most\") pass " +
+        "threshold_op='lte'; for a range (\"between X and Y\") pass threshold_value=X plus " +
+        'threshold_value_max=Y. For a top-N/percentile of the measure, use kind=percentile ' +
+        'or kind=top_n. Do not retry kind=query with this member.',
     };
   }
 
