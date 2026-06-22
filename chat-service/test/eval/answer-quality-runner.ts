@@ -16,10 +16,22 @@
  *   GAME=cfm_vn LIMIT=5 GROUP=synthesized-glossary \
  *   npx tsx --env-file=../.env --env-file=../.env.local \
  *     test/eval/answer-quality-runner.ts
+ *
+ * Full-trail capture (on by default): every run also writes a per-case trail under
+ * `test/eval/runs/{game}-{group}-{timestamp}/` holding the VERBATIM SSE stream,
+ * every parsed event in order, the tool trail WITH arguments, and the
+ * reconstructed reasoning + streamed answer — so a run can be revisited in full
+ * later, not just from the lean scorecard. The committed snapshot stays lean and
+ * points at each case's trail file via `trailFile`. Env knobs:
+ *   TRAIL=0    disable trail capture (lean snapshot only, pre-trail behaviour)
+ *   RUN_DIR=…  override the trail archive directory for this run
+ * The run dir is gitignored (raw transcripts are large + reproducible). One limit:
+ * tool_result events carry the server-SUMMARISED tool output (what the FE sees),
+ * not the full raw tool return — that is never streamed over SSE.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { summariseSseText } from '../../src/scripts/verify-starter-question-workability.js';
 import type { EvalCorpus, EvalCase } from '../metric-resolution-eval/types.js';
 
@@ -31,6 +43,18 @@ const OWNER_ID = 'answer-quality-eval-runner';
 const LIMIT = process.env['LIMIT'] ? Number(process.env['LIMIT']) : Infinity;
 const GROUP = process.env['GROUP'] ?? ''; // optional curationGroup filter
 const TIMEOUT_MS = process.env['TIMEOUT_MS'] ? Number(process.env['TIMEOUT_MS']) : 270_000;
+
+// Full-trail capture. On by default; TRAIL=0 reverts to the lean-snapshot-only
+// behaviour. One timestamped dir per run so runs accumulate a longitudinal trail
+// instead of overwriting each other. Stamp the run once at startup.
+const TRAIL_ENABLED = process.env['TRAIL'] !== '0';
+const RUN_STARTED_ISO = new Date().toISOString();
+const RUN_TAG = RUN_STARTED_ISO.replace(/[:.]/g, '-'); // filesystem-safe
+const RUN_DIR = TRAIL_ENABLED
+  ? (process.env['RUN_DIR']
+      ? resolve(process.env['RUN_DIR'])
+      : join(__dir, 'runs', `${GAME}-${GROUP || 'all'}-${RUN_TAG}`))
+  : null;
 
 interface AqResult {
   caseId: string;
@@ -53,6 +77,32 @@ interface AqResult {
   latencyMs: number;          // wall-clock for the turn (slow cases = improve target)
   costUsd: number | null;     // turn cost (budget tracking)
   outputTokens: number | null;
+  // Pointer (relative to this dir) to the full per-case trail — verbatim SSE,
+  // ordered events, tool args. null when TRAIL=0. Lets the lean snapshot link to
+  // the heavy transcript without inlining it.
+  trailFile: string | null;
+}
+
+/**
+ * Full per-case trail — everything the turn produced, for later forensics.
+ * `rawSse` is the verbatim stream; `events` is every frame parsed in order;
+ * `toolTrail` pairs each tool_call (with its arguments) to its tool_result
+ * summary + latency; the two reconstructed strings are the model's reasoning and
+ * the streamed user-facing answer. Written one-file-per-case under RUN_DIR.
+ */
+interface CaseTrail {
+  caseId: string;
+  question: string;
+  curationGroup: string;
+  expectedRef: string | null;
+  httpStatus: number;
+  latencyMs: number;
+  capturedAt: string;
+  rawSse: string;
+  events: { seq: number; type: string; data: unknown }[];
+  toolTrail: { name: string; args: unknown; ms: number | null; resultSummary: unknown }[];
+  thinkingText: string;
+  assistantText: string;
 }
 
 async function setSubscriptionLane(): Promise<void> {
@@ -82,6 +132,55 @@ function extractEvents(raw: string, type: string): Record<string, unknown>[] {
   return out;
 }
 
+/** Every SSE frame parsed in arrival order — the full ordered trail. Non-JSON
+ *  data is kept as a raw string rather than dropped. */
+function parseAllEvents(raw: string): { seq: number; type: string; data: unknown }[] {
+  const out: { seq: number; type: string; data: unknown }[] = [];
+  let seq = 0;
+  for (const frame of raw.split('\n\n')) {
+    const e = frame.match(/^event: (.+)$/m);
+    const d = frame.match(/^data: (.+)$/m);
+    if (!e) continue;
+    let data: unknown = null;
+    if (d) { try { data = JSON.parse(d[1]!); } catch { data = d[1]!; } }
+    out.push({ seq: seq++, type: e[1]!.trim(), data });
+  }
+  return out;
+}
+
+/** Pair each tool_call (id, name, args) with its tool_result (ms, summary) by id,
+ *  preserving call order — the agent's tool trajectory with arguments. */
+function buildToolTrail(
+  events: { type: string; data: unknown }[],
+): { name: string; args: unknown; ms: number | null; resultSummary: unknown }[] {
+  const byId = new Map<string, { name: string; args: unknown; ms: number | null; resultSummary: unknown }>();
+  const order: { name: string; args: unknown; ms: number | null; resultSummary: unknown }[] = [];
+  for (const ev of events) {
+    const d = ev.data as Record<string, unknown> | null;
+    if (ev.type === 'tool_call' && typeof d?.['id'] === 'string') {
+      const rec = { name: String(d['name'] ?? '?'), args: d['args'] ?? {}, ms: null as number | null, resultSummary: null as unknown };
+      byId.set(d['id'], rec);
+      order.push(rec);
+    } else if (ev.type === 'tool_result' && typeof d?.['id'] === 'string') {
+      const rec = byId.get(d['id']);
+      if (rec) {
+        rec.ms = typeof d['ms'] === 'number' ? (d['ms'] as number) : null;
+        rec.resultSummary = d['summary'] ?? null;
+      }
+    }
+  }
+  return order;
+}
+
+/** Concatenate the `delta` payloads of one streamed channel (token | thinking)
+ *  back into the full text. */
+function reconstructText(events: { type: string; data: unknown }[], type: 'token' | 'thinking'): string {
+  return events
+    .filter((e) => e.type === type)
+    .map((e) => String((e.data as Record<string, unknown> | null)?.['delta'] ?? ''))
+    .join('');
+}
+
 /** Heuristic: a trust caveat surfaced in assistant text or a trust event. */
 function sawTrustGuard(raw: string): boolean {
   if (extractEvents(raw, 'trust_notice').length > 0) return true;
@@ -108,7 +207,7 @@ async function fetchTurnRaw(q: string, ownerId: string): Promise<{ raw: string; 
   } finally { clearTimeout(timer); }
 }
 
-async function runCase(c: EvalCase): Promise<AqResult> {
+async function runCase(c: EvalCase): Promise<{ result: AqResult; trail: CaseTrail | null }> {
   // A pristine per-case owner so owner-keyed saved-default personalization
   // (user_disambig_prefs) can't contaminate routing: a stray "by platform"
   // dimension default leaks into later cases and makes the agent clarify-and-
@@ -153,14 +252,33 @@ async function runCase(c: EvalCase): Promise<AqResult> {
     : errorDetail || !summary.sawDone ? 'turn-error'
     : summary.artifactCount === 0 ? 'no-artifact' : 'ok';
 
-  return {
+  // Build the full trail from the raw stream (tool args, reasoning, every event).
+  // trailFile is where runOne will persist it; null when capture is off.
+  let trail: CaseTrail | null = null;
+  let trailFile: string | null = null;
+  if (TRAIL_ENABLED && RUN_DIR) {
+    const events = parseAllEvents(raw);
+    trail = {
+      caseId: c.id, question: c.question, curationGroup: c.curationGroup,
+      expectedRef: c.expectedRef, httpStatus, latencyMs,
+      capturedAt: new Date().toISOString(),
+      rawSse: raw, events, toolTrail: buildToolTrail(events),
+      thinkingText: reconstructText(events, 'thinking'),
+      assistantText: reconstructText(events, 'token'),
+    };
+    trailFile = relative(__dir, join(RUN_DIR, 'cases', `${c.id}.json`));
+  }
+
+  const result: AqResult = {
     caseId: c.id, question: c.question, curationGroup: c.curationGroup,
     expectedRef: c.expectedRef, status, httpStatus, resolvedRef,
     resolvedCube: resolvedRef ? resolvedRef.split('.')[0]! : null,
     artifactCount: summary.artifactCount, nonEmpty, trustGuardSeen: sawTrustGuard(raw),
     errorDetail,
     answerText, artifactTitle, toolCalls: summary.toolCalls, latencyMs, costUsd, outputTokens,
+    trailFile,
   };
+  return { result, trail };
 }
 
 async function main(): Promise<void> {
@@ -208,7 +326,9 @@ async function main(): Promise<void> {
   // cases run against a warm service — don't let case #1 eat the cold start.
   if (process.env['SKIP_WARMUP'] !== '1' && cases.length > 0) {
     process.stdout.write('[runner] warmup turn… ');
-    const w = await runCase({ ...cases[0]!, question: 'dau yesterday' } as EvalCase);
+    // Warmup is a throwaway turn — discard its trail so it can't collide with the
+    // real case[0] trail file.
+    const { result: w } = await runCase({ ...cases[0]!, question: 'dau yesterday' } as EvalCase);
     console.log(w.status === 'ok' ? `ok (${w.latencyMs}ms)` : `(${w.status}, continuing)`);
   }
 
@@ -236,20 +356,45 @@ async function main(): Promise<void> {
   const flush = (): void => {
     const merged = new Map<string, AqResult>(priorAll);
     for (const r of results) merged.set(r.caseId, r);
+    const allMerged = [...merged.values()];
     writeFileSync(outPathEarly, JSON.stringify({
       capturedAt: new Date().toISOString(), gameId: GAME, workspace: WORKSPACE,
-      chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, results: [...merged.values()],
+      chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, runDir: RUN_DIR, results: allMerged,
     }, null, 2), 'utf8');
+    // Run manifest: a navigable index of this run's trail (one row per case →
+    // its trail file + headline outcome), kept in sync with every checkpoint.
+    if (RUN_DIR) {
+      mkdirSync(RUN_DIR, { recursive: true });
+      writeFileSync(join(RUN_DIR, 'manifest.json'), JSON.stringify({
+        runStartedAt: RUN_STARTED_ISO, gameId: GAME, group: GROUP || null,
+        workspace: WORKSPACE, chatBase: CHAT_BASE, trailEnabled: TRAIL_ENABLED,
+        snapshotPath: outPathEarly, caseCount: allMerged.length,
+        cases: allMerged.map((r) => ({
+          caseId: r.caseId, question: r.question, curationGroup: r.curationGroup,
+          status: r.status, expectedRef: r.expectedRef, resolvedRef: r.resolvedRef,
+          latencyMs: r.latencyMs, costUsd: r.costUsd, outputTokens: r.outputTokens,
+          trailFile: r.trailFile,
+        })),
+      }, null, 2), 'utf8');
+    }
+  };
+
+  // Persist a case's full trail as one file under RUN_DIR/cases/.
+  const writeTrail = (trail: CaseTrail | null): void => {
+    if (!trail || !RUN_DIR) return;
+    mkdirSync(join(RUN_DIR, 'cases'), { recursive: true });
+    writeFileSync(join(RUN_DIR, 'cases', `${trail.caseId}.json`), JSON.stringify(trail, null, 2), 'utf8');
   };
 
   async function runOne(c: EvalCase): Promise<void> {
     if (aborted) return;
-    let r = await runCase(c);
+    let { result: r, trail } = await runCase(c);
     if (r.status === 'http-error' && (r.httpStatus === 408 || r.httpStatus === 0)) {
       await sleep(PACE_MS);
-      r = await runCase(c);
+      ({ result: r, trail } = await runCase(c));
     }
     results.push(r);
+    writeTrail(trail);
     flush();
     const ok = r.status === 'ok' ? '✓' : '✗';
     const hit = r.expectedRef ? (r.resolvedRef === r.expectedRef ? '=' : '≠') : '·';
@@ -284,16 +429,24 @@ async function main(): Promise<void> {
   for (const r of results) merged.set(r.caseId, r);
   const allResults = [...merged.values()];
 
-  writeFileSync(outPathEarly, JSON.stringify({
+  const snapshot = {
     capturedAt: new Date().toISOString(), gameId: GAME, workspace: WORKSPACE,
-    chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, results: allResults,
-  }, null, 2), 'utf8');
+    chatBase: CHAT_BASE, corpusVersion: corpus.capturedAt, runDir: RUN_DIR, results: allResults,
+  };
+  writeFileSync(outPathEarly, JSON.stringify(snapshot, null, 2), 'utf8');
+  // Freeze a copy of the lean snapshot inside the run dir so each run dir is a
+  // self-contained point-in-time record (longitudinal trail across runs).
+  if (RUN_DIR) {
+    mkdirSync(RUN_DIR, { recursive: true });
+    writeFileSync(join(RUN_DIR, 'snapshot.json'), JSON.stringify(snapshot, null, 2), 'utf8');
+  }
   const out = outPathEarly;
 
   const okN = allResults.filter((r) => r.status === 'ok').length;
   const resolved = allResults.filter((r) => r.expectedRef && r.resolvedRef === r.expectedRef).length;
   const withGolden = allResults.filter((r) => r.expectedRef).length;
   console.log(`\n[runner] answered ${okN}/${results.length} · resolution ${resolved}/${withGolden} golden · → ${out}`);
+  if (RUN_DIR) console.log(`[runner] full trail → ${RUN_DIR}/ (cases/, manifest.json, snapshot.json)`);
 }
 
 main().catch((e) => { console.error('[runner] fatal:', e); process.exit(1); });

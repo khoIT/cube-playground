@@ -7,3 +7,6 @@ runtime/*
 .DS_Store
 seed/starter-verify-progress.json
 seed/starter-verification-report.json
+# Answer-quality eval per-run trail archives (full SSE transcripts + tool args).
+# Large and reproducible; the lean committed snapshot is the scorecard of record.
+test/eval/runs/
