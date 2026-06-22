@@ -21,9 +21,15 @@ trigger_keywords:
   - tạo nhóm
   - lưu nhóm
   - tạo đối tượng
+  - edit segment
+  - modify segment
+  - add to segment
+  - remove from segment
+  - sửa phân khúc
 allowed_tools:
   - get_segmentable_measures
   - propose_segment
+  - propose_segment_edit
   - get_cube_meta
   - resolve_query_terms
   - list_dimension_values
@@ -132,6 +138,7 @@ propose_segment({
 ```
 
 - `additional_filters` are plain comparisons (`equals`/`notEquals`/`gt`/`gte`/`lt`/`lte`/`set`/`notSet`) on members of the **same cube**. They need no cutoff resolution.
+- **Two or more measure bounds = ONE proposal, not two segments.** "High spenders who are also low-engagement" (`spend ≥ X AND active_days ≤ Y`) is a single `kind='threshold'` on the primary measure plus an `additional_filters` bound on the second measure's catalog `dimension` member — e.g. `kind='threshold'` on `ltv_vnd` (`threshold_op='gte'`) + `additional_filters: [{ member: 'mf_users.total_active_days', operator: 'lte', values: [3] }]`. Use the second measure's `dimension` (from `get_segmentable_measures`) as the member so it is a real per-user column; never invent a member.
 - The percentile cutoff is still resolved over its own population; the extra conditions narrow membership. The tool discloses that the estimated size counts the percentile population only (actual is smaller, computed on first refresh).
 - **Never** emit a probe-named proposal (e.g. `_cutoff_probe_*`) or ask the user to hand-pick a fixed floor when they already gave a percentile — resolve it with `kind='percentile'` + `additional_filters` directly.
 - `kind='query'` remains the path for predicates built entirely from plain dimension filters the user already explored (it rejects measure filters — use `additional_filters` for measure conditions like `ltv_vnd = 0`).
@@ -153,6 +160,22 @@ When the user says "save that", "turn that into a segment", or "create a segment
 - **Measure-threshold shape** (a single `gte/lte` filter on a well-known measure like `ltv_vnd`) → use `kind='threshold'`, call `get_segmentable_measures` to get the catalog entry.
 - **Top-N leaderboard** (query had `order + limit`) → use `kind='top_n'`, call `get_segmentable_measures`.
 - If the tool returns `ok:false` for `kind='query'` (e.g. time-leaf-in-OR, measure filter), relay the error and ask the user whether to restructure the query or use a measure-threshold instead.
+
+## Editing an existing segment — `propose_segment_edit`
+
+When the user wants to **change a segment that already exists** ("add country=VN to my Whales segment", "remove the level filter from the Dormant cohort", "tighten the LTV threshold on …"), do NOT rebuild it with `propose_segment` — that would create a duplicate. Edit it in place:
+
+1. Resolve the segment id: call `list_segments` (to find it by name) or `get_segment` (if you already have the id).
+2. Call `propose_segment_edit({ segment_id, ops })`. `ops` is applied in order:
+   - `{ kind: 'add_filter', member, operator, values? }` — AND a new condition onto the predicate.
+   - `{ kind: 'remove_filter', member }` — drop every leaf on that member (errors if it would leave the segment with no conditions — that selects everyone).
+   - `{ kind: 'replace_tree', predicate_tree }` — escape hatch to swap the whole tree.
+3. The tool emits a `segment_proposal` with an `edit` block; the FE confirms with a PATCH and the segment re-refreshes. It NEVER writes.
+
+Guardrails:
+- Cohort redefinition is **owner/admin-only**. If the tool returns `error: 'forbidden'`, relay it plainly — the user can view but not redefine that segment; do not retry.
+- `error: 'no_predicate'` means it is a static uid-list segment with no editable predicate — say so; suggest creating a new predicate segment instead.
+- `add_filter` members must be on the segment's own cube. Verify value casing on `equals`/`contains` (same rule as kind=query) before adding a string-dimension filter.
 
 ## Round budget
 

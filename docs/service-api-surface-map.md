@@ -121,6 +121,7 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 |---|---|---|---|---|---|
 | GET | `/api/segments/segmentable-measures` | none | `?game (req)` | `{ measures: [{concept, label, dimension, window, currency, over}] }` allowlist per game | segmentable-measures.json, game config |
 | POST | `/api/segments/resolve-cutoff` | none | `{game_id, p, gte, over}` | `{cutoff, populationCount, estCount}` preview for chat proposal | segment-cutoff-resolver, percentile-cutoff-resolver, Cube `/load` |
+| POST | `/api/segments/preview-count` | none | `{game_id, cube, predicate_tree, cube_segments?, timeout_ms?≤60000}` | `{ok:true, estCount, tookMs}` dry-run cohort size BEFORE save (mirrors refresh's Cube `/load total:true`). `400 UNCOHORTABLE` for an unservable predicate; transient trouble → `{ok:false, error:'unavailable', detail, tookMs}` (HTTP 200, caller degrades) | compute-segment-size (reuses resolveIdentity → resolveCutoffs → treeToCubeFilters → loadWithContinueWait) |
 | GET | `/api/segments` | none | `x-cube-workspace`, `x-owner` `?owner,type,q,sort,game_id` | hydrated segments (no uid_list, visibility default personal) scoped to ws | SQLite segments/segment_tags, trust-mapping |
 | POST | `/api/segments` | editor, admin | `authorization`, `x-owner` | 201 segment (visibility=personal default) | SQLite, translator, refresh-queue |
 | GET | `/api/segments/:id` | none ⚠️ not ws/owner scoped | `x-cube-workspace` | full segment + card_cache + visibility / 404 | SQLite, card-cache-store, trust-mapping |

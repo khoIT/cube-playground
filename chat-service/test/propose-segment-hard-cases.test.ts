@@ -935,6 +935,37 @@ describe('propose_segment — additional_filters (compound)', () => {
     expect(tree.children[1]).toMatchObject({ member: 'mf_users.country', op: 'equals' });
   });
 
+  it('ANDs a second MEASURE bound (spend ≥ X AND active_days ≤ Y) into one proposal', async () => {
+    const { ctx, emitter } = makeCtx();
+    const proposals: unknown[] = [];
+    emitter.on('segment_proposal', (p) => proposals.push(p));
+
+    // "High spenders who are also low-engagement" — primary threshold on spend,
+    // second measure bound (active_days ≤ 3) via additional_filters. One proposal,
+    // one AND group, two measure leaves on the per-user grain.
+    const result = await handler(
+      {
+        game_id: 'cfm_vn',
+        name: 'High-spend low-engagement',
+        kind: 'threshold',
+        measure: MEASURE_WITH_OVER,
+        threshold_value: 1_000_000,
+        threshold_op: 'gte',
+        additional_filters: [{ member: 'mf_users.total_active_days', operator: 'lte', values: [3] }],
+        language: 'en',
+      },
+      ctx,
+    );
+
+    expect(result.ok).toBe(true);
+    const proposal = proposals[0] as Record<string, unknown>;
+    const tree = proposal.predicate_tree as { op: string; children: Array<{ op: string; member: string; type: string; values: unknown[] }> };
+    expect(tree.op).toBe('AND');
+    expect(tree.children).toHaveLength(2);
+    expect(tree.children[0]).toMatchObject({ member: 'mf_users.ltv_vnd', op: 'gte', values: [1_000_000] });
+    expect(tree.children[1]).toMatchObject({ member: 'mf_users.total_active_days', op: 'lte', type: 'number', values: [3] });
+  });
+
   it('rejects an additional_filter member on a different cube', async () => {
     const { ctx } = makeCtx();
     const result = await handler(

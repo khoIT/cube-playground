@@ -1,7 +1,9 @@
 # Phase 03 — Multi-measure predicate authoring
 
 ## Overview
-Priority: medium. Status: pending. Chat-service only (SQL layer already supports it).
+Priority: medium. Status: DONE. Chat-service only (SQL layer already supports it).
+
+> Resolution: the capability already shipped via `propose_segment.additional_filters` + `buildAdditionalLeaves` (ANDs extra same-cube leaves onto the primary measure leaf). Adding a parallel `additional_measure_bounds` field would have been redundant (DRY), so Phase 03 reduced to: (a) explicit two-measure-bound guidance in `segment/SKILL.md` (use the second measure's catalog `dimension` as the `additional_filters` member), and (b) a proof test "spend ≥ X AND active_days ≤ Y → one AND group, two measure leaves". Column-grade gating is inherent: the agent sources the second member from `get_segmentable_measures.dimension` (a real per-user column), and `buildAdditionalLeaves` rejects cross-cube members.
 Let a segment AND two+ measure bounds on the same per-user grain (e.g. `spend ≥ X AND active_days ≤ Y`).
 
 ## Key insight

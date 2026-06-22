@@ -87,6 +87,16 @@ const KEYWORDS: Record<string, string[]> = {
 const SEGMENT_INTENT_EN =
   /\b(create|creating|build|building|save|saving|make|making|turn|turning|convert|generate)\b[\s\w]{0,25}?\b(segment|segments|audience|audiences|cohort|cohorts)\b/;
 
+// Segment-EDIT intent — "add/remove/change/edit/modify … to/from … <segment>".
+// Routes to the same 'segment' skill, which branches edit vs create on the verb.
+// Two shapes: a mutate verb near the noun ("edit my Whales segment"), or
+// add/remove with a to/from connector landing on the noun ("add VN to the … cohort").
+// `[^\n]` (not `[\s\w]`) in the gaps tolerates the punctuation users type in
+// predicates — "add country=VN to my Whales segment", "edit my high-spenders
+// audience". Bounded length keeps it from spanning unrelated clauses.
+const SEGMENT_EDIT_INTENT_EN =
+  /\b(edit|editing|modify|modifying|change|changing|update|updating|adjust|rename|narrow|widen|tighten|loosen)\b[^\n]{0,30}?\b(segment|segments|audience|audiences|cohort|cohorts)\b|\b(add|adding|remove|removing|drop|dropping|exclude|include)\b[^\n]{0,40}?\b(to|from|into)\b[^\n]{0,30}?\b(segment|segments|audience|audiences|cohort|cohorts)\b/;
+
 // Fixed denominator for confidence normalisation.
 // Reflects a realistic single-message score (one or two keyword hits).
 // A message scoring ≥ 6 chars (e.g. one 6-char keyword) yields confidence ≥ 0.6 → autoRoute.
@@ -103,9 +113,10 @@ export function routeIntent(message: string): IntentResult {
     }
   }
 
-  // Segment-creation intent force-routes before keyword scoring so a stray
-  // "between" / "compare" word in the same sentence cannot steal the route.
-  if (SEGMENT_INTENT_EN.test(lower)) {
+  // Segment create/edit intent force-routes before keyword scoring so a stray
+  // "between" / "compare" / "add" word in the same sentence cannot steal the
+  // route. Both shapes land on the 'segment' skill, which branches internally.
+  if (SEGMENT_INTENT_EN.test(lower) || SEGMENT_EDIT_INTENT_EN.test(lower)) {
     return { skill: 'segment', confidence: 0.9, autoRoute: true };
   }
 

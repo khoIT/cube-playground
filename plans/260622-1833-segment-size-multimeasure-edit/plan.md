@@ -13,11 +13,11 @@ User picked (1) pre-confirm size, (2) multi-measure predicates, (3) segment edit
 ## Phases
 | # | Phase | Service | Status |
 |---|-------|---------|--------|
-| 01 | Server dry-run count endpoint | server | pending |
-| 02 | Wire pre-confirm size into propose_segment | chat-service | pending |
-| 03 | Multi-measure predicate authoring | chat-service | pending |
-| 04 | Segment-edit tool + edit proposal | chat-service | pending |
-| 05 | FE cards (count display, edit card) + docs/lessons | src + docs | pending |
+| 01 | Server dry-run count endpoint | server | done |
+| 02 | Wire pre-confirm size into propose_segment | chat-service | done |
+| 03 | Multi-measure predicate authoring | chat-service | done (via existing `additional_filters` — no new schema; added skill 2-bound guidance + proof test) |
+| 04 | Segment-edit tool + edit proposal | chat-service | done (`propose_segment_edit` + edit-intent routing; emits `segment_proposal` with an `edit` block) |
+| 05 | FE cards (count display, edit card) + docs/lessons | src + docs | done (edit branch in shared SegmentProposalCard → PATCH; lessons + surface-map updated) |
 
 ## Key risks
 - Trino count latency on billion-row cubes — count must be timeout-bounded + best-effort (proposal still emits if count times out). Count against the per-user pre-agg source (mf_users grain), never the raw event mart.

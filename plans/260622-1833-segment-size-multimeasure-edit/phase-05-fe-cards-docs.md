@@ -1,8 +1,10 @@
 # Phase 05 — FE cards (count display, edit card) + docs/lessons
 
 ## Overview
-Priority: medium. Status: pending. Depends on 02 + 04.
+Priority: medium. Status: DONE. Depends on 02 + 04.
 Render the new data the backend now produces.
+
+> Resolution: the shared `SegmentProposalCard` (used by both /chat and the panel via `assistant-message.tsx` — parity automatic) now branches on `proposal.edit`: header "Segment edit", a struck-through "Previously" predicate summary above the "After edit" chips, an "Update segment" button that PATCHes via `segmentsClient.update` (regression-guarded by a render test), visibility + "Open in editor" hidden for edits, and a `mode='updated'` receipt. Pre-confirm `estCount` already rendered (Phase 02). Lessons-learned + service-api-surface-map updated.
 
 ## Requirements
 - Segment proposal card: show the pre-confirm `estCount` ("~N users match") when present; fall back to current copy when 0/absent.

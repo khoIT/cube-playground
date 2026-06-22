@@ -223,6 +223,15 @@ export interface SegmentProposal {
   };
   disclosures: string[];
   suggestedVisibility: 'personal' | 'shared' | 'org';
+  /**
+   * Present only for edit proposals (propose_segment_edit). When set, the FE
+   * confirms by PATCHing /api/segments/:id with `predicate_tree` instead of
+   * POSTing a new segment. `previous_predicate_tree` powers the old→new diff.
+   */
+  edit?: {
+    segment_id: string;
+    previous_predicate_tree: PredicateNode;
+  };
 }
 
 // ---------------------------------------------------------------------------

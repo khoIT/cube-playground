@@ -14,7 +14,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Users, ExternalLink, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Users, ExternalLink, X, CheckCircle, AlertCircle, Pencil } from 'lucide-react';
 import { message } from 'antd';
 import { T, Icon } from '../../../shell/theme';
 import { segmentsClient } from '../../../api/segments-client';
@@ -42,7 +42,9 @@ interface SegmentProposalCardProps {
  *  verbatim from chat message history on reload, so the same proposal hashes to
  *  the same key — letting us remember which segment it already created. */
 function proposalKey(p: SegmentProposalPayload): string {
-  const basis = `${p.game_id}|${p.cube}|${p.name}|${JSON.stringify(p.predicate_tree)}`;
+  // Include the edit target so an edit proposal never shares its remembered
+  // receipt with a same-named create proposal.
+  const basis = `${p.edit?.segment_id ?? ''}|${p.game_id}|${p.cube}|${p.name}|${JSON.stringify(p.predicate_tree)}`;
   let h = 5381;
   for (let i = 0; i < basis.length; i += 1) h = ((h << 5) + h + basis.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
@@ -75,49 +77,59 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
 
   if (dismissed) return null;
 
-  const { resolved, disclosures, predicate_tree, game_id, cube } = proposal;
+  const { resolved, disclosures, predicate_tree, game_id, cube, edit } = proposal;
+  const isEdit = edit != null;
 
-  const handleCreate = async () => {
+  const handleConfirm = async () => {
     const trimmed = name.trim();
     if (!trimmed) { void message.warning('Please enter a segment name.'); return; }
     setCreating(true);
     try {
-      const seg = await segmentsClient.create({
-        name: trimmed,
-        type: 'predicate',
-        cube,
-        game_id,
-        predicate_tree,
-        tags: ['ai-generated'],
-        visibility,
-      });
-      // Drop the cached segment-id/row list so the sidebar nav surfaces the new
-      // segment on its next render (mirrors the editor's create path).
+      // Edit proposals PATCH the existing segment (chat proposes, FE writes); a
+      // rename rides along only when the user actually changed the name. Create
+      // proposals POST a new predicate segment.
+      const seg = isEdit
+        ? await segmentsClient.update(edit!.segment_id, {
+            predicate_tree,
+            ...(trimmed !== proposal.name ? { name: trimmed } : {}),
+          })
+        : await segmentsClient.create({
+            name: trimmed,
+            type: 'predicate',
+            cube,
+            game_id,
+            predicate_tree,
+            tags: ['ai-generated'],
+            visibility,
+          });
+      // Drop the cached segment-id/row list so the sidebar nav reflects the new
+      // or re-defined segment on its next render.
       invalidateSegmentIds();
-      // Segment enters status='refreshing' automatically — the server kicks the
-      // first refresh cycle. Toast links directly to the new segment detail.
+      // The segment re-enters status='refreshing' — the server kicks a refresh
+      // cycle. Toast links directly to the segment detail.
       void message.success(
         <span>
-          Segment created —{' '}
+          {isEdit ? 'Segment updated' : 'Segment created'} —{' '}
           <a
             href={`#/segments/${seg.id}`}
             style={{ color: 'var(--brand)', textDecoration: 'underline' }}
             onClick={(e) => { e.preventDefault(); history.push(`/segments/${seg.id}`); }}
           >
-            view {trimmed}
+            view {seg.name}
           </a>{' '}
           (refreshing…)
         </span>,
         5,
       );
-      // Keep the toast AND morph the card into its created receipt state.
-      // Persist the id so the receipt survives a chat reload.
+      // Keep the toast AND morph the card into its receipt state. Persist the id
+      // so the receipt survives a chat reload.
       setCreatedId(seg.id);
       setCreated(seg);
     } catch (err) {
+      const fallback = isEdit ? 'Failed to update segment.' : 'Failed to create segment.';
       const msg = err instanceof SegmentApiError ? err.message
         : err instanceof Error ? err.message
-        : 'Failed to create segment.';
+        : fallback;
       void message.error(msg);
     } finally {
       setCreating(false);
@@ -156,8 +168,9 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
         segment={created}
         chips={chips}
         overflowCount={overflowCount}
+        mode={isEdit ? 'updated' : 'created'}
         onView={() => history.push(`/segments/${created.id}`)}
-        onCreateAnother={() => { clearCreatedId(); setCreated(null); }}
+        onCreateAnother={() => { clearCreatedId(); setCreated(null); if (isEdit) setDismissed(true); }}
       />
     );
   }
@@ -194,9 +207,9 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderBottom: '1px solid var(--shell-bg-subtle)' }}>
-        <Icon icon={Users} size={16} color="var(--info-ink)" />
+        <Icon icon={isEdit ? Pencil : Users} size={16} color="var(--info-ink)" />
         <span style={{ flex: 1, fontFamily: T.fSans, fontSize: 14, fontWeight: 600, color: 'var(--shell-text)' }}>
-          Segment proposal
+          {isEdit ? 'Segment edit' : 'Segment proposal'}
         </span>
         <span style={{ padding: '2px 8px', borderRadius: 12, background: 'var(--info-soft)', border: '1px solid var(--info-ink)40', fontFamily: T.fSans, fontSize: 11, fontWeight: 500, color: 'var(--info-ink)', flexShrink: 0 }}>
           {game_id}
@@ -216,9 +229,19 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
           />
         </div>
 
+        {/* Old→new diff: for an edit, show the prior predicate above the new one. */}
+        {isEdit && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontFamily: T.fSans, fontSize: 11, fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Previously</span>
+            <span style={{ fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-faint)', textDecoration: 'line-through', lineHeight: 1.5 }}>
+              {summarisePredicate(edit!.previous_predicate_tree)}
+            </span>
+          </div>
+        )}
+
         {/* Predicate chips */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span style={{ fontFamily: T.fSans, fontSize: 11, fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filters</span>
+          <span style={{ fontFamily: T.fSans, fontSize: 11, fontWeight: 600, color: 'var(--shell-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{isEdit ? 'After edit' : 'Filters'}</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
             {chips.map((chip, i) => <PredicateChip key={i} label={chip.trim()} />)}
             {overflowCount > 0 && <span style={{ fontFamily: T.fSans, fontSize: 11, color: 'var(--shell-text-faint)' }}>+{overflowCount} more</span>}
@@ -239,21 +262,25 @@ export function SegmentProposalCard({ proposal }: SegmentProposalCardProps) {
           </div>
         )}
 
-        <VisibilitySelect value={visibility} onChange={setVisibility} disabled={creating} />
+        {/* Visibility is a create-time choice; an edit leaves it untouched. */}
+        {!isEdit && <VisibilitySelect value={visibility} onChange={setVisibility} disabled={creating} />}
       </div>
 
       {/* Footer actions */}
       <div style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8, borderTop: '1px solid var(--shell-bg-subtle)' }}>
-        <button type="button" onClick={handleCreate} disabled={btnDisabled}
+        <button type="button" onClick={handleConfirm} disabled={btnDisabled}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 16px', borderRadius: 6, background: btnDisabled ? 'var(--bg-muted)' : 'var(--brand)', border: 'none', cursor: btnDisabled ? 'not-allowed' : 'pointer', fontFamily: T.fSans, fontSize: 13, fontWeight: 600, color: btnDisabled ? 'var(--text-muted)' : 'var(--text-on-brand)', opacity: creating ? 0.7 : 1 }}>
-          <Icon icon={CheckCircle} size={13} color={btnDisabled ? 'var(--text-muted)' : 'var(--text-on-brand)'} />
-          {creating ? 'Creating…' : 'Create segment'}
+          <Icon icon={isEdit ? Pencil : CheckCircle} size={13} color={btnDisabled ? 'var(--text-muted)' : 'var(--text-on-brand)'} />
+          {creating ? (isEdit ? 'Updating…' : 'Creating…') : (isEdit ? 'Update segment' : 'Create segment')}
         </button>
-        <button type="button" onClick={handleOpenEditor} disabled={creating}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--border-card)', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: T.fSans, fontSize: 12, fontWeight: 500, color: 'var(--shell-text-secondary)' }}>
-          <Icon icon={ExternalLink} size={12} color="var(--shell-text-secondary)" />
-          Open in editor
-        </button>
+        {/* "Open in editor" pre-seeds the NEW-segment editor — only meaningful for create. */}
+        {!isEdit && (
+          <button type="button" onClick={handleOpenEditor} disabled={creating}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 6, background: 'var(--bg-card)', border: '1px solid var(--border-card)', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: T.fSans, fontSize: 12, fontWeight: 500, color: 'var(--shell-text-secondary)' }}>
+            <Icon icon={ExternalLink} size={12} color="var(--shell-text-secondary)" />
+            Open in editor
+          </button>
+        )}
         <button type="button" onClick={() => setDismissed(true)} disabled={creating}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', borderRadius: 6, background: 'none', border: 'none', cursor: creating ? 'not-allowed' : 'pointer', fontFamily: T.fSans, fontSize: 12, color: 'var(--shell-text-faint)' }}>
           <Icon icon={X} size={12} color="var(--shell-text-faint)" />

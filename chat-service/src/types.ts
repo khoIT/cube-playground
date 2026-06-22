@@ -256,6 +256,11 @@ export type SseEvent =
         };
         disclosures: string[];
         suggestedVisibility: 'personal' | 'shared' | 'org';
+        /** Present only for edit proposals — FE PATCHes instead of POSTing. */
+        edit?: {
+          segment_id: string;
+          previous_predicate_tree: unknown;
+        };
       };
     };
 

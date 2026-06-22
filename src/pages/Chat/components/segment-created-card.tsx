@@ -24,6 +24,8 @@ interface SegmentCreatedCardProps {
   overflowCount: number;
   onView: () => void;
   onCreateAnother: () => void;
+  /** 'created' (default) for a brand-new segment; 'updated' for an in-place edit. */
+  mode?: 'created' | 'updated';
 }
 
 /** Status row colour + label per segment lifecycle state. Refreshing pulses. */
@@ -47,8 +49,9 @@ const lblStyle: React.CSSProperties = {
   textTransform: 'uppercase', letterSpacing: '0.06em',
 };
 
-export function SegmentCreatedCard({ segment, chips, overflowCount, onView, onCreateAnother }: SegmentCreatedCardProps) {
+export function SegmentCreatedCard({ segment, chips, overflowCount, onView, onCreateAnother, mode = 'created' }: SegmentCreatedCardProps) {
   const st = statusView(segment.status);
+  const isUpdated = mode === 'updated';
 
   return (
     <div
@@ -67,7 +70,7 @@ export function SegmentCreatedCard({ segment, chips, overflowCount, onView, onCr
       <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 20px', background: 'var(--success-soft)', borderLeft: '3px solid var(--success-ink)' }}>
         <Icon icon={CheckCircle} size={15} color="var(--success-ink)" />
         <span style={{ fontFamily: T.fSans, fontSize: 13.5, fontWeight: 600, color: 'var(--success-ink)' }}>
-          Segment created in {segment.game_id}
+          {isUpdated ? 'Segment updated' : 'Segment created'} in {segment.game_id}
         </span>
       </div>
 
@@ -157,7 +160,7 @@ export function SegmentCreatedCard({ segment, chips, overflowCount, onView, onCr
           }}
         >
           <Icon icon={Plus} size={13} color="var(--shell-text-secondary)" />
-          Create another
+          {isUpdated ? 'Done' : 'Create another'}
         </button>
       </div>
 

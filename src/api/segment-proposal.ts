@@ -40,4 +40,13 @@ export interface SegmentProposalPayload {
   disclosures: string[];
   /** Visibility tier the agent recommends. User may override before confirming. */
   suggestedVisibility: SegmentVisibility;
+  /**
+   * Present only on EDIT proposals (propose_segment_edit). When set, the card
+   * confirms by PATCHing /api/segments/:id with the new `predicate_tree` instead
+   * of POSTing a new segment; `previous_predicate_tree` powers the old→new diff.
+   */
+  edit?: {
+    segment_id: string;
+    previous_predicate_tree: PredicateNode;
+  };
 }

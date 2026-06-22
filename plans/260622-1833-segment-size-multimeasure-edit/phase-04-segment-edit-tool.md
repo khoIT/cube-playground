@@ -1,8 +1,10 @@
 # Phase 04 — Segment-edit tool + edit proposal
 
 ## Overview
-Priority: medium. Status: pending.
+Priority: medium. Status: DONE.
 Let the agent modify an existing segment (add/remove/replace a predicate leaf) instead of rebuilding.
+
+> Resolution: `propose_segment_edit({ segment_id, ops })` with ops `add_filter`/`remove_filter`/`replace_tree` (pure apply in `segment-edit-ops.ts`). Loads the full segment, refuses early on `can_administer:false` (no dead 403 proposal) and on no-predicate/uid-list segments, guards against emptying the predicate, then emits a `segment_proposal` carrying an `edit: { segment_id, previous_predicate_tree }` block (NOT a new event — reuses the proposal envelope so persistence/replay ride along). Edit-intent routing added to `intent-router.ts`; tool added to segment skill `allowed_tools` + an "Editing an existing segment" section.
 
 ## Key insight
 `PATCH /api/segments/:id` already accepts `predicate_tree` (owner/admin-only, auto-refresh). `get_segment` already returns the tree. Gap = a chat-service edit tool + an FE confirm card + routing.

@@ -29,6 +29,7 @@ import * as getBusinessMetricHistory from './get-business-metric-history.js';
 import * as getTopicKnowledge from './get-topic-knowledge.js';
 import * as getSegmentableMeasures from './get-segmentable-measures.js';
 import * as proposeSegment from './propose-segment.js';
+import * as proposeSegmentEdit from './propose-segment-edit.js';
 import * as getMetricBenchmark from './get-metric-benchmark.js';
 import * as getCompanyContext from './get-company-context.js';
 import { config } from '../config.js';
@@ -194,6 +195,13 @@ const REGISTRY: RegistryEntry[] = [
     inputSchema: proposeSegment.inputSchema,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handler: proposeSegment.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
+  },
+  {
+    name: proposeSegmentEdit.name,
+    description: proposeSegmentEdit.description,
+    inputSchema: proposeSegmentEdit.inputSchema,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handler: proposeSegmentEdit.handler as (args: Record<string, any>, ctx: ToolContext) => Promise<unknown>,
   },
   {
     name: getMetricBenchmark.name,

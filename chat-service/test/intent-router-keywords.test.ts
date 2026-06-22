@@ -157,4 +157,29 @@ describe('routeIntent — keyword heuristic', () => {
     expect(result.skill).toBe('segment');
     expect(result.autoRoute).toBe(true);
   });
+
+  // Edit-intent shapes — route to the same skill, which branches edit vs create.
+  it('routes "add country=VN to my Whales segment" → segment (edit)', () => {
+    const result = routeIntent('add country=VN to my Whales segment');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('routes "remove the level filter from the Dormant cohort" → segment (edit)', () => {
+    const result = routeIntent('remove the level filter from the Dormant cohort');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('routes "edit my high-spenders audience" → segment (edit)', () => {
+    const result = routeIntent('edit my high-spenders audience');
+    expect(result.skill).toBe('segment');
+    expect(result.autoRoute).toBe(true);
+  });
+
+  it('does NOT force segment for "add a revenue column to the chart"', () => {
+    // "add … to …" with no segment/cohort/audience noun must stay on explore.
+    const result = routeIntent('add a revenue column to the chart');
+    expect(result.skill).not.toBe('segment');
+  });
 });
