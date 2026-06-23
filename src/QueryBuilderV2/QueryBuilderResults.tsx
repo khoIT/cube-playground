@@ -976,7 +976,7 @@ export function QueryBuilderResults({ forceMinHeight }: { forceMinHeight?: boole
       return [value, 'unknown'];
     }
 
-    let member = [...cube.dimensions, ...cube.measures].find(
+    let member = [...(cube.dimensions ?? []), ...(cube.measures ?? [])].find(
       (member) => member.name === dimensionName
     );
 

@@ -452,15 +452,18 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
           .filter(visibilityFilter)
           .filter(passesCubeFilter)
           .forEach((cube) => {
-            cube.dimensions.filter(visibilityFilter).forEach((dimension) => {
+            // Prefix-workspace (prod) meta can omit a cube's member arrays
+            // entirely (e.g. a dimension-only view has no `measures`), so guard
+            // each — an absent array must read as empty, not throw.
+            (cube.dimensions ?? []).filter(visibilityFilter).forEach((dimension) => {
               memberData.dimensions[dimension.name] = dimension;
             });
 
-            cube.measures.filter(visibilityFilter).forEach((measure) => {
+            (cube.measures ?? []).filter(visibilityFilter).forEach((measure) => {
               memberData.measures[measure.name] = measure;
             });
 
-            cube.segments.filter(visibilityFilter).forEach((segment) => {
+            (cube.segments ?? []).filter(visibilityFilter).forEach((segment) => {
               memberData.segments[segment.name] = segment;
             });
           });
@@ -472,11 +475,13 @@ export function useQueryBuilder(props: UseQueryBuilderProps) {
             .filter(visibilityFilter)
             .filter(passesCubeFilter)
             .map((cube) => {
+              // Normalise member arrays here so every downstream `cubes`
+              // consumer is guaranteed real arrays even when prod meta omits them.
               return {
                 ...cube,
-                measures: cube.measures.filter(visibilityFilter),
-                dimensions: cube.dimensions.filter(visibilityFilter),
-                segments: cube.segments.filter(visibilityFilter),
+                measures: (cube.measures ?? []).filter(visibilityFilter),
+                dimensions: (cube.dimensions ?? []).filter(visibilityFilter),
+                segments: (cube.segments ?? []).filter(visibilityFilter),
               };
             })
             .sort((a, b) => a.name.localeCompare(b.name)) as Cube[]

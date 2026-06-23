@@ -12,6 +12,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CatalogCube } from '../../use-catalog-meta';
 import type { Concept } from '../concept-types';
+import { conceptsFromCube } from '../use-concepts';
 
 // Inline the same private helper to keep the test independent of React.
 function resolve(cubeName: string, raw: string) {
@@ -60,6 +61,24 @@ describe('conceptsFromCube (mirror)', () => {
       'dimension:mf_users.event_date',
       'dimension:mf_users.country',
       'segment:mf_users.whales',
+    ]);
+  });
+
+  it('does not throw when a (prod prefix-workspace) cube omits member arrays', () => {
+    // Prod `/meta` can return a cube/view with `measures` and/or `dimensions`
+    // absent (a dimension-only view has no measures key). The real function must
+    // treat an absent array as empty, not crash the whole concept index.
+    const memberless = { name: 'lookup_view', type: 'view' } as unknown as CatalogCube;
+    expect(() => conceptsFromCube(memberless)).not.toThrow();
+    expect(conceptsFromCube(memberless)).toEqual([]);
+
+    const dimsOnly = {
+      name: 'dim_view',
+      type: 'view',
+      dimensions: [{ name: 'country', type: 'string' }],
+    } as unknown as CatalogCube;
+    expect(conceptsFromCube(dimsOnly).map((c) => `${c.type}:${c.fqn}`)).toEqual([
+      'dimension:dim_view.country',
     ]);
   });
 

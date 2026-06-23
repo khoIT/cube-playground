@@ -43,11 +43,15 @@ export function normaliseFqn(raw: string): string {
   return raw;
 }
 
-function conceptsFromCube(cube: CatalogCube): Concept[] {
+export function conceptsFromCube(cube: CatalogCube): Concept[] {
   const out: Concept[] = [];
   const cubeKind: 'cube' | 'view' = cube.type === 'view' ? 'view' : 'cube';
 
-  for (const m of cube.measures) {
+  // Prefix-workspace (prod) meta can omit `measures`/`dimensions` on a cube or
+  // view entirely (a dimension-only view has no measures key), so guard both —
+  // an absent array must read as empty, not crash the concept index. (`segments`
+  // was already guarded below.)
+  for (const m of cube.measures ?? []) {
     const { fqn, local } = resolveMemberNames(cube.name, m.name);
     out.push({
       type: 'measure',
@@ -66,7 +70,7 @@ function conceptsFromCube(cube: CatalogCube): Concept[] {
     });
   }
 
-  for (const d of cube.dimensions) {
+  for (const d of cube.dimensions ?? []) {
     if (!isQueryableDim(d)) continue;
     const { fqn, local } = resolveMemberNames(cube.name, d.name);
     out.push({
