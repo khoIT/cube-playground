@@ -88,6 +88,27 @@ then regenerate the report and diff answered-rate. Layer B loops this over all 8
    switch to **Revenue** only when the message carries a money cue
    (spend/revenue/ARPU/…). Decided by user 2026-06-23.
 
+## Extension — persona answer-quality bank (business leader + liveops manager)
+The resolver smoketest bank is a narrow regression guard (exact-member binding).
+To cover questions real GMs / liveops managers ask, a second bank grades the
+*decision*, not the mechanic:
+- `test/eval/persona-answer-quality-bank.json` — cases named by persona×intent,
+  each carrying an **acceptable-member SET** (leaf-family, not exact ref — the
+  same trick that made the parity matrix game-generic) + a `dataClass` tag.
+- `test/eval/persona-answer-quality-grader.ts` — cross-game matrix, two lanes:
+  - **shape** (9 cases): resolver + answer-shape correctness, gradable on the
+    single-month synthetic corpus → runs every game in CI. Coverage-honesty
+    cases assert the turn *declines* an out-of-range ask rather than charting it.
+  - **analytics** (6 cases): trend/lift/diagnosis/funnel — need real
+    multi-period / payer-rich data, so illustrative (never a fail) until a
+    richer corpus exists; rubric weights for the eventual LLM-judge live per case.
+- Tiering keeps CI cheap and protects the subscription auth cap: shape subset is
+  the routine run; the full bank ×8 games is a paced/resumable batch, not CI.
+- Locked decisions (2026-06-23): both-tiered scope; ground truth = acceptable-
+  member sets + LLM judge (no golden frozen strings).
+
+Status: bank + grader scaffolded; live batch run not yet executed (auth-gated).
+
 ## Open questions
 2. Per-game glossary revenue mapping: confirm each game's glossary `revenue`
    concept points to `revenue_vnd` (present in all 8) and not a cfm-only ref like

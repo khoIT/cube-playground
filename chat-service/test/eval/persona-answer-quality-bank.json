@@ -1,0 +1,169 @@
+{
+  "about": "Persona-grounded answer-quality bank for business-leader (GM/publishing) and liveops-manager questions. Distinct from resolver-smoketest-bank.json (a narrow resolver regression guard graded on exact member binding). Here cases are named for the DECISION they serve, and graded on an acceptable-member SET + answer-shape, never an exact ref — so the bank stays game-generic the same way the resolver fix did (members are byte-identical across games; only the resolved cube varies).",
+  "schema": {
+    "id": "stable case id, persona-prefixed (bl- = business leader, lo- = liveops)",
+    "persona": "business-leader | liveops-manager",
+    "intent": "decision category the question serves",
+    "question": "the natural-language prompt fed to the chat turn",
+    "curationGroup": "runner grouping key (reused by answer-quality-runner)",
+    "dataClass": "shape = resolver + answer-shape correctness, gradable on the single-month synthetic corpus, runs every game in CI | analytics = needs real multi-period / payer-rich data, illustrative until a richer corpus exists",
+    "acceptableMembers": "set of LEAF member names (cube-relative tail) any of which is a valid bind for this decision; empty = any valid metric (open-ended pulse). Generalises the parity-matrix 'platform-family leaf' trick.",
+    "acceptableDims": "optional set of acceptable breakdown-dim leaf names; omit if no breakdown is required",
+    "requiredGrain": "expected row grain when it matters (day | week | month | player | segment); omit if grain is free",
+    "expectsDecline": "true when the right behaviour is to decline/disclose (coverage-honesty case) rather than emit an artifact",
+    "rubric": "judge-dimension weights for the analytics lane (intent_fit, time_scoping, coverage_honesty, decision_framing, artifact_correctness); shape lane ignores these and grades structurally"
+  },
+  "cases": [
+    {
+      "id": "bl-revenue-pulse",
+      "persona": "business-leader",
+      "intent": "revenue-health",
+      "question": "How is revenue doing over the last 30 days?",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": ["revenue_vnd", "revenue_vnd_total", "revenue_vnd_real", "revenue_vnd_iap"],
+      "requiredGrain": "day"
+    },
+    {
+      "id": "bl-arpdau",
+      "persona": "business-leader",
+      "intent": "monetization-efficiency",
+      "question": "What's our ARPDAU last 7 days?",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": ["arpdau", "arpu", "revenue_per_dau", "revenue_vnd_total", "revenue_vnd"]
+    },
+    {
+      "id": "bl-paying-rate",
+      "persona": "business-leader",
+      "intent": "monetization-health",
+      "question": "What share of our active players are paying right now?",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": ["paying_rate", "payer_rate", "paying_users", "payers", "dau"],
+      "acceptableDims": ["payer_tier"]
+    },
+    {
+      "id": "bl-revenue-by-tier",
+      "persona": "business-leader",
+      "intent": "whale-concentration",
+      "question": "How is revenue split across payer tiers this month?",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": ["revenue_vnd", "revenue_vnd_total", "revenue_vnd_real"],
+      "acceptableDims": ["payer_tier"]
+    },
+    {
+      "id": "bl-retention-d7",
+      "persona": "business-leader",
+      "intent": "retention-health",
+      "question": "What does our D7 retention look like for recent new users?",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": ["retention_d7", "d7_retention", "retention_rate", "retained_users"]
+    },
+    {
+      "id": "bl-ua-roas-channel",
+      "persona": "business-leader",
+      "intent": "ua-efficiency",
+      "question": "Which acquisition channels are paying back — ROAS by channel last 7 days?",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": ["roas", "revenue_vnd", "revenue_vnd_total", "cost", "spend"],
+      "acceptableDims": ["media_source", "channel", "campaign", "os_platform", "platform"]
+    },
+    {
+      "id": "bl-revenue-mom",
+      "persona": "business-leader",
+      "intent": "revenue-trend-comparison",
+      "question": "Compare this month's revenue to last month.",
+      "curationGroup": "persona-business",
+      "dataClass": "analytics",
+      "acceptableMembers": ["revenue_vnd", "revenue_vnd_total", "revenue_vnd_real"],
+      "requiredGrain": "month",
+      "rubric": { "intent_fit": 0.3, "time_scoping": 0.3, "coverage_honesty": 0.2, "decision_framing": 0.2, "artifact_correctness": 0.0 }
+    },
+    {
+      "id": "bl-revenue-drop-diagnose",
+      "persona": "business-leader",
+      "intent": "anomaly-diagnosis",
+      "question": "Revenue looks down this week — what's driving it?",
+      "curationGroup": "persona-business",
+      "dataClass": "analytics",
+      "acceptableMembers": ["revenue_vnd", "revenue_vnd_total", "dau", "paying_users", "arpu"],
+      "rubric": { "intent_fit": 0.25, "time_scoping": 0.15, "coverage_honesty": 0.2, "decision_framing": 0.4, "artifact_correctness": 0.0 }
+    },
+    {
+      "id": "bl-coverage-honesty",
+      "persona": "business-leader",
+      "intent": "coverage-honesty",
+      "question": "Show me revenue for the second quarter of last year.",
+      "curationGroup": "persona-business",
+      "dataClass": "shape",
+      "acceptableMembers": [],
+      "expectsDecline": true
+    },
+    {
+      "id": "lo-whale-engagement",
+      "persona": "liveops-manager",
+      "intent": "cohort-behavior",
+      "question": "How engaged are our whales over the last 7 days?",
+      "curationGroup": "persona-liveops",
+      "dataClass": "shape",
+      "acceptableMembers": ["dau", "wau", "playtime", "sessions", "active_days"],
+      "acceptableDims": ["payer_tier"]
+    },
+    {
+      "id": "lo-segment-size",
+      "persona": "liveops-manager",
+      "intent": "campaign-targeting",
+      "question": "How many minnows do we have to target this week?",
+      "curationGroup": "persona-liveops",
+      "dataClass": "shape",
+      "acceptableMembers": ["dau", "active_users", "users", "uniques"],
+      "acceptableDims": ["payer_tier"]
+    },
+    {
+      "id": "lo-top-spenders",
+      "persona": "liveops-manager",
+      "intent": "vip-identification",
+      "question": "Who are our top 20 spenders last 30 days?",
+      "curationGroup": "persona-liveops",
+      "dataClass": "shape",
+      "acceptableMembers": ["revenue_vnd", "revenue_vnd_total", "revenue_vnd_real"],
+      "requiredGrain": "player"
+    },
+    {
+      "id": "lo-first-purchase-funnel",
+      "persona": "liveops-manager",
+      "intent": "payer-funnel",
+      "question": "What's our first-purchase conversion for new players?",
+      "curationGroup": "persona-liveops",
+      "dataClass": "analytics",
+      "acceptableMembers": ["first_purchase_rate", "conversion_rate", "payers", "paying_users", "new_users"],
+      "rubric": { "intent_fit": 0.35, "time_scoping": 0.15, "coverage_honesty": 0.25, "decision_framing": 0.25, "artifact_correctness": 0.0 }
+    },
+    {
+      "id": "lo-event-lift",
+      "persona": "liveops-manager",
+      "intent": "event-performance",
+      "question": "Did the most recent event lift revenue versus the week before?",
+      "curationGroup": "persona-liveops",
+      "dataClass": "analytics",
+      "acceptableMembers": ["revenue_vnd", "revenue_vnd_total", "dau", "paying_users"],
+      "requiredGrain": "day",
+      "rubric": { "intent_fit": 0.3, "time_scoping": 0.3, "coverage_honesty": 0.2, "decision_framing": 0.2, "artifact_correctness": 0.0 }
+    },
+    {
+      "id": "lo-churn-risk-size",
+      "persona": "liveops-manager",
+      "intent": "churn-risk",
+      "question": "How many paying players haven't logged in for 7 days?",
+      "curationGroup": "persona-liveops",
+      "dataClass": "analytics",
+      "acceptableMembers": ["dau", "users", "active_users", "last_active_days"],
+      "acceptableDims": ["payer_tier"],
+      "rubric": { "intent_fit": 0.4, "time_scoping": 0.2, "coverage_honesty": 0.2, "decision_framing": 0.2, "artifact_correctness": 0.0 }
+    }
+  ]
+}
