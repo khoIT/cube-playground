@@ -21,6 +21,15 @@ interface Props {
   query: unknown;
   /** Send a refinement as a follow-up turn (reuses the followup send path). */
   onRefine: (text: string) => void;
+  /**
+   * Controlled open state. When provided, the parent owns the collapsed toggle
+   * (it lives in the card's unified action bar) and this component renders only
+   * the expanded panel. When omitted, the component stays self-contained with
+   * its own inline toggle.
+   */
+  expanded?: boolean;
+  /** Collapse handler for controlled mode. */
+  onCollapse?: () => void;
 }
 
 const chipStyle: React.CSSProperties = {
@@ -52,8 +61,12 @@ const toggleStyle: React.CSSProperties = {
   letterSpacing: '0.02em',
 };
 
-export function QueryRefineRow({ query, onRefine }: Props): ReactElement | null {
-  const [expanded, setExpanded] = useState(false);
+export function QueryRefineRow({ query, onRefine, expanded, onCollapse }: Props): ReactElement | null {
+  // Controlled when the parent passes `expanded`; otherwise self-contained.
+  const controlled = expanded !== undefined;
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isOpen = controlled ? expanded : internalExpanded;
+  const collapse = controlled ? onCollapse : () => setInternalExpanded(false);
   const [draft, setDraft] = useState('');
   const chips = generateRefineChips(query);
 
@@ -64,10 +77,12 @@ export function QueryRefineRow({ query, onRefine }: Props): ReactElement | null 
     setDraft('');
   }
 
-  // Collapsed: just the toggle. One row of quiet chrome under the chart.
-  if (!expanded) {
+  // Collapsed: in controlled mode the parent owns the toggle, so render nothing;
+  // uncontrolled mode shows the quiet inline toggle.
+  if (!isOpen) {
+    if (controlled) return null;
     return (
-      <button type="button" onClick={() => setExpanded(true)} aria-expanded={false} style={toggleStyle}>
+      <button type="button" onClick={() => setInternalExpanded(true)} aria-expanded={false} style={toggleStyle}>
         <Icon icon={SlidersHorizontal} size={13} color={'var(--shell-text-subtle)'} />
         Refine query
       </button>
@@ -78,7 +93,7 @@ export function QueryRefineRow({ query, onRefine }: Props): ReactElement | null 
     <div className={styles.row}>
       <button
         type="button"
-        onClick={() => setExpanded(false)}
+        onClick={collapse}
         aria-expanded={true}
         aria-label="Hide refine options"
         style={{

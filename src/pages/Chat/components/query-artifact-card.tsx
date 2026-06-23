@@ -12,7 +12,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { BarChart2, ExternalLink, Users } from 'lucide-react';
+import { BarChart2, ExternalLink, Users, SlidersHorizontal } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
 import { AssistantChartSection } from './assistant-chart-section';
 import { ChartSectionMenu, preferDualAxis, preferTableView } from './chart-section-menu';
@@ -26,6 +26,7 @@ import { useBuildSegmentFromQuery } from './use-build-segment-from-query';
 import { SegmentProposalCard } from './segment-proposal-card';
 import { SegmentSeedValuePicker } from './segment-seed-value-picker';
 import type { QueryArtifact, ChartSpec } from '../../../api/chat-sse-client';
+import styles from './query-artifact-card.module.css';
 
 interface QueryArtifactCardProps {
   artifact: QueryArtifact;
@@ -76,6 +77,9 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
   // `seed` is set for breakdown queries: the button opens a value picker first.
   const { segmentable, seed, proposal, build, buildFromSeed } = useBuildSegmentFromQuery(artifact);
   const [seedOpen, setSeedOpen] = useState(false);
+  // Refine is now part of the unified action bar; the card owns its open state
+  // so the collapsed toggle can sit inline with Build / Open in Playground.
+  const [refineOpen, setRefineOpen] = useState(false);
 
   function handleOpen() {
     openArtifactInPlayground(artifact, history);
@@ -216,76 +220,54 @@ export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifact
         </div>
       )}
 
-      {/* Refine row — context-aware chips + free-text, sent as a follow-up turn. */}
-      {onRefine && (
-        <div style={{ padding: '4px 24px 12px' }}>
-          <QueryRefineRow query={artifact.query} onRefine={onRefine} />
+      {/* Refine panel — full-width when expanded; the toggle lives in the bar below. */}
+      {onRefine && refineOpen && (
+        <div style={{ padding: '0 24px 12px' }}>
+          <QueryRefineRow
+            query={artifact.query}
+            onRefine={onRefine}
+            expanded
+            onCollapse={() => setRefineOpen(false)}
+          />
         </div>
       )}
 
-      {/* Footer actions */}
+      {/* Unified action bar: Refine (tertiary) left; Build (primary) + Open (secondary) right. */}
       <div
-        style={{
-          padding: '12px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          // Build (primary on-ramp) sits left; Open in Playground stays right.
-          justifyContent: (segmentable || seed) && !proposal && !seedOpen ? 'space-between' : 'flex-end',
-          borderTop: artifact.summary || chart ? `1px solid var(--shell-bg-subtle)` : undefined,
-        }}
+        className={styles.actionBar}
+        style={{ borderTop: artifact.summary || chart ? `1px solid var(--shell-bg-subtle)` : undefined }}
       >
-        {/* Build-segment bridge — direct (segmentable) or seed (breakdown) path,
-            pre-proposal and before the seed picker opens. */}
-        {(segmentable || seed) && !proposal && !seedOpen && (
-          <button
-            type="button"
-            onClick={seed && !segmentable ? () => setSeedOpen(true) : build}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              height: 34,
-              padding: '0 14px',
-              borderRadius: 'var(--radius-md)',
-              background: 'transparent',
-              border: '1px solid var(--shell-border-strong)',
-              cursor: 'pointer',
-              fontFamily: T.fSans,
-              fontSize: 13,
-              fontWeight: 500,
-              color: 'var(--shell-text-muted)',
-            }}
-          >
-            <Icon icon={Users} size={14} color={'var(--shell-text-muted)'} />
-            Build segment from this
+        <div className={styles.actionLeft}>
+          {onRefine && !refineOpen && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.ghostBtn}`}
+              onClick={() => setRefineOpen(true)}
+              aria-expanded={false}
+            >
+              <Icon icon={SlidersHorizontal} size={14} />
+              Refine query
+            </button>
+          )}
+        </div>
+        <div className={styles.actionRight}>
+          {/* Build-segment bridge — direct (segmentable) or seed (breakdown) path,
+              pre-proposal and before the seed picker opens. */}
+          {(segmentable || seed) && !proposal && !seedOpen && (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.primaryBtn}`}
+              onClick={seed && !segmentable ? () => setSeedOpen(true) : build}
+            >
+              <Icon icon={Users} size={14} />
+              Build segment from this
+            </button>
+          )}
+          <button type="button" className={`${styles.btn} ${styles.secondaryBtn}`} onClick={handleOpen}>
+            <Icon icon={ExternalLink} size={14} />
+            Open in Playground
           </button>
-        )}
-        <button
-          type="button"
-          onClick={handleOpen}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            // Secondary action: the answer + chart are the focus, so this reads
-            // as a quiet ghost link (transparent fill, hairline border) rather
-            // than a solid brand CTA competing with the data.
-            height: 34,
-            padding: '0 14px',
-            borderRadius: 'var(--radius-md)',
-            background: 'transparent',
-            border: '1px solid var(--shell-border-strong)',
-            cursor: 'pointer',
-            fontFamily: T.fSans,
-            fontSize: 13,
-            fontWeight: 500,
-            color: 'var(--shell-text-muted)',
-          }}
-        >
-          <Icon icon={ExternalLink} size={14} color={'var(--shell-text-muted)'} />
-          Open in Playground
-        </button>
+        </div>
       </div>
     </div>
     {/* Seed picker: a breakdown query asks which dimension value(s) to filter on

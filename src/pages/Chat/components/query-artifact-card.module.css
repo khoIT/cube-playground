@@ -1,0 +1,101 @@
+/*
+ * Unified action bar under a query artifact card.
+ *
+ * The three on-ramps used to read as identical flat grey ghosts on two
+ * disconnected rows (an orphaned "Refine query" pill, then Build + Open). They
+ * now share one bar with a deliberate weight hierarchy:
+ *   - primary  → Build segment (brand-tinted at rest, fills solid on hover)
+ *   - secondary → Open in Playground (warm card chip that lifts on hover)
+ *   - tertiary → Refine query (lowest-weight pill ghost)
+ *
+ * Icons are rendered without an explicit color so they inherit currentColor —
+ * the hover color shift on each button carries through into its icon.
+ */
+
+.actionBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 12px 24px;
+}
+
+.actionLeft,
+.actionRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
+}
+
+.btn:active {
+  transform: translateY(0.5px);
+}
+
+/* Primary — Build segment (the on-ramp the card steers toward). Brand-tinted
+   at rest so it carries color without shouting; fills solid brand on hover. */
+.primaryBtn {
+  background: var(--shell-brand-soft);
+  border: 1px solid var(--shell-brand-border);
+  color: var(--shell-brand);
+  font-weight: 600;
+}
+.primaryBtn:hover {
+  background: var(--shell-brand);
+  border-color: var(--shell-brand);
+  color: var(--text-on-brand);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+/* Secondary — Open in Playground. Quiet warm card chip; warms + lifts on hover. */
+.secondaryBtn {
+  background: var(--surface-raised);
+  border: 1px solid var(--shell-border-strong);
+  color: var(--shell-text-muted);
+}
+.secondaryBtn:hover {
+  background: var(--bg-muted);
+  border-color: var(--shell-text-faint);
+  color: var(--shell-text-emphasis);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Tertiary — Refine toggle. Lowest-weight, pill-shaped, transparent at rest. */
+.ghostBtn {
+  height: 30px;
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--radius-pill);
+  color: var(--shell-text-subtle);
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+.ghostBtn:hover {
+  background: var(--shell-nav-hover);
+  border-color: var(--shell-border-strong);
+  color: var(--shell-text-emphasis);
+}
