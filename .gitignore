@@ -138,3 +138,9 @@ cube-cloud-model/
 
 # Scratch dir — one-off verification scripts, screenshots, design demos (machine-local)
 _temp/
+
+# Design-demo scratch — keep the .html variants trackable, but ignore one-off
+# Playwright screenshots and shot/crop scripts (machine-local verification only)
+plans/**/design-demos/*.png
+plans/**/design-demos/shot-*.mjs
+plans/**/design-demos/crop*.mjs
