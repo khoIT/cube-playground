@@ -4,7 +4,7 @@ import { ReactElement, useEffect, useState, ReactNode } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
 import { message } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { Activity, Code2, GitBranch, HeartPulse, LineChart, Send, Users } from 'lucide-react';
+import { Activity, ChevronDown, Code2, GitBranch, HeartPulse, LineChart, Send, Users } from 'lucide-react';
 import { useTopbarBreadcrumbOverride } from '../../../shell/topbar/topbar-breadcrumb-context';
 import { pushRecent, removeRecent } from '../../../shell/sidebar/recent-items-store';
 import { invalidateSegmentIds } from '../use-segment-ids';
@@ -32,6 +32,7 @@ import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
 import { useHeadlineDeltas } from './components/use-headline-deltas';
+import { formatCompact } from './cards/format-value';
 import { SegmentScopeBar } from './components/segment-scope-bar';
 import { SegmentScopeProvider } from './segment-scope-context';
 import { SegmentHealthPill } from '../status/segment-health-pill';
@@ -58,6 +59,19 @@ export function DetailView(): ReactElement {
   const preset = usePreset(segment);
   const { tab, section, setTab, setSection } = useActiveTab();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // Collapse the frozen summary (KPI cards + AI brief) to hand the viewport to
+  // the table below. Persisted so it sticks across segments/sessions; collapsed
+  // still shows a condensed KPI strip, so no numbers are lost.
+  const [summaryCollapsed, setSummaryCollapsed] = useState(
+    () => localStorage.getItem('segments:detailSummaryCollapsed') === '1',
+  );
+  const toggleSummary = (): void => {
+    setSummaryCollapsed((c) => {
+      const next = !c;
+      localStorage.setItem('segments:detailSummaryCollapsed', next ? '1' : '0');
+      return next;
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -160,6 +174,17 @@ export function DetailView(): ReactElement {
       <BrokenSegmentBanner segment={segment} onViewRefreshLog={() => setTab('monitor')} />
       <header className={styles.detailHeader}>
         <div className={styles.detailTitleRow}>
+          <button
+            type="button"
+            className={styles.summaryCollapseBtn}
+            data-collapsed={summaryCollapsed ? 'true' : undefined}
+            aria-expanded={!summaryCollapsed}
+            aria-label={summaryCollapsed ? 'Expand summary' : 'Collapse summary'}
+            title={summaryCollapsed ? 'Expand summary' : 'Collapse summary — more room for the table'}
+            onClick={toggleSummary}
+          >
+            <ChevronDown size={15} aria-hidden />
+          </button>
           <EditableSegmentTitle segment={segment} onRename={setSegment} />
           {segment.cube != null && (
             <span className={styles.cubeBadge}>{segment.cube}</span>
@@ -187,6 +212,7 @@ export function DetailView(): ReactElement {
           <SegmentHealthPill segment={segment} onCadenceChange={setSegment} />
           <ActivationChip segment={segment} onJump={goActivation} />
           <div style={{ flex: 1 }} />
+          {scopeAvailable && preset && <SegmentScopeBar segment={segment} preset={preset} compact />}
           <DetailHeaderActions
             segment={segment}
             preset={preset}
@@ -196,8 +222,8 @@ export function DetailView(): ReactElement {
         </div>
       </header>
 
-      {scopeAvailable && preset && <SegmentScopeBar segment={segment} preset={preset} />}
-
+      {/* Headline KPIs — full cards when expanded, condensed inline strip when
+          collapsed (same values, one fetch). AI brief hides on collapse. */}
       <HeadlineStatsRow
         segment={segment}
         preset={preset}
@@ -206,28 +232,39 @@ export function DetailView(): ReactElement {
         lastRefresh={lastRefresh}
         lastRefreshFooter={lastRefreshFooter}
         ownerFooter={ownerFooter}
+        collapsed={summaryCollapsed}
       />
 
-      <AiBriefCard segmentId={segment.id} />
+      {!summaryCollapsed && <AiBriefCard segmentId={segment.id} />}
 
       <div className={styles.tabStrip} role="tablist">
-        {tabs.map((tid) => (
-          <button
-            key={tid}
-            type="button"
-            role="tab"
-            aria-selected={tab === tid}
-            className={[styles.tab, tab === tid ? styles.tabActive : ''].filter(Boolean).join(' ')}
-            onClick={() => setTab(tid)}
-          >
-            {TAB_ICONS[tid]}
-            {t(`segments.detail.tabs.${tid}`, { defaultValue: tid })}
-          </button>
-        ))}
+        {tabs.map((tid) => {
+          const isMembers = tid === 'members';
+          return (
+            <button
+              key={tid}
+              type="button"
+              role="tab"
+              aria-selected={tab === tid}
+              className={[
+                styles.tab,
+                tab === tid ? styles.tabActive : '',
+                isMembers ? styles.tabPrimary : '',
+              ].filter(Boolean).join(' ')}
+              onClick={() => setTab(tid)}
+            >
+              {TAB_ICONS[tid]}
+              {t(`segments.detail.tabs.${tid}`, { defaultValue: tid })}
+              {isMembers && (
+                <span className={styles.tabBadge}>{formatCompact(segment.uid_count)}</span>
+              )}
+            </button>
+          );
+        })}
       </div>
       </div>
 
-      {tab === 'monitor' && <MonitorTab segment={segment} onSegmentChange={setSegment} />}
+      {tab === 'monitor' && <MonitorTab segment={segment} />}
       {tab === 'insights' && (
         <InsightsTab
           segment={segment}

@@ -518,6 +518,48 @@
   border-bottom-color: var(--brand);
 }
 
+/* Members = primary destination: brand-tinted active fill + live count badge,
+   so the table tab reads as the page's home even among six tabs. */
+.tabPrimary.tabActive {
+  color: var(--brand);
+  background: linear-gradient(180deg, transparent, var(--brand-soft));
+  border-top-left-radius: var(--radius-sm);
+  border-top-right-radius: var(--radius-sm);
+}
+.tabBadge {
+  font-size: 10.5px;
+  font-weight: 700;
+  background: var(--brand);
+  color: var(--text-on-brand);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+  margin-left: 2px;
+}
+.tabPrimary:not(.tabActive) .tabBadge {
+  background: var(--brand-soft);
+  color: var(--brand);
+}
+
+/* Frozen-summary collapse toggle — sits at the head of the title row; the
+   chevron points down when expanded, rotates to ▸ when collapsed. */
+.summaryCollapseBtn {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: transform 0.18s ease, color 0.15s ease;
+}
+.summaryCollapseBtn:hover { color: var(--text-primary); }
+.summaryCollapseBtn[data-collapsed='true'] { transform: rotate(-90deg); }
+
 /* Tab bodies sit directly under the page's 14px flex gap — no extra
    padding, so every tab starts as compact as Insights. */
 .tabBody {

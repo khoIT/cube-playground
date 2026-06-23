@@ -67,8 +67,40 @@ export function StatCellInner({
   );
 }
 
-/** Pure render — caller resolves values. */
-export function StatsRow({ items }: StatsRowProps): ReactElement {
+/**
+ * Condensed inline cell for the collapsed header — "value label delta", no
+ * card chrome. Dot separators come from CSS between adjacent cells.
+ */
+export function MiniStatCell({
+  label, value, delta, tone,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  delta?: ReactNode;
+  tone?: Tone;
+}): ReactElement {
+  return (
+    <span className={styles.miniCell}>
+      <span className={styles.miniVal}>{value}</span>
+      <span className={styles.miniLbl}>{label}</span>
+      {delta != null && (
+        <span className={styles.miniDelta} data-tone={tone ?? 'neutral'}>{delta}</span>
+      )}
+    </span>
+  );
+}
+
+/** Pure render — caller resolves values. `mini` switches to the condensed strip. */
+export function StatsRow({ items, mini }: StatsRowProps & { mini?: boolean }): ReactElement {
+  if (mini) {
+    return (
+      <div className={styles.statsMini} role="group" aria-label="Segment headline metrics">
+        {items.map((item) => (
+          <MiniStatCell key={item.id} label={item.label} value={item.value} delta={item.delta} tone={item.tone} />
+        ))}
+      </div>
+    );
+  }
   return (
     <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
       {items.map((item) => (

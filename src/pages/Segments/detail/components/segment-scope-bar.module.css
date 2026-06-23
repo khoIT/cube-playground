@@ -10,6 +10,12 @@
   margin-bottom: 12px;
 }
 
+/* Inline (title-row) placement — no bottom margin, smaller toggle so it sits
+   alongside the title and actions on one line. */
+.scopeBarCompact { margin-bottom: 0; gap: 8px; }
+.scopeBarCompact .seg button { padding: 4px 10px; font-size: 12px; }
+.scopeBarCompact .seg button .count { font-size: 11px; }
+
 /* Segmented control — recessed --bg-muted track, mirroring the Top/Middle/Bottom 50 control. */
 .seg {
   display: inline-flex;

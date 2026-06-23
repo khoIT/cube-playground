@@ -23,9 +23,12 @@ import styles from './segment-scope-bar.module.css';
 interface Props {
   segment: Segment;
   preset: Preset;
+  /** Title-row inline placement: drop the row margin; the paying caveat shrinks
+   *  to a tooltip on the Paying button so it never wraps the title row. */
+  compact?: boolean;
 }
 
-export function SegmentScopeBar({ segment, preset }: Props): ReactElement | null {
+export function SegmentScopeBar({ segment, preset, compact = false }: Props): ReactElement | null {
   const { scope, setScope, available } = useSegmentScope();
   const cube = preset.identityDim.split('.')[0];
 
@@ -47,22 +50,40 @@ export function SegmentScopeBar({ segment, preset }: Props): ReactElement | null
   const pct = paying != null && total > 0 ? (paying / total) * 100 : null;
   const isPaying = scope === 'paying';
 
+  const payingTip = pct != null
+    ? `${pct.toFixed(1)}% of segment — non-destructive view, definition unchanged`
+    : 'Non-destructive view, definition unchanged';
+
   return (
-    <div className={styles.scopeBar} role="group" aria-label="Population scope">
+    <div
+      className={[styles.scopeBar, compact ? styles.scopeBarCompact : ''].filter(Boolean).join(' ')}
+      role="group"
+      aria-label="Population scope"
+    >
       <div className={styles.seg}>
         <button type="button" aria-pressed={!isPaying} onClick={() => setScope('all')}>
           Everyone <span className={styles.count}>{formatCompact(total)}</span>
         </button>
-        <button type="button" aria-pressed={isPaying} onClick={() => setScope('paying')}>
+        <button
+          type="button"
+          aria-pressed={isPaying}
+          onClick={() => setScope('paying')}
+          title={compact ? payingTip : undefined}
+        >
           Paying <span className={styles.count}>{paying != null ? formatCompact(paying) : '—'}</span>
         </button>
       </div>
-      {isPaying && (
+      {/* Full caveat note only in the (legacy) stacked layout; compact folds it
+          into the Paying button tooltip to keep the title row on one line. */}
+      {isPaying && !compact && (
         <span className={styles.note}>
           {pct != null && <><b>{pct.toFixed(1)}%</b> of segment&nbsp;·&nbsp;</>}
           non-destructive view, definition unchanged
           <button type="button" className={styles.clear} onClick={() => setScope('all')}>Clear</button>
         </span>
+      )}
+      {isPaying && compact && (
+        <button type="button" className={styles.clear} onClick={() => setScope('all')}>Clear</button>
       )}
     </div>
   );

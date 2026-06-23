@@ -20,7 +20,7 @@ import { Sparkline } from '../../visuals';
 import { WhaleIcon } from './whale-icon';
 import type { Preset, KpiSpec } from '../../presets/types';
 import type { Segment, RefreshLogRow } from '../../../../types/segment-api';
-import { StatsRow, StatItem, StatCellInner, useStatItemFromKpi } from './stats-row';
+import { StatsRow, StatItem, StatCellInner, MiniStatCell, useStatItemFromKpi } from './stats-row';
 import { formatCompact } from '../cards/format-value';
 import { useSegmentScope } from '../segment-scope-context';
 import type { HeadlineDelta } from './use-headline-deltas';
@@ -57,11 +57,14 @@ interface Props {
   lastRefresh: string | null | undefined;
   lastRefreshFooter: ReactNode;
   ownerFooter: ReactNode;
+  /** Collapsed → render the condensed inline strip instead of the card grid.
+   *  Same cells/hooks either way, so values fetch once and never diverge. */
+  collapsed?: boolean;
 }
 
 export function HeadlineStatsRow({
   segment, preset, deltas, refreshLog, lastRefresh,
-  lastRefreshFooter, ownerFooter,
+  lastRefreshFooter, ownerFooter, collapsed = false,
 }: Props): ReactElement {
   const { t } = useTranslation();
 
@@ -71,6 +74,7 @@ export function HeadlineStatsRow({
         segment={segment}
         preset={preset}
         deltas={deltas}
+        collapsed={collapsed}
       />
     );
   }
@@ -127,7 +131,7 @@ export function HeadlineStatsRow({
     },
   ];
 
-  return <StatsRow items={items} />;
+  return <StatsRow items={items} mini={collapsed} />;
 }
 
 /** A headline KPI spec rewritten for the active scope, plus the flags the cell
@@ -177,43 +181,54 @@ function resolveScopedKpi(spec: KpiSpec, paying: boolean): ScopedKpi {
   return { spec, renderSizeLive: false, ignorePayingScope: false, suppressCache: true };
 }
 
-/** Headline KPI grid that rewrites each spec for the active population scope. */
+/** Headline KPI grid that rewrites each spec for the active population scope.
+ *  Collapsed → condensed inline strip; cells (and their fetches) are identical. */
 function ScopedHeadlineKpis({
-  segment, preset, deltas,
+  segment, preset, deltas, collapsed,
 }: {
   segment: Segment;
   preset: Preset;
   deltas: Map<string, HeadlineDelta>;
+  collapsed: boolean;
 }): ReactElement {
   const { scope } = useSegmentScope();
   const paying = scope === 'paying';
+  const cells = preset.headlineKpis.map((spec) => (
+    <InlineKpi
+      key={spec.id}
+      resolved={resolveScopedKpi(spec, paying)}
+      segment={segment}
+      preset={preset}
+      delta={deltas.get(spec.id) ?? null}
+      mini={collapsed}
+    />
+  ));
+  if (collapsed) {
+    return (
+      <div className={styles.statsMini} role="group" aria-label="Segment headline metrics">
+        {cells}
+      </div>
+    );
+  }
   return (
     <div className={styles.statsRow} role="group" aria-label="Segment headline metrics">
-      {preset.headlineKpis.map((spec) => {
-        const resolved = resolveScopedKpi(spec, paying);
-        return (
-          <div key={spec.id} className={styles.statCell}>
-            <InlineKpi
-              resolved={resolved}
-              segment={segment}
-              preset={preset}
-              delta={deltas.get(spec.id) ?? null}
-            />
-          </div>
-        );
-      })}
+      {preset.headlineKpis.map((spec, i) => (
+        <div key={spec.id} className={styles.statCell}>{cells[i]}</div>
+      ))}
     </div>
   );
 }
 
-/** Inline preset-driven cell — same as StatsRow row but cell-scoped. */
+/** Inline preset-driven cell — same as StatsRow row but cell-scoped.
+ *  `mini` renders the condensed strip cell (no card chrome, no icon). */
 function InlineKpi({
-  resolved, segment, preset, delta,
+  resolved, segment, preset, delta, mini,
 }: {
   resolved: ScopedKpi;
   segment: Segment;
   preset: Preset;
   delta: HeadlineDelta | null;
+  mini: boolean;
 }): ReactElement {
   const { spec, renderSizeLive, ignorePayingScope, suppressCache } = resolved;
   // Special-case the Size KPI (unscoped only): the segment object already
@@ -228,6 +243,7 @@ function InlineKpi({
         label={spec.label}
         count={segment.uid_count}
         delta={delta}
+        mini={mini}
       />
     );
   }
@@ -241,6 +257,14 @@ function InlineKpi({
   );
   // The vs-yesterday delta (from snapshot movement) overrides any spec-level
   // comparison — it's the merged Monitor detail now riding the headline.
+  if (mini) {
+    // Strip the "vs yesterday" suffix — repeated across six cells it's noise;
+    // the basis is given once by the section, not per number.
+    const miniDelta = (delta?.text ?? item.delta)?.replace(' vs yesterday', '');
+    return (
+      <MiniStatCell label={item.label} value={item.value} delta={miniDelta} tone={delta?.tone ?? item.tone} />
+    );
+  }
   return (
     <StatCellInner
       icon={resolveKpiIcon(spec)}
@@ -258,18 +282,29 @@ function InlineKpi({
  *  stays the server-authoritative cohort count (what Members / Pull API serve);
  *  the delta is the snapshot vs-yesterday movement merged from the Monitor tab. */
 function SizeStatCell({
-  icon, label, count, delta,
+  icon, label, count, delta, mini,
 }: {
   icon: ReactNode;
   label: string;
   count: number;
   delta: HeadlineDelta | null;
+  mini: boolean;
 }): ReactElement {
   // Exact thousands-separated value up to 1M — precise counts beat compact
   // noise at this scale. From 1M up the tile compacts ("2.41M") and the
   // exact figure moves into the hover tooltip.
   const exact = count.toLocaleString('en-US');
   const display = count >= 1_000_000 ? formatCompact(count) : exact;
+  if (mini) {
+    return (
+      <MiniStatCell
+        label={label}
+        value={<span title={`${exact} users`}>{display}</span>}
+        delta={delta?.text?.replace(' vs yesterday', '')}
+        tone={delta?.tone}
+      />
+    );
+  }
   return (
     <StatCellInner
       icon={icon}

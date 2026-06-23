@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Segment header redesign — 3 variants</title>
+<style>
+  :root {
+    --app:#f7f8fa; --card:#fff; --sidebar:#f9f6f2;
+    --brand:#c2410c; --brand-soft:#fdf0e8; --brand-ink:#9a3412;
+    --border:#e7e2da; --border-strong:#dcd5ca;
+    --text:#1c1917; --text2:#57534e; --muted:#8a8178;
+    --pos:#15803d; --pos-soft:#ecfdf3; --neg:#b91c1c; --neg-soft:#fef2f2;
+    --success-soft:#ecfdf3; --success-ink:#15803d;
+    --radius-card:10px; --radius-md:8px; --radius-ctl:6px;
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:#eceae6; color:var(--text);
+    font-family:var(--font); font-size:13px; line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .page { max-width:1240px; margin:0 auto; padding:40px 32px 80px; }
+  .page h1 { font-size:24px; font-weight:800; letter-spacing:-0.02em; margin:0 0 4px; }
+  .page .sub { color:var(--text2); font-size:14px; margin:0 0 32px; max-width:70ch; }
+
+  .variant { margin-bottom:48px; }
+  .variant-head { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .variant-tag {
+    font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
+    color:#fff; background:var(--brand); padding:3px 8px; border-radius:var(--radius-ctl);
+  }
+  .variant-head h2 { font-size:17px; font-weight:700; margin:0; }
+  .variant-head .pick { font-size:11px; font-weight:700; color:var(--pos);
+    background:var(--pos-soft); border:1px solid #bbf7d0; padding:2px 8px; border-radius:99px; }
+  .variant .why { color:var(--text2); font-size:13px; margin:0 0 14px; max-width:80ch; }
+  .variant .why b { color:var(--text); }
+
+  /* ── App window shell ─────────────────────────── */
+  .win {
+    display:flex; background:var(--app); border:1px solid var(--border-strong);
+    border-radius:12px; overflow:hidden; box-shadow:0 8px 28px rgba(40,30,15,.10);
+  }
+  .nav {
+    width:148px; flex:0 0 148px; background:var(--sidebar);
+    border-right:1px solid var(--border); padding:14px 10px; font-size:12px;
+  }
+  .nav .brand { display:flex; align-items:center; gap:7px; font-weight:800; font-size:13px; margin-bottom:16px; }
+  .nav .brand .logo { width:18px; height:18px; border-radius:5px; background:var(--brand); }
+  .nav .item { padding:6px 8px; border-radius:6px; color:var(--text2); margin-bottom:2px; }
+  .nav .item.on { background:var(--brand-soft); color:var(--brand-ink); font-weight:600; }
+  .nav .item.sub { padding-left:18px; font-size:11.5px; color:var(--muted); }
+
+  .content { flex:1; min-width:0; background:var(--app); }
+  /* sticky header band */
+  .hdr { background:var(--app); padding:14px 18px 0; }
+
+  /* title row */
+  .titlerow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .collapse-btn {
+    width:24px; height:24px; flex:0 0 24px; border:1px solid var(--border); background:var(--card);
+    border-radius:6px; display:grid; place-items:center; cursor:pointer; color:var(--muted);
+    transition:transform .18s ease; padding:0;
+  }
+  .collapse-btn svg { width:13px; height:13px; }
+  [data-collapsed="true"] .collapse-btn { transform:rotate(-90deg); }
+  .seg-title { font-size:19px; font-weight:700; letter-spacing:-0.01em; }
+  .cube-badge {
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--text2);
+    background:var(--card); border:1px solid var(--border); border-radius:5px; padding:2px 7px;
+  }
+  .spacer { flex:1; }
+
+  /* capture-cadence status pill (read-only + edit caret) */
+  .cap-pill {
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    color:var(--success-ink); background:var(--success-soft); border:1px solid #bbf7d0;
+    border-radius:99px; padding:3px 8px 3px 9px; cursor:pointer;
+  }
+  .cap-pill .dot { width:7px; height:7px; border-radius:50%; background:var(--pos);
+    box-shadow:0 0 0 3px rgba(21,128,61,.15); }
+  .cap-pill .cad { color:var(--text2); font-weight:500; }
+  .cap-pill svg { width:11px; height:11px; opacity:.6; }
+
+  /* scope toggle (inline) */
+  .scope {
+    display:inline-flex; border:1px solid var(--border-strong); border-radius:var(--radius-md);
+    overflow:hidden; background:var(--card);
+  }
+  .scope button {
+    border:0; background:transparent; font-family:var(--font); font-size:12px; font-weight:600;
+    color:var(--text2); padding:5px 11px; cursor:pointer; display:inline-flex; gap:6px; align-items:center;
+  }
+  .scope button + button { border-left:1px solid var(--border); }
+  .scope button .n { font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .scope button[aria-pressed="true"] { background:var(--brand); color:#fff; }
+  .scope button[aria-pressed="true"] .n { color:rgba(255,255,255,.85); }
+
+  /* action buttons */
+  .actions { display:inline-flex; gap:6px; }
+  .btn {
+    height:28px; padding:0 11px; border-radius:6px; border:1px solid var(--border-strong);
+    background:var(--card); color:var(--text2); font-family:var(--font); font-size:12px; font-weight:600;
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer;
+  }
+  .btn.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .btn.icon { width:28px; padding:0; justify-content:center; }
+
+  /* KPI strip */
+  .kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-top:14px; }
+  .kpi {
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card);
+    padding:10px 12px 11px;
+  }
+  .kpi.lead { box-shadow:0 0 0 1.5px var(--brand) inset; }
+  .kpi .lbl { font-size:10.5px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); }
+  .kpi .val { font-size:22px; font-weight:700; letter-spacing:-0.015em; font-variant-numeric:tabular-nums; margin-top:3px; }
+  .kpi .d { font-size:11px; font-weight:600; margin-top:3px; font-variant-numeric:tabular-nums; }
+  .d.pos { color:var(--pos); } .d.neg { color:var(--neg); }
+  .d .base { color:var(--muted); font-weight:500; }
+
+  /* AI brief inline strip */
+  .brief {
+    margin-top:10px; display:flex; align-items:center; gap:8px;
+    background:linear-gradient(90deg,#fdf6ef,#fffdfb); border:1px solid var(--border);
+    border-radius:var(--radius-md); padding:8px 12px; font-size:12.5px; color:var(--text2); cursor:pointer;
+  }
+  .brief .spark { color:var(--brand); font-weight:800; }
+  .brief .k { font-weight:700; font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--brand-ink); }
+
+  /* tab strip */
+  .tabs { display:flex; gap:2px; margin-top:12px; padding:0 18px;
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border); background:transparent; }
+  .tab { padding:10px 13px; font-size:13.5px; font-weight:500; color:var(--muted);
+    border-bottom:3px solid transparent; margin-bottom:-1px; cursor:pointer; white-space:nowrap; display:inline-flex; gap:6px; align-items:center; }
+  .tab.on { color:var(--text); font-weight:600; border-bottom-color:var(--brand); }
+  /* Members = primary destination: brand-tinted active treatment + live count badge */
+  .tab.primary.on { color:var(--brand-ink); background:linear-gradient(180deg,transparent,var(--brand-soft));
+    border-top-left-radius:6px; border-top-right-radius:6px; }
+  .tab .tab-badge { font-size:10.5px; font-weight:700; background:var(--brand); color:#fff;
+    padding:1px 6px; border-radius:99px; font-variant-numeric:tabular-nums; }
+  .tab.primary:not(.on) .tab-badge { background:var(--brand-soft); color:var(--brand-ink); }
+
+  /* faux table area (the space we're trying to grow) */
+  .table { padding:14px 18px 20px; }
+  .trow { height:30px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; color:var(--text2); font-size:12px; }
+  .trow.h { font-weight:700; color:var(--text); border-bottom:1.5px solid var(--border-strong); }
+  .cell { width:90px; } .cell.wide { width:160px; }
+  .gain { font-size:11px; color:var(--pos); font-weight:600; margin-left:8px; }
+
+  /* collapse mechanics */
+  .collapsible { overflow:hidden; transition:max-height .26s ease, opacity .2s ease; }
+  [data-collapsed="true"] .collapsible { max-height:0 !important; opacity:0; margin-top:0; }
+  [data-collapsed="false"] .collapsible { max-height:320px; }
+
+  /* mini summary (variant C) — shown only when collapsed */
+  .mini { display:none; align-items:center; gap:14px; flex-wrap:wrap; }
+  [data-collapsed="true"] .mini { display:inline-flex; }
+  .mini .m { font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .mini .m b { color:var(--text); font-weight:700; }
+  .mini .m .pos { color:var(--pos); font-weight:600; } .mini .m .neg { color:var(--neg); font-weight:600; }
+  .mini .sep { color:var(--border-strong); }
+
+  .state-row { display:flex; gap:8px; margin:10px 0 4px; }
+  .state-btn { font-size:11px; font-weight:600; padding:4px 10px; border-radius:99px; cursor:pointer;
+    border:1px solid var(--border-strong); background:var(--card); color:var(--text2); }
+  .state-btn.on { background:var(--text); color:#fff; border-color:var(--text); }
+
+  .note { font-size:12px; color:var(--muted); margin-top:8px; }
+  code { font-family:ui-monospace,monospace; background:#efece7; padding:1px 5px; border-radius:4px; font-size:11.5px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Segment detail — frozen header redesign</h1>
+  <p class="sub">Three approaches to: (1) scope toggle inline in the title row, (2) a collapsible frozen block that hands the viewport back to the table, (3) one consolidated capture-cadence control. Each window is interactive — click <b>Collapse / Expand</b> and the <b>Everyone/Paying</b> toggle.</p>
+
+  <!-- ============ VARIANT A ============ -->
+  <section class="variant">
+    <div class="variant-head">
+      <span class="variant-tag">Variant A</span>
+      <h2>Single command rail — hide on collapse</h2>
+    </div>
+    <p class="why"><b>Linear-style.</b> Everything rides one title row: collapse chevron · name · cube · capture pill (left) and scope toggle · actions (right). Collapse hides KPIs + brief entirely, leaving title + tabs. Simplest; you lose the numbers when collapsed.</p>
+    <div class="win" data-collapsed="false" id="A">
+      <aside class="nav">
+        <div class="brand"><span class="logo"></span>Cube</div>
+        <div class="item">Chat</div><div class="item">Playground</div>
+        <div class="item on">Segments</div>
+        <div class="item sub">Inactive ≥ 3 Days</div>
+        <div class="item sub">Whales active 30d</div>
+        <div class="item">Advisor</div>
+      </aside>
+      <div class="content">
+        <div class="hdr">
+          <div class="titlerow">
+            <button class="collapse-btn" onclick="tog('A')" title="Collapse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+            <span class="seg-title">Inactive ≥ 3 Days</span>
+            <span class="cube-badge">mf_users</span>
+            <span class="cap-pill" title="Capture cadence — recompute + snapshot every day. Click to change."><span class="dot"></span>Live <span class="cad">· daily</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+            <span class="spacer"></span>
+            <div class="scope" role="group" aria-label="scope">
+              <button aria-pressed="true" onclick="scope(this)">Everyone <span class="n">866k</span></button>
+              <button aria-pressed="false" onclick="scope(this)">Paying <span class="n">18.1k</span></button>
+            </div>
+            <div class="actions">
+              <button class="btn">Share</button>
+              <button class="btn icon" title="Refresh">⟳</button>
+              <button class="btn icon" title="More">⋯</button>
+              <button class="btn primary">Edit predicate</button>
+            </div>
+          </div>
+          <div class="collapsible">
+            <div class="kpis">
+              <div class="kpi lead"><div class="lbl">Size</div><div class="val">866,199</div><div class="d pos">▲ 0.1% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">Paying users</div><div class="val">18.1k</div><div class="d neg">▼ 1.6% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">LTV total</div><div class="val">₫38.1B</div><div class="d neg">▼ 12.5% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">ARPU</div><div class="val">₫43,675</div><div class="d neg">▼ 12.6% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">Whales</div><div class="val">827</div><div class="d neg">▼ 12.4% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">Lapsed / mo</div><div class="val">45.5k</div><div class="d neg">▼ 0.7% <span class="base">vs yest.</span></div></div>
+            </div>
+            <div class="brief"><span class="spark">✦</span><span class="k">AI brief</span><span>Cohort grew 0.1% d/d; LTV per payer slipped 12% — concentration risk in the whale tier. Tap to expand.</span></div>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab primary on">Members <span class="tab-badge">866k</span></div><div class="tab">care</div><div class="tab">Insights</div>
+          <div class="tab">Monitor</div><div class="tab">Definition</div><div class="tab">Pull API</div>
+        </div>
+        <div class="table" id="A-table">
+          <div class="trow h"><span class="cell wide">User</span><span class="cell">Last active</span><span class="cell">LTV</span><span class="cell">Tier</span><span class="gain" id="A-gain"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VARIANT B ============ -->
+  <section class="variant">
+    <div class="variant-head">
+      <span class="variant-tag">Variant B</span>
+      <h2>Borderless stat band — Amplitude density</h2>
+    </div>
+    <p class="why"><b>Maximum density.</b> KPI cards lose their chrome and become a divider-separated metric band directly under the title — reads as one instrument, not six boxes. Capture pill + scope sit in the title row. Collapse hides the band + brief. Tightest expanded height of the three.</p>
+    <div class="win" data-collapsed="false" id="B">
+      <aside class="nav">
+        <div class="brand"><span class="logo"></span>Cube</div>
+        <div class="item">Chat</div><div class="item">Playground</div>
+        <div class="item on">Segments</div>
+        <div class="item sub">Inactive ≥ 3 Days</div>
+        <div class="item">Advisor</div>
+      </aside>
+      <div class="content">
+        <div class="hdr">
+          <div class="titlerow">
+            <button class="collapse-btn" onclick="tog('B')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+            <span class="seg-title">Inactive ≥ 3 Days</span>
+            <span class="cube-badge">mf_users</span>
+            <span class="cap-pill"><span class="dot"></span>Live <span class="cad">· daily</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+            <span class="spacer"></span>
+            <div class="scope" role="group">
+              <button aria-pressed="true" onclick="scope(this)">Everyone <span class="n">866k</span></button>
+              <button aria-pressed="false" onclick="scope(this)">Paying <span class="n">18.1k</span></button>
+            </div>
+            <div class="actions">
+              <button class="btn">Share</button>
+              <button class="btn icon">⟳</button>
+              <button class="btn icon">⋯</button>
+              <button class="btn primary">Edit predicate</button>
+            </div>
+          </div>
+          <div class="collapsible">
+            <div class="statband">
+              <div class="sb"><div class="lbl">Size</div><div class="val">866,199</div><div class="d pos">▲ 0.1%</div></div>
+              <div class="sb"><div class="lbl">Paying</div><div class="val">18.1k</div><div class="d neg">▼ 1.6%</div></div>
+              <div class="sb"><div class="lbl">LTV total</div><div class="val">₫38.1B</div><div class="d neg">▼ 12.5%</div></div>
+              <div class="sb"><div class="lbl">ARPU</div><div class="val">₫43,675</div><div class="d neg">▼ 12.6%</div></div>
+              <div class="sb"><div class="lbl">Whales</div><div class="val">827</div><div class="d neg">▼ 12.4%</div></div>
+              <div class="sb"><div class="lbl">Lapsed / mo</div><div class="val">45.5k</div><div class="d neg">▼ 0.7%</div></div>
+              <div class="sb brief-inline"><span class="spark">✦</span><span>LTV/payer −12% — whale-tier concentration risk</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab primary on">Members <span class="tab-badge">866k</span></div><div class="tab">care</div><div class="tab">Insights</div>
+          <div class="tab">Monitor</div><div class="tab">Definition</div><div class="tab">Pull API</div>
+        </div>
+        <div class="table" id="B-table"><div class="trow h"><span class="cell wide">User</span><span class="cell">Last active</span><span class="cell">LTV</span><span class="cell">Tier</span><span class="gain" id="B-gain"></span></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VARIANT C ============ -->
+  <section class="variant">
+    <div class="variant-head">
+      <span class="variant-tag">Variant C</span>
+      <h2>Condense, don't hide — sticky mini-stat bar</h2>
+      <span class="pick">Recommended</span>
+    </div>
+    <p class="why"><b>Best of both.</b> Expanded looks like A. But collapse <b>condenses</b> the 6 KPIs into a single inline strip in the title row (<code>Size 866k ▲0.1% · Paying 18.1k ▼1.6% · …</code>) instead of hiding them — so you reclaim ~120px for the table <b>and still see every number</b> while scrolling. Capture pill + scope stay inline throughout.</p>
+    <div class="win" data-collapsed="false" id="C">
+      <aside class="nav">
+        <div class="brand"><span class="logo"></span>Cube</div>
+        <div class="item">Chat</div><div class="item">Playground</div>
+        <div class="item on">Segments</div>
+        <div class="item sub">Inactive ≥ 3 Days</div>
+        <div class="item">Advisor</div>
+      </aside>
+      <div class="content">
+        <div class="hdr">
+          <div class="titlerow">
+            <button class="collapse-btn" onclick="tog('C')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></button>
+            <span class="seg-title">Inactive ≥ 3 Days</span>
+            <span class="cube-badge">mf_users</span>
+            <span class="cap-pill"><span class="dot"></span>Live <span class="cad">· daily</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg></span>
+            <span class="spacer"></span>
+            <div class="scope" role="group">
+              <button aria-pressed="true" onclick="scope(this)">Everyone <span class="n">866k</span></button>
+              <button aria-pressed="false" onclick="scope(this)">Paying <span class="n">18.1k</span></button>
+            </div>
+            <div class="actions">
+              <button class="btn">Share</button>
+              <button class="btn icon">⟳</button>
+              <button class="btn icon">⋯</button>
+              <button class="btn primary">Edit predicate</button>
+            </div>
+          </div>
+          <!-- mini strip: visible ONLY when collapsed -->
+          <div class="mini" style="margin-top:8px;">
+            <span class="m"><b>866,199</b> Size <span class="pos">▲0.1%</span></span><span class="sep">·</span>
+            <span class="m"><b>18.1k</b> Paying <span class="neg">▼1.6%</span></span><span class="sep">·</span>
+            <span class="m"><b>₫38.1B</b> LTV <span class="neg">▼12.5%</span></span><span class="sep">·</span>
+            <span class="m"><b>₫43,675</b> ARPU <span class="neg">▼12.6%</span></span><span class="sep">·</span>
+            <span class="m"><b>827</b> Whales <span class="neg">▼12.4%</span></span><span class="sep">·</span>
+            <span class="m"><b>45.5k</b> Lapsed <span class="neg">▼0.7%</span></span>
+          </div>
+          <div class="collapsible">
+            <div class="kpis">
+              <div class="kpi lead"><div class="lbl">Size</div><div class="val">866,199</div><div class="d pos">▲ 0.1% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">Paying users</div><div class="val">18.1k</div><div class="d neg">▼ 1.6% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">LTV total</div><div class="val">₫38.1B</div><div class="d neg">▼ 12.5% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">ARPU</div><div class="val">₫43,675</div><div class="d neg">▼ 12.6% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">Whales</div><div class="val">827</div><div class="d neg">▼ 12.4% <span class="base">vs yest.</span></div></div>
+              <div class="kpi"><div class="lbl">Lapsed / mo</div><div class="val">45.5k</div><div class="d neg">▼ 0.7% <span class="base">vs yest.</span></div></div>
+            </div>
+            <div class="brief"><span class="spark">✦</span><span class="k">AI brief</span><span>Cohort grew 0.1% d/d; LTV per payer slipped 12% — concentration risk in the whale tier. Tap to expand.</span></div>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab primary on">Members <span class="tab-badge">866k</span></div><div class="tab">care</div><div class="tab">Insights</div>
+          <div class="tab">Monitor</div><div class="tab">Definition</div><div class="tab">Pull API</div>
+        </div>
+        <div class="table" id="C-table"><div class="trow h"><span class="cell wide">User</span><span class="cell">Last active</span><span class="cell">LTV</span><span class="cell">Tier</span><span class="gain" id="C-gain"></span></div></div>
+      </div>
+    </div>
+    <p class="note">Cadence consolidation (all variants): the green <b>Live · daily</b> pill is the single capture-cadence control (it edits <code>track_cadence</code>, which already drives both membership recompute and snapshots). The legacy "Live · on demand" refresh-only editor is retired. Monitor's <b>view grain</b> stays separate — it only downsamples already-captured points.</p>
+  </section>
+</div>
+
+<style>
+  /* Variant B stat band */
+  .statband { display:flex; align-items:stretch; gap:0; margin-top:12px;
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card); padding:4px 0; }
+  .sb { padding:6px 16px; flex:1; border-right:1px solid var(--border); }
+  .sb:last-child { border-right:0; }
+  .sb .lbl { font-size:10px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--muted); }
+  .sb .val { font-size:20px; font-weight:700; letter-spacing:-0.015em; font-variant-numeric:tabular-nums; margin-top:1px; }
+  .sb .d { font-size:11px; font-weight:600; margin-top:1px; }
+  .sb.brief-inline { flex:1.6; display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text2);
+    background:linear-gradient(90deg,#fdf6ef,#fff); }
+  .sb.brief-inline .spark { color:var(--brand); font-weight:800; }
+</style>
+
+<script>
+  function rows(id, n){
+    const t = document.getElementById(id+'-table');
+    const data = [['u_8f21·minnow','3d ago','₫120k','Minnow'],['u_4a90·dolphin','5d ago','₫2.1M','Dolphin'],
+      ['u_1c77·whale','4d ago','₫18.4M','Whale'],['u_9d02·minnow','6d ago','₫88k','Minnow'],
+      ['u_2e55·dolphin','3d ago','₫1.4M','Dolphin'],['u_7b13·whale','7d ago','₫24.0M','Whale'],
+      ['u_3f48·minnow','5d ago','₫64k','Minnow'],['u_6a21·dolphin','4d ago','₫980k','Dolphin']];
+    for(let i=0;i<n;i++){ const d=data[i%data.length]; const r=document.createElement('div'); r.className='trow';
+      r.innerHTML='<span class="cell wide">'+d[0]+'</span><span class="cell">'+d[1]+'</span><span class="cell">'+d[2]+'</span><span class="cell">'+d[3]+'</span>'; t.appendChild(r); }
+  }
+  rows('A',6); rows('B',6); rows('C',6);
+  function tog(id){
+    const w=document.getElementById(id); const c=w.dataset.collapsed==='true';
+    w.dataset.collapsed=String(!c);
+    // grow the table when collapsed to show the reclaimed space
+    const t=document.getElementById(id+'-table'); const gain=document.getElementById(id+'-gain');
+    if(!c){ rows(id,4); gain.textContent='+4 rows visible — reclaimed ~'+(id==='B'?100:120)+'px'; }
+    else { document.querySelectorAll('#'+id+'-table .trow:not(.h)').forEach((el,i)=>{ if(i>=6) el.remove(); }); gain.textContent=''; }
+  }
+  function scope(b){ const g=b.parentElement; [...g.children].forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); }
+</script>
+</body>
+</html>

@@ -1,17 +1,16 @@
 /**
  * Monitor control bar — the single top row of the merged Monitor tab:
- *   View grain toggle · Range picker · freshness · Notices · Settings.
+ *   View grain toggle · Range picker · freshness · Notices.
  *
  * Window status (freshness / cadence change / clamp / carry-forward / slice
  * scope) lives in the Notices popover — the per-chart meta strip was removed so
- * the same note doesn't repeat under every chart. Settings is its own popover
- * (the "Track every" capture-cadence knob): a write setting kept out of the
- * chart flow so it stops reading as a second view-grain control. Notices and
- * Settings are separate borderless triggers — only one panel opens at a time.
+ * the same note doesn't repeat under every chart. Capture-cadence editing was
+ * moved to the header health pill (one cadence control), so the old Settings
+ * popover here is gone. View grain is display-only downsample of captured points.
  */
 
 import { ReactElement, ReactNode, useEffect, useRef, useState } from 'react';
-import { Bell, Settings } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import type {
   CadenceChange,
   MovementGranularity,
@@ -19,7 +18,6 @@ import type {
 import type { Segment } from '../../../../../types/segment-api';
 import type { GrainAvailability } from '../movement/grain-availability';
 import { GranularityToggle } from '../movement/granularity-toggle';
-import { TrackCadenceControl } from './track-cadence-control';
 import { MonitorRangePicker } from './monitor-range-picker';
 import { capForGrain } from './monitor-range';
 import type { DateRange } from './monitor-range';
@@ -42,9 +40,8 @@ interface Props {
   carryForward?: string[];
   /** True when the effective window was narrowed to the grain cap. */
   clamped: boolean;
-  /** Segment + change handler — passed through to the capture-cadence popover. */
+  /** Segment — drives the slice-scope notice. */
   segment: Segment;
-  onSegmentChange?: (next: Segment) => void;
 }
 
 type PillTone = 'muted' | 'warning' | 'info' | 'success';
@@ -71,12 +68,13 @@ function shortStamp(ts: string): string {
 
 export function MonitorControlBar({
   grain, availability, onGrainChange, range, onRangeChange,
-  asOf, stale, cadenceChanges, carryForward, clamped, segment, onSegmentChange,
+  asOf, stale, cadenceChanges, carryForward, clamped, segment,
 }: Props): ReactElement {
   const changes = cadenceChanges ?? [];
   const carried = carryForward ?? [];
-  // Only one panel opens at a time — Notices and Settings are sibling popovers.
-  const [openPanel, setOpenPanel] = useState<'notices' | 'settings' | null>(null);
+  // Notices popover open/closed (capture-cadence editing lives on the header
+  // pill now, so the old Settings popover was removed).
+  const [openPanel, setOpenPanel] = useState<'notices' | null>(null);
   const railRef = useRef<HTMLDivElement>(null);
 
   // Close whichever popover is open on outside click / Escape.
@@ -164,24 +162,6 @@ export function MonitorControlBar({
           </div>
         )}
 
-        <div className={styles.monitorPopAnchor}>
-          <button
-            type="button"
-            className={styles.monitorGearBtn}
-            aria-label="Settings"
-            aria-expanded={openPanel === 'settings'}
-            title="Capture-cadence settings"
-            onClick={() => setOpenPanel((v) => (v === 'settings' ? null : 'settings'))}
-          >
-            <Settings size={15} aria-hidden />
-          </button>
-          {openPanel === 'settings' && (
-            <div className={styles.monitorPopover} role="dialog" aria-label="Settings">
-              <span className={styles.monitorPopoverLabel}>Capture cadence</span>
-              <TrackCadenceControl segment={segment} onChange={onSegmentChange} />
-            </div>
-          )}
-        </div>
         </div>
 
         {asOf && (

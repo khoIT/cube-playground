@@ -5,21 +5,32 @@
  *
  * When `onCadenceChange` is supplied and the segment is a healthy Live
  * predicate, the pill becomes a click target: a small popover lets the user
- * change the refresh cadence inline. This PATCHes only refresh_cadence_min
- * (a metadata-only update — no predicate re-run) and hands the updated segment
- * back to the parent.
+ * change the CAPTURE cadence inline. This PATCHes `track_cadence` — the single
+ * operator knob; the server derives refresh_cadence_min + snapshot cadence from
+ * it — so this pill is the one cadence editor (the legacy refresh-only editor is
+ * retired). Distinct from Monitor's view-grain toggle (display downsample only).
  */
 
 import { ReactElement, useState } from 'react';
 import { Tooltip, Popover, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown } from 'lucide-react';
-import type { Segment } from '../../../types/segment-api';
+import type { Segment, TrackCadence } from '../../../types/segment-api';
 import { segmentsClient } from '../../../api/segments-client';
 import { SegmentApiError } from '../../../api/api-client';
 import { resolveSegmentHealth } from './segment-health';
-import { cadenceOptionsFor } from '../refresh-cadence';
 import styles from '../segments.module.css';
+
+/** Capture-cadence options + labels. `Off` reads as "on-demand" (no background
+ *  recompute/capture); everything else is a recompute + snapshot interval. */
+const TRACK_OPTIONS: TrackCadence[] = ['Off', '15m', '30m', '1h', '3h', '6h', '12h', 'daily'];
+const TRACK_LABELS: Record<TrackCadence, string> = {
+  Off: 'On-demand', '15m': '15m', '30m': '30m', '1h': '1h', '3h': '3h', '6h': '6h', '12h': '12h', daily: 'Daily',
+};
+/** Short suffix for the pill label ("Live · daily"). */
+const TRACK_SUFFIX: Record<TrackCadence, string> = {
+  Off: 'on-demand', '15m': '15m', '30m': '30m', '1h': '1h', '3h': '3h', '6h': '6h', '12h': '12h', daily: 'daily',
+};
 
 interface Props {
   segment: Segment;
@@ -36,6 +47,16 @@ export function SegmentHealthPill({ segment, onCadenceChange }: Props): ReactEle
   const canEdit =
     !!onCadenceChange && segment.type === 'predicate' && segment.status !== 'broken';
 
+  const current: TrackCadence = segment.track_cadence ?? 'daily';
+  // Editable pill reads as "{status} · {capture cadence}" off track_cadence;
+  // non-editable (manual/broken) keeps the resolved health pill text.
+  const statusWord = segment.type === 'manual'
+    ? 'Static'
+    : segment.status === 'refreshing'
+      ? 'Refreshing'
+      : live ? 'Live' : 'Stale';
+  const headerLabel = canEdit ? `${statusWord} · ${TRACK_SUFFIX[current]}` : pill;
+
   const pillNode = (
     <span
       className={styles.healthPill}
@@ -50,7 +71,7 @@ export function SegmentHealthPill({ segment, onCadenceChange }: Props): ReactEle
           .join(' ')}
         aria-hidden
       />
-      {pill}
+      {headerLabel}
       {canEdit && <ChevronDown size={12} aria-hidden style={{ opacity: 0.7, marginLeft: 1 }} />}
     </span>
   );
@@ -59,20 +80,18 @@ export function SegmentHealthPill({ segment, onCadenceChange }: Props): ReactEle
     return <Tooltip title={tooltip}>{pillNode}</Tooltip>;
   }
 
-  const current = segment.refresh_cadence_min ?? 60;
-
-  async function choose(min: number): Promise<void> {
-    if (min === current) {
+  async function choose(next: TrackCadence): Promise<void> {
+    if (next === current) {
       setOpen(false);
       return;
     }
     setSaving(true);
     try {
-      const next = await segmentsClient.update(segment.id, { refresh_cadence_min: min });
-      onCadenceChange?.(next);
+      const updated = await segmentsClient.update(segment.id, { track_cadence: next });
+      onCadenceChange?.(updated);
       setOpen(false);
       message.success(
-        t('segments.library.health.cadence.updated', { defaultValue: 'Cadence updated' }),
+        t('segments.library.health.cadence.updated', { defaultValue: 'Capture cadence updated' }),
       );
     } catch (err) {
       message.error(
@@ -85,11 +104,11 @@ export function SegmentHealthPill({ segment, onCadenceChange }: Props): ReactEle
 
   const content = (
     <div className={styles.cadenceMenu} role="menu" aria-busy={saving}>
-      {cadenceOptionsFor(current).map((opt) => {
-        const selected = opt.value === current;
+      {TRACK_OPTIONS.map((opt) => {
+        const selected = opt === current;
         return (
           <button
-            key={opt.value}
+            key={opt}
             type="button"
             role="menuitemradio"
             aria-checked={selected}
@@ -97,10 +116,10 @@ export function SegmentHealthPill({ segment, onCadenceChange }: Props): ReactEle
               .filter(Boolean)
               .join(' ')}
             disabled={saving}
-            onClick={() => void choose(opt.value)}
+            onClick={() => void choose(opt)}
           >
             <Check size={13} aria-hidden style={{ opacity: selected ? 1 : 0 }} />
-            {opt.label}
+            {TRACK_LABELS[opt]}
           </button>
         );
       })}
@@ -113,7 +132,7 @@ export function SegmentHealthPill({ segment, onCadenceChange }: Props): ReactEle
       placement="bottomLeft"
       visible={open}
       onVisibleChange={setOpen}
-      title={t('segments.library.health.cadence.title', { defaultValue: 'Refresh cadence' })}
+      title={t('segments.library.health.cadence.title', { defaultValue: 'Capture cadence' })}
       content={content}
     >
       {pillNode}

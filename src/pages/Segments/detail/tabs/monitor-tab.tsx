@@ -23,7 +23,6 @@ import { SizeTrendSection } from './monitor/size-trend-section';
 import { TrajectoryCard } from '../cards/trajectory-card';
 import { RefreshHistorySection } from './monitor/refresh-history-section';
 import { SnapshotLedgerSection } from './monitor/snapshot-ledger-section';
-import { TrackCadenceControl } from './monitor/track-cadence-control';
 import { MonitorControlBar } from './monitor/monitor-control-bar';
 import { clampRangeToGrain, defaultRange, dayCountInclusive, type DateRange } from './monitor/monitor-range';
 import { SliceScopeNote } from '../../slice-scope/slice-scope-note';
@@ -43,11 +42,9 @@ interface MovementMeta {
 
 interface Props {
   segment: Segment;
-  /** Propagates a segment change (track cadence) up so the header pill stays in sync. */
-  onSegmentChange?: (next: Segment) => void;
 }
 
-export function MonitorTab({ segment, onSegmentChange }: Props): ReactElement {
+export function MonitorTab({ segment }: Props): ReactElement {
   // View-grain (display downsample) — distinct from the Track knob (capture cadence).
   const [granularity, setGranularity] = useState<MovementGranularity>('daily');
   // Honest capture timeline + freshness, reported up by the membership section.
@@ -96,7 +93,6 @@ export function MonitorTab({ segment, onSegmentChange }: Props): ReactElement {
     return (
       <div className={styles.monitorGrid}>
         {scopeNoteFull}
-        <TrackCadenceControl segment={segment} onChange={onSegmentChange} />
         <SizeTrendSection segment={segment} />
         <div className={styles.zoneEyebrow}>Over time</div>
         <div className={styles.monitorSection}>
@@ -131,7 +127,6 @@ export function MonitorTab({ segment, onSegmentChange }: Props): ReactElement {
         carryForward={carryForward}
         clamped={clamped}
         segment={segment}
-        onSegmentChange={onSegmentChange}
       />
       <CadenceCoverageStrip eras={captureEras} finest={finest} />
       <TrajectoryCard
