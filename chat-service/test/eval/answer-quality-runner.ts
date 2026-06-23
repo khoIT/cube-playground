@@ -65,6 +65,7 @@ interface AqResult {
   httpStatus: number;
   resolvedRef: string | null; // first measure of first emitted query
   resolvedCube: string | null;
+  resolvedDims: string[];     // dimensions of the first emitted query (platform/country breakdown check)
   artifactCount: number;
   nonEmpty: boolean;          // any emitted query returned rows
   trustGuardSeen: boolean;    // a trust/caveat surfaced
@@ -219,12 +220,15 @@ async function runCase(c: EvalCase): Promise<{ result: AqResult; trail: CaseTrai
   const artifacts = extractEvents(raw, 'query_artifact');
 
   let resolvedRef: string | null = null;
+  let resolvedDims: string[] = [];
   let nonEmpty = false;
   let artifactTitle: string | null = null;
   for (const a of artifacts) {
     const query = a['query'] as Record<string, unknown> | undefined;
     const measures = query?.['measures'] as string[] | undefined;
+    const dims = query?.['dimensions'] as string[] | undefined;
     if (!resolvedRef && measures?.length) resolvedRef = measures[0]!;
+    if (resolvedDims.length === 0 && dims?.length) resolvedDims = dims;
     if (!artifactTitle && typeof a['title'] === 'string') artifactTitle = a['title'] as string;
     // non-empty: the artifact's chart carries originalRowCount (rows live on the
     // chart, not the artifact root; the 'result' SSE event is final text only).
@@ -273,6 +277,7 @@ async function runCase(c: EvalCase): Promise<{ result: AqResult; trail: CaseTrai
     caseId: c.id, question: c.question, curationGroup: c.curationGroup,
     expectedRef: c.expectedRef, status, httpStatus, resolvedRef,
     resolvedCube: resolvedRef ? resolvedRef.split('.')[0]! : null,
+    resolvedDims,
     artifactCount: summary.artifactCount, nonEmpty, trustGuardSeen: sawTrustGuard(raw),
     errorDetail,
     answerText, artifactTitle, toolCalls: summary.toolCalls, latencyMs, costUsd, outputTokens,

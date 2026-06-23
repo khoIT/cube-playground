@@ -1,0 +1,154 @@
+{
+  "_comment": "Curated before/after smoketest for the resolver-routing plan (platform dimension, segment default-metric, WAU). Member names are identical across all 8 games, so this one bank runs against cfm_vn AND jus_vn. Extra fields: smokeMode ('fix' = expected to flip no-artifact->ok after the fix; 'guard' = behaviour must NOT change before vs after), expectedDim (the breakdown member Group A must bind, machine-checked against snapshot.resolvedDims), expectedBefore (diagnosed hypothesis; the baseline run confirms it). Run with CORPUS=test/eval/resolver-smoketest-bank.json and an explicit SNAPSHOT_OUT.",
+  "capturedAt": "2026-06-23T00:00:00.000Z",
+  "gameId": "cross-game",
+  "cases": [
+    {
+      "id": "sm-plat-dau", "question": "DAU by platform",
+      "expectedMetricId": "active-user", "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": "active_daily.os_platform",
+      "expectedBefore": "no-artifact (clarify / mis-guess mf_users.platform)",
+      "note": "Phase 01 — engagement cube os_platform"
+    },
+    {
+      "id": "sm-plat-rev", "question": "revenue by platform",
+      "expectedMetricId": "revenue", "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": "recharge.os_platform",
+      "expectedBefore": "no-artifact; confirm the real revenue ref from sm-guard-rev baseline",
+      "note": "Phase 01 — revenue cube os_platform"
+    },
+    {
+      "id": "sm-plat-roas", "question": "ROAS by platform",
+      "expectedMetricId": "roas", "expectedRef": "game_key_metrics.roas",
+      "expectedCube": "game_key_metrics", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": "game_key_metrics.platform",
+      "expectedBefore": "no-artifact",
+      "note": "Phase 01 — UA cube uses 'platform' (not os_platform)"
+    },
+    {
+      "id": "sm-plat-installs", "question": "installs by platform",
+      "expectedMetricId": "installs", "expectedRef": "game_key_metrics.installs",
+      "expectedCube": "game_key_metrics", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": "game_key_metrics.platform",
+      "expectedBefore": "no-artifact",
+      "note": "Phase 01 — UA cube platform"
+    },
+    {
+      "id": "sm-plat-cpi", "question": "CPI by platform",
+      "expectedMetricId": "cpi", "expectedRef": "game_key_metrics.cpi_vnd",
+      "expectedCube": "game_key_metrics", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": "game_key_metrics.platform",
+      "expectedBefore": "no-artifact",
+      "note": "Phase 01 — UA cube platform"
+    },
+
+    {
+      "id": "sm-seg-minnow", "question": "show Minnow last 7 days",
+      "expectedMetricId": "active-user", "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": null,
+      "expectedBefore": "no-artifact (clarify 'which metric for Minnow?')",
+      "note": "Phase 02 — bare segment, no money cue -> active-user count + payer_tier=minnow filter"
+    },
+    {
+      "id": "sm-seg-whale-month", "question": "Whale this month",
+      "expectedMetricId": "active-user", "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": null,
+      "expectedBefore": "no-artifact",
+      "note": "Phase 02 — bare segment + time -> active-user count + payer_tier=whale"
+    },
+    {
+      "id": "sm-seg-whale-rev", "question": "Whale revenue last 7 days",
+      "expectedMetricId": "revenue", "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": null,
+      "expectedBefore": "may already be ok (explicit metric named)",
+      "note": "Phase 02 — money cue -> Revenue measure + payer_tier=whale"
+    },
+    {
+      "id": "sm-seg-dolphin-mom", "question": "compare Dolphin month over month",
+      "expectedMetricId": "active-user", "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily", "queryShapeClass": "compare",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": null,
+      "expectedBefore": "no-artifact",
+      "note": "Phase 02 — default metric + mom granularity + payer_tier=dolphin"
+    },
+
+    {
+      "id": "sm-wau-plain", "question": "show WAU last 7 days",
+      "expectedMetricId": "wau", "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "guard",
+      "expectedDim": null,
+      "expectedBefore": "ok (WAU already resolves) — must STAY ok",
+      "note": "Phase 03 control — must not regress"
+    },
+    {
+      "id": "sm-wau-mom", "question": "compare WAU month over month",
+      "expectedMetricId": "wau", "expectedRef": "active_daily.wau",
+      "expectedCube": "active_daily", "queryShapeClass": "compare",
+      "curationGroup": "resolver-smoketest", "smokeMode": "fix",
+      "expectedDim": null,
+      "expectedBefore": "no-artifact (mom-comparison path, not a missing measure)",
+      "note": "Phase 03 — the one failing WAU case; fix via mom path"
+    },
+
+    {
+      "id": "sm-guard-dau", "question": "show DAU last 7 days",
+      "expectedMetricId": "active-user", "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "guard",
+      "expectedDim": null,
+      "expectedBefore": "ok — plain metric, must stay ok",
+      "note": "Regression guard — metric-bearing question unaffected"
+    },
+    {
+      "id": "sm-guard-rev", "question": "revenue last 30 days",
+      "expectedMetricId": "revenue", "expectedRef": "recharge.revenue_vnd",
+      "expectedCube": "recharge", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "guard",
+      "expectedDim": null,
+      "expectedBefore": "ok — reveals the real revenue ref for sm-plat-rev / sm-seg-whale-rev",
+      "note": "Regression guard — default time window + revenue ref oracle"
+    },
+    {
+      "id": "sm-guard-country", "question": "DAU by country",
+      "expectedMetricId": "active-user", "expectedRef": "active_daily.dau",
+      "expectedCube": "active_daily", "queryShapeClass": "trend",
+      "curationGroup": "resolver-smoketest", "smokeMode": "guard",
+      "expectedDim": "active_daily.country_code",
+      "expectedBefore": "ok — existing dimension path; must stay ok (proves platform fix didn't break country/channel)",
+      "note": "Regression guard — existing breakdown resolution"
+    },
+    {
+      "id": "sm-guard-grain", "question": "top 10 players by revenue",
+      "expectedMetricId": null, "expectedRef": null,
+      "expectedCube": null, "queryShapeClass": "leaderboard",
+      "curationGroup": "resolver-smoketest", "smokeMode": "guard",
+      "expectedDim": null,
+      "expectedBefore": "behaviour stable (grain is a high-impact slot) — before must equal after",
+      "note": "Regression guard — entity-grain handling not silently defaulted"
+    },
+    {
+      "id": "sm-guard-empty", "question": "asdf qwer",
+      "expectedMetricId": null, "expectedRef": null,
+      "expectedCube": null, "queryShapeClass": null,
+      "curationGroup": "resolver-smoketest", "smokeMode": "guard",
+      "expectedDim": null,
+      "expectedBefore": "no-artifact (clarifies) — MUST stay non-ok; proves Phase 02 default does not over-fire on empty intent",
+      "note": "Regression guard — anti over-default tripwire"
+    }
+  ]
+}
