@@ -15,6 +15,7 @@
 
 import { getDb } from '../db/sqlite.js';
 import { listUsers, getAccess, normalizeEmail } from '../auth/access-store.js';
+import { ownerSubsForEmail } from '../auth/principal.js';
 import {
   queryActivity,
   distinctActorsSince,
@@ -70,10 +71,45 @@ interface AggregatorOpts {
 }
 
 function lastLoginFor(email: string): string | null {
+  // One email can map to >1 users row (PK is the owner-sub: KC UUID in
+  // real-auth, email in dev) — pick the most recent so a fresh dev row wins
+  // over a stale real-auth leftover. Mirrors listUsers in access-store.
   const row = getDb()
-    .prepare('SELECT last_login FROM users WHERE LOWER(email) = ?')
+    .prepare('SELECT last_login FROM users WHERE LOWER(email) = ? ORDER BY last_login DESC LIMIT 1')
     .get(normalizeEmail(email)) as { last_login: string | null } | undefined;
   return row?.last_login ?? null;
+}
+
+/**
+ * Sum chat stats across the candidate owner-keys (KC sub + email). A user's
+ * chat sessions can be keyed under either depending on the mode they ran in, so
+ * the drill-in must aggregate both. Returns null only when chat-service was
+ * unreachable (distinct from an empty {} = reachable, no usage).
+ */
+function mergeChatStats(byKey: ChatStatsBySub, keys: string[]): ChatUserStats | null {
+  if (byKey === null) return null;
+  const present = keys.map((k) => byKey[k]).filter((s): s is ChatUserStats => !!s);
+  if (present.length === 0) return null;
+  const merged: ChatUserStats = {
+    turns: 0,
+    input_tokens: 0,
+    output_tokens: 0,
+    cost_usd: 0,
+    by_skill: {},
+  };
+  for (const s of present) {
+    merged.turns += s.turns;
+    merged.input_tokens += s.input_tokens;
+    merged.output_tokens += s.output_tokens;
+    merged.cost_usd += s.cost_usd;
+    for (const [skill, v] of Object.entries(s.by_skill ?? {})) {
+      const acc = (merged.by_skill[skill] ??= { turns: 0, input_tokens: 0, output_tokens: 0 });
+      acc.turns += v.turns;
+      acc.input_tokens += v.input_tokens;
+      acc.output_tokens += v.output_tokens;
+    }
+  }
+  return merged;
 }
 
 function isInactive(lastLogin: string | null, now: number): boolean {
@@ -128,25 +164,38 @@ export async function buildUserActivity(
   const lastLogin = lastLoginFor(email);
   const db = getDb();
 
-  const segmentCount = sub
-    ? ((db.prepare('SELECT COUNT(*) AS n FROM segments WHERE owner = ?').get(sub) as { n: number }).n)
-    : 0;
+  // Telemetry, segments and chat all key on the owner-sub, which is the KC UUID
+  // in real-auth but the email in dev. Read across BOTH so a dev (email-keyed)
+  // user's activity isn't invisible behind a UUID-only lookup. In prod the
+  // email term matches nothing (a UUID never equals an email) → no-op there.
+  const subs = ownerSubsForEmail(email, sub);
 
-  const recentFeatures = sub
-    ? queryActivity(db, { actorSub: sub, eventType: 'feature_open', limit: 10 })
-        .map((r) => r.targetId)
-        .filter((t): t is string => !!t)
-    : [];
+  const segmentCount =
+    subs.length > 0
+      ? (db
+          .prepare(
+            `SELECT COUNT(*) AS n FROM segments WHERE owner IN (${subs.map(() => '?').join(', ')})`,
+          )
+          .get(...subs) as { n: number }).n
+      : 0;
 
-  const recentQueryShapes = sub
-    ? queryActivity(db, { actorSub: sub, eventType: 'query_run', limit: 10 })
-        .map((r) => parseQueryShape(r.detailJson))
-        .filter((s): s is ReturnType<typeof projectQueryShape> => s !== null)
-    : [];
+  const recentFeatures =
+    subs.length > 0
+      ? queryActivity(db, { actorSubs: subs, eventType: 'feature_open', limit: 10 })
+          .map((r) => r.targetId)
+          .filter((t): t is string => !!t)
+      : [];
 
-  // Chat stats only when we have a sub to key on; unknown sub → null (not zero).
-  const chat = sub ? await fetchStats([sub], { fromMs: now - 30 * DAY_MS, toMs: now }) : null;
-  const chatStats = chat ? (chat[sub!] ?? null) : null;
+  const recentQueryShapes =
+    subs.length > 0
+      ? queryActivity(db, { actorSubs: subs, eventType: 'query_run', limit: 10 })
+          .map((r) => parseQueryShape(r.detailJson))
+          .filter((s): s is ReturnType<typeof projectQueryShape> => s !== null)
+      : [];
+
+  // Chat stats across both owner-keys; unknown → null (not a silent zero).
+  const chat = subs.length > 0 ? await fetchStats(subs, { fromMs: now - 30 * DAY_MS, toMs: now }) : null;
+  const chatStats = mergeChatStats(chat, subs);
 
   const audit = latestAuditForTarget(email);
   const lastChange = audit

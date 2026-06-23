@@ -210,6 +210,11 @@ export function recordActivity(principal: Principal, input: RecordActivityInput)
 
 export interface QueryActivityOpts {
   actorSub?: string;
+  /** Match any of several actor subs (actor_sub IN (...)). Used where one
+   *  person's events can be keyed under more than one owner-sub — e.g. the KC
+   *  UUID in real-auth and the email in dev mode. Combined with `actorSub` via
+   *  AND if both are given (callers normally set one or the other). */
+  actorSubs?: string[];
   eventType?: ActivityEventType;
   since?: number;
   until?: number;
@@ -222,6 +227,10 @@ export function queryActivity(db: Database.Database, opts: QueryActivityOpts = {
   if (opts.actorSub) {
     clauses.push('actor_sub = ?');
     params.push(opts.actorSub);
+  }
+  if (opts.actorSubs && opts.actorSubs.length > 0) {
+    clauses.push(`actor_sub IN (${opts.actorSubs.map(() => '?').join(', ')})`);
+    params.push(...opts.actorSubs);
   }
   if (opts.eventType) {
     clauses.push('event_type = ?');

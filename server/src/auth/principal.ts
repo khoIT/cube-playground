@@ -56,6 +56,18 @@ export function emailForSub(sub: string): string | null {
 }
 
 /**
+ * Every owner-sub a user's telemetry could be keyed under. Real-auth writes the
+ * Keycloak UUID (`user_access.kc_sub`); dev mode writes the email itself
+ * (`devOwnerSub()` === the bootstrap-admin email). A KC UUID never equals an
+ * email, so unioning both keys is safe in prod (the email term simply matches
+ * nothing) and recovers the dev-mode rows that a UUID-only read would miss.
+ */
+export function ownerSubsForEmail(emailRaw: string, kcSub: string | null): string[] {
+  const email = normalizeEmail(emailRaw);
+  return [...new Set([kcSub, email].filter((s): s is string => !!s))];
+}
+
+/**
  * email → sub via the canonical `user_access.kc_sub` map. Returns null when the
  * email is pre-provisioned but has not yet logged in (kc_sub IS NULL) — callers
  * then fall back to the email-keyed grant only.

@@ -169,8 +169,11 @@ export function listUsers(): AccessListItem[] {
 
   return emails.map((email) => {
     const rec = readAccess(email)!;
+    // One email can map to >1 users row (the `users` PK is the owner-sub, which
+    // is the KC UUID in real-auth but the email in dev) — pick the most recent
+    // login so a fresh dev row wins over a stale real-auth leftover.
     const audit = db
-      .prepare('SELECT last_login FROM users WHERE LOWER(email) = ?')
+      .prepare('SELECT last_login FROM users WHERE LOWER(email) = ? ORDER BY last_login DESC LIMIT 1')
       .get(email) as { last_login: string } | undefined;
     return { ...rec, lastLogin: audit?.last_login ?? null };
   });

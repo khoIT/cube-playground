@@ -134,6 +134,14 @@ export default async function authRoutes(app: FastifyInstance): Promise<void> {
 
   app.get('/api/auth/me', async (request, reply) => {
     if (!request.user) return reply.status(401).send({ error: 'Not authenticated' });
+    // Dev mode never runs the Keycloak session POST (the only other place
+    // last_login is written), so /me — hit on every app bootstrap — is the
+    // dev analog of "last seen". Touch it here so the admin vitals aren't
+    // frozen at the last real login. Real-auth keeps its login-only semantics.
+    if (authDisabled()) {
+      const u = request.user;
+      upsertUser(getDb(), { id: u.id, username: u.username, email: u.email, role: u.role });
+    }
     return { user: request.user };
   });
 

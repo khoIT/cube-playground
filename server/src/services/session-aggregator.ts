@@ -16,6 +16,7 @@
 
 import { getDb } from '../db/sqlite.js';
 import { getAccess, normalizeEmail } from '../auth/access-store.js';
+import { ownerSubsForEmail } from '../auth/principal.js';
 import { queryActivity, parseQueryShape } from './activity-store.js';
 
 /** Idle gap (minutes) that ends one session and starts the next. */
@@ -78,12 +79,15 @@ export function buildUserSessions(emailRaw: string, opts: SessionsOpts = {}): Us
   const email = normalizeEmail(emailRaw);
 
   const rec = getAccess(email);
-  const sub = rec?.kcSub;
-  if (!sub) return emptyResult();
+  if (!rec) return emptyResult();
+  // Read across BOTH identity keys: real-auth telemetry is keyed by the KC sub,
+  // dev-mode telemetry by the email. A UUID-only read misses every dev event.
+  const subs = ownerSubsForEmail(email, rec.kcSub);
+  if (subs.length === 0) return emptyResult();
 
   const since = now - WINDOW_DAYS * DAY_MS;
   // queryActivity returns newest-first; sessionization needs chronological order.
-  const rows = queryActivity(getDb(), { actorSub: sub, since, until: now, limit: SCAN_LIMIT })
+  const rows = queryActivity(getDb(), { actorSubs: subs, since, until: now, limit: SCAN_LIMIT })
     .slice()
     .sort((a, b) => a.ts - b.ts);
 
