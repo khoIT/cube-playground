@@ -257,6 +257,25 @@ function QueryTabsRenderer({
     return () => window.removeEventListener(OPEN_ROLLUP_DESIGNER_EVENT, handler);
   }, [toggleModal]);
 
+  // Workspace is an isolation boundary (like Segments / Dashboards lists). A
+  // deeplinked query carries physical member names from the workspace it was
+  // built in (e.g. prod's `jus_vn__active_daily.dau`); rehydrating it into a
+  // different workspace references cubes that don't exist there ("Cube not
+  // found"). On a workspace SWITCH (not initial mount), drop the deeplink params
+  // so the new workspace's own saved tabs (queryTabs:<workspaceId>:<gameId>)
+  // take over instead of the stale foreign query.
+  const prevWorkspaceRef = useRef<string | undefined>(workspaceId);
+  useEffect(() => {
+    if (prevWorkspaceRef.current === workspaceId) return;
+    prevWorkspaceRef.current = workspaceId;
+    const search = new URLSearchParams(location.search);
+    const DEEPLINK_PARAMS = ['query', 'from-chat-artifact', 'from-segment', 'edit-segment', 'n'];
+    if (!DEEPLINK_PARAMS.some((p) => search.has(p))) return;
+    DEEPLINK_PARAMS.forEach((p) => search.delete(p));
+    const next = search.toString();
+    history.replace({ pathname: location.pathname, search: next ? `?${next}` : '' });
+  }, [workspaceId, location.search, location.pathname, history]);
+
   // Build a predicate from the active /meta — a cube exposes `gameId` if it
   // lists a dimension named `<cube>.gameId`. We probe lazily so the call is
   // a noop until /meta has resolved.

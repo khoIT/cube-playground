@@ -22,6 +22,9 @@ import { recordWorkspaceSwitch } from '../api/feature-open-beacon';
 import { readAppToken } from '../auth/auth-storage';
 
 const WORKSPACE_STORAGE_KEY = 'gds-cube:workspace';
+// Fired on the window when the active workspace changes. Subsystems that hold
+// workspace-scoped state subscribe to reset/re-scope (see use-active-chat-session,
+// QueryBuilderContainer). Re-exported below.
 const WORKSPACE_CHANGE_EVENT = 'gds-cube:workspace-change';
 
 export interface WorkspaceDef {

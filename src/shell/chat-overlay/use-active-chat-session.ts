@@ -5,11 +5,21 @@
  * from recents to resume.
  */
 import { useCallback, useSyncExternalStore } from 'react';
+import { WORKSPACE_CHANGE_EVENT } from '../../components/workspace-context';
 
 let _sessionId: string | null = null;
 const subs: Set<() => void> = new Set();
 
 function notify() { subs.forEach((cb) => cb()); }
+
+// Workspace is an isolation boundary: chat sessions are scoped per workspace
+// (the session list fetch is workspace-keyed), but this in-memory active-session
+// pointer would otherwise keep the previous workspace's conversation rendered in
+// the side panel after a switch. Drop it so the panel reverts to the new
+// workspace's empty/new-session state — same as a hard reload.
+if (typeof window !== 'undefined') {
+  window.addEventListener(WORKSPACE_CHANGE_EVENT, () => setActiveChatSession(null));
+}
 
 function getSnapshot(): string | null { return _sessionId; }
 
