@@ -1,6 +1,8 @@
 # Phase 07 — Portfolio (Command Center "All games")
 
-**Priority:** P2 · **Status:** ☐ · Depends: 00 (KPI parity), 01
+**Priority:** P2 · **Status:** ✅ · Depends: 00 (KPI parity), 01
+
+> **Built (2026-06-24):** `command-center/{portfolio-grid,portfolio-row,use-portfolio}.tsx` + a local "This game | All games" toggle on Command Center (`index.tsx`). **Design correction:** the global game selector has no "All games" sentinel, so the toggle is local state — NOT a global-selector change (avoids breaking the many single-game consumers). FE fan-out over the cached `/api/liveops/kpi-strip` + `/api/anomalies` endpoints (no cold Trino), bounded concurrency (batches of 5, Promise.allSettled), per-game error isolation, 60s poll. Ranked-by-revenue grid, WoW delta, revenue share, anomaly health flag; row click drills into single-game. Verified live (cfm/jus/ballistar). Toggle hidden in single-game workspaces. Gates pass.
 
 ## Goal
 Publisher-altitude view: when the game selector is "All games", Command Center becomes a cross-title
