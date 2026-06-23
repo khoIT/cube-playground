@@ -477,10 +477,11 @@
   border-bottom: 1px solid var(--border-card);
   margin: 4px -32px 0;
   padding: 0 32px;
-  /* Transparent so the strip reads as part of the content header (--bg-app)
-     rather than the warm sidebar — a surface-sidebar fill blended into the
-     left nav at the panel edge. */
-  background: transparent;
+  /* Warm inset trough: a recessed band the tabs sit in, one step deeper than
+     the cream page (--bg-app). Gives the menu its own surface so it separates
+     cleanly from both the content above and the warm sidebar at the left edge
+     (transparent let it dissolve into the nav). Token adapts for dark mode. */
+  background: var(--surface-inset);
   /* Six short tabs fit; keep horizontal scroll as a narrow-width fallback but
      never show its bar (it otherwise renders as a stray track at full width). */
   overflow-x: auto;
@@ -518,13 +519,21 @@
   border-bottom-color: var(--brand);
 }
 
-/* Members = primary destination: brand-tinted active fill + live count badge,
-   so the table tab reads as the page's home even among six tabs. */
-.tabPrimary.tabActive {
-  color: var(--brand);
-  background: linear-gradient(180deg, transparent, var(--brand-soft));
+/* Members = primary destination: brand-tinted fill + live count badge, so the
+   table tab reads as the page's home even among six tabs. The tint persists
+   whether or not Members is the active tab — a steady standout background — and
+   deepens when active. */
+.tabPrimary {
+  background: var(--brand-soft);
   border-top-left-radius: var(--radius-sm);
   border-top-right-radius: var(--radius-sm);
+}
+.tabPrimary:not(.tabActive) {
+  color: var(--brand);
+}
+.tabPrimary.tabActive {
+  color: var(--brand);
+  background: linear-gradient(180deg, var(--brand-soft), color-mix(in srgb, var(--brand) 18%, transparent));
 }
 .tabBadge {
   font-size: 10.5px;
