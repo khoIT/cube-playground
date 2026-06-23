@@ -1,18 +1,22 @@
 /**
- * LiveopsPage — /liveops route.
+ * LiveopsPage — /liveops (Command Center).
  *
- * Page header + KPI hero strip + anomaly entry-point + sub-page nav.
- * Typography and spacing follow the shared cube-playground design tokens
- * (Inter via var(--font-sans), --text-* + --border-* + --radius-*) so this
- * surface reads like the rest of the app (Dashboards, Cohort, Segments).
+ * The LiveOps monitoring center's landing: open high-severity anomalies, the five
+ * hero KPIs, and the absorbed Ops overview trends (monetization + support +
+ * acquisition). Sibling surfaces — Diagnostics, Monetization, Retention, Alerts —
+ * live under /liveops/* and are reached from the sidebar.
+ *
+ * Typography and spacing follow the shared cube-playground design tokens (Inter
+ * via var(--font-sans), --text-* + --border-* + --radius-*) so this surface reads
+ * like the rest of the app (Dashboards, Cohort, Segments).
  */
 
 import { type CSSProperties } from 'react';
-import { Link } from 'react-router-dom';
-import { Activity, ArrowRight } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { useGameContext } from '../../components/Header/use-game-context';
 import { KpiHeroStrip } from './kpi-hero-strip';
 import { AnomalyHighSeverityStrip } from './anomaly-high-severity-strip';
+import { OpsOverviewSection } from './command-center/ops-overview-section';
 
 const pageStyle: CSSProperties = {
   padding: '24px 32px',
@@ -52,25 +56,6 @@ const subheadStyle: CSSProperties = {
   maxWidth: '60ch',
 };
 
-const navRowStyle: CSSProperties = {
-  marginTop: 28,
-  paddingTop: 18,
-  borderTop: '1px solid var(--border-card)',
-  display: 'flex',
-  gap: 18,
-  flexWrap: 'wrap',
-};
-
-const navLinkStyle: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  fontSize: 13,
-  fontWeight: 500,
-  color: 'var(--text-secondary)',
-  textDecoration: 'none',
-};
-
 export function LiveopsPage() {
   const { gameId } = useGameContext();
 
@@ -78,25 +63,20 @@ export function LiveopsPage() {
     <div style={pageStyle}>
       <div style={eyebrowStyle}>Live operations · {gameId}</div>
       <div style={headStyle}>
-        <Activity size={20} style={{ color: 'var(--brand)' }} />
-        <h1 style={titleStyle}>Daily standup</h1>
+        <Radio size={20} style={{ color: 'var(--brand)' }} />
+        <h1 style={titleStyle}>Command Center</h1>
       </div>
       <p style={subheadStyle}>
-        Five hero metrics for {gameId}, refreshed on the cache cadence.
-        Open anomalies surface inline above the strip.
+        The daily standup for {gameId}: open anomalies, the five hero metrics, and the monetization
+        &amp; support trends — refreshed on the cache cadence.
       </p>
 
       <AnomalyHighSeverityStrip gameId={gameId} />
       <KpiHeroStrip gameId={gameId} />
 
-      <div style={navRowStyle}>
-        <Link to="/liveops/cohort" style={navLinkStyle}>
-          Cohort retention <ArrowRight size={14} />
-        </Link>
-        <Link to="/liveops/anomalies" style={navLinkStyle}>
-          Anomaly archive <ArrowRight size={14} />
-        </Link>
-      </div>
+      {/* Portfolio row (cross-title, "All games" mode) lands in a later build step. */}
+
+      <OpsOverviewSection gameId={gameId} />
     </div>
   );
 }

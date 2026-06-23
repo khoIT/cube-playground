@@ -49,14 +49,17 @@ interface SidebarItemProps {
    *  "See all…" / empty-state rows, which point at the section's own landing
    *  route and would otherwise light up whenever that section is active. */
   neverActive?: boolean;
+  /** Match only the exact pathname (no sub-routes). For a landing-route row
+   *  beside sibling rows that point at its sub-routes. */
+  exact?: boolean;
 }
 
 export function SidebarItem({
   icon, iconColor, label, to, matchPrefix, expandable, expanded,
   primary, onClick, indent, muted, trailing, trailingShowOnHover, collapsed,
-  headerLink, neverActive,
+  headerLink, neverActive, exact,
 }: SidebarItemProps) {
-  const isActive = useRouteActive(to, matchPrefix) && !neverActive;
+  const isActive = useRouteActive(to, matchPrefix, exact) && !neverActive;
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = React.useState(false);

@@ -602,6 +602,35 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
     },
   );
 
+  // --- POST /api/chat/liveops/delta-decompose — LiveOps Diagnostics delta tool ---
+  // Forwards X-Cube-Game so chat-service mints the right per-game schema (same
+  // contract as the /load path); the workspace rides via proxyJson.
+  app.post<{ Body: unknown }>(
+    '/api/chat/liveops/delta-decompose',
+    async (request: FastifyRequest<{ Body: unknown }>, reply: FastifyReply) => {
+      const owner = resolveOwner(request);
+      if (!owner) {
+        return reply.status(401).send({ code: 'no_owner' });
+      }
+      const game = request.headers['x-cube-game'];
+      const extra = typeof game === 'string' ? { 'X-Cube-Game': game } : undefined;
+      const url = `${chatServiceUrl()}/liveops/delta-decompose`;
+      try {
+        const { status, payload } = await proxyJson(
+          url,
+          'POST',
+          owner,
+          request.workspace.id,
+          request.body,
+          extra,
+        );
+        return reply.status(status).send(payload);
+      } catch (err) {
+        return reply.status(502).send({ code: 'upstream_unreachable', message: (err as Error).message });
+      }
+    },
+  );
+
   // --- GET /api/chat/audit/intents — recent intent_routed events (starter ranking) ---
   app.get<{ Querystring: { limit?: string } }>(
     '/api/chat/audit/intents',

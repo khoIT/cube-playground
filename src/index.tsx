@@ -55,8 +55,16 @@ const LiveopsPage = loadable(() =>
   import('./pages/Liveops').then((m) => ({ default: m.LiveopsPage }))
 );
 
-const AnomalyInboxPage = loadable(() =>
-  import('./pages/Liveops/anomaly-inbox').then((m) => ({ default: m.AnomalyInboxPage }))
+const DiagnosticsPage = loadable(() =>
+  import('./pages/Liveops/diagnostics').then((m) => ({ default: m.DiagnosticsPage }))
+);
+
+const MonetizationPage = loadable(() =>
+  import('./pages/Liveops/monetization').then((m) => ({ default: m.MonetizationPage }))
+);
+
+const AlertsPage = loadable(() =>
+  import('./pages/Liveops/alerts').then((m) => ({ default: m.AlertsPage }))
 );
 
 const WhatsNewPage = loadable(() =>
@@ -192,6 +200,15 @@ function LegacyMetricRedirect() {
   );
 }
 
+// /liveops/anomalies moved into the Alerts hub's Inbox tab. Preserve any
+// metric/severity deep-link params and land on ?tab=inbox.
+function LiveopsAnomaliesRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  if (!params.get('tab')) params.set('tab', 'inbox');
+  return <Redirect to={`/liveops/alerts?${params.toString()}${location.hash}`} />;
+}
+
 function KeepAliveRoute({
   path,
   children,
@@ -255,9 +272,17 @@ ReactDOM.render(
               <KeepAliveRoute key="segments" path="/segments">
                 <SegmentsPage />
               </KeepAliveRoute>
-              <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={AnomalyInboxPage} />
               <Route key="whats-new" exact path="/whats-new" component={WhatsNewPage} />
-              <Route key="liveops-cohort" exact path="/liveops/cohort" component={CohortRetentionPage} />
+              {/* LiveOps monitoring center: Command Center landing + sub-hubs. */}
+              <Route key="liveops-diagnostics" exact path="/liveops/diagnostics" component={DiagnosticsPage} />
+              <Route key="liveops-monetization" exact path="/liveops/monetization" component={MonetizationPage} />
+              <Route key="liveops-retention" exact path="/liveops/retention" component={CohortRetentionPage} />
+              <Route key="liveops-alerts" exact path="/liveops/alerts" component={AlertsPage} />
+              {/* Legacy routes → aliases (keep existing deep links alive). */}
+              <Route key="liveops-cohort" exact path="/liveops/cohort">
+                <Redirect to="/liveops/retention" />
+              </Route>
+              <Route key="liveops-anomalies" exact path="/liveops/anomalies" component={LiveopsAnomaliesRedirect} />
               <Route key="liveops" exact path="/liveops" component={LiveopsPage} />
               {/* Switch so only the FIRST match in this family renders. Without it,
                   /dashboards/:slug also matches /dashboards/cs and the detail page

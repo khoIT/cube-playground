@@ -181,8 +181,11 @@ export function Sidebar() {
             to="/liveops"
             collapsed={collapsed}
           >
-            <SidebarItem label={t('nav.cohortRetention')} to="/liveops/cohort" indent />
-            <SidebarItem label={t('nav.anomalyArchive')} to="/liveops/anomalies" indent />
+            <SidebarItem label={t('nav.commandCenter')} to="/liveops" exact indent />
+            <SidebarItem label={t('nav.diagnostics')} to="/liveops/diagnostics" indent />
+            <SidebarItem label={t('nav.monetization')} to="/liveops/monetization" indent />
+            <SidebarItem label={t('nav.retention')} to="/liveops/retention" indent />
+            <SidebarItem label={t('nav.alertsDigests')} to="/liveops/alerts" indent />
           </SidebarSection>
         )}
 

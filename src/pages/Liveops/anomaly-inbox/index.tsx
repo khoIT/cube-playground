@@ -1,5 +1,6 @@
 /**
- * AnomalyInboxPage — /liveops/anomalies
+ * AnomalyInboxPage — rendered in the Alerts & Digests hub's Inbox tab
+ * (/liveops/alerts?tab=inbox; the legacy /liveops/anomalies route redirects here).
  *
  * Triage inbox: severity-sorted open anomalies for the active game.
  * Accepts ?metric=<id> to pre-filter to a single metric.
