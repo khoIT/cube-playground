@@ -13,6 +13,8 @@ import { reconcileOrphanedRefreshing } from '../services/segment-status.js';
 import { runWedgeWatchdog } from '../services/segment-refresh-ops.js';
 import { pruneRefreshLog, DEFAULT_PRUNE_INTERVAL_MS } from './refresh-log-retention.js';
 import { maybeRunAnomalyDetector } from './anomaly-detector.js';
+import { maybeRunAlertRules } from '../services/alert-rule-engine.js';
+import { maybeRunDigests } from '../jobs/digest-runner.js';
 import { maybeRunMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { maybeRunCarePrecompute } from '../services/care-precompute-scheduler.js';
 import { maybeRunPercentileSnapshot } from '../knowledge/percentile-snapshot-job.js';
@@ -104,6 +106,16 @@ export async function tick(): Promise<void> {
   await maybeRunAnomalyDetector().catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[anomaly-detector] tick failed:', (err as Error).message);
+  });
+  // Alert rules: threshold/condition evaluation — self-gates on a 5-min interval.
+  await maybeRunAlertRules(now).catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[alert-rule-engine] tick failed:', (err as Error).message);
+  });
+  // Digest runner: check subscriptions due for delivery — self-gates on next_run_at.
+  await maybeRunDigests().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[digest-runner] tick failed:', (err as Error).message);
   });
   // Nightly member-360 precompute — self-gates on its window + running flag.
   await maybeRunMember360Precompute().catch((err) => {

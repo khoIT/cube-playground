@@ -44,6 +44,7 @@ import debugCacheEffectivenessRoutes from './api/debug-cache-effectiveness.js';
 import debugReloadStarterSeedRoutes from './api/debug-reload-starter-seed.js';
 import debugStarterVerificationReportRoutes from './api/debug-starter-verification-report.js';
 import notificationsRoutes from './api/notifications.js';
+import internalNotificationsRoutes from './api/internal-notifications.js';
 import chatUserPrefsRoutes from './api/chat-user-prefs.js';
 import chatSessionFocusRoutes from './api/chat-session-focus.js';
 import starterQuestionsRoutes from './api/starter-questions.js';
@@ -110,6 +111,7 @@ async function buildApp(dbPath?: string) {
   await fastify.register(debugReloadStarterSeedRoutes);
   await fastify.register(debugStarterVerificationReportRoutes);
   await fastify.register(notificationsRoutes, { db });
+  await fastify.register(internalNotificationsRoutes, { db });
   await fastify.register(chatUserPrefsRoutes, { db });
   await fastify.register(chatSessionFocusRoutes, { db });
   await fastify.register(starterQuestionsRoutes, { db });

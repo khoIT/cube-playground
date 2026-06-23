@@ -1,6 +1,8 @@
 # Phase 06 — Alerts & Digests hub + delivery seam
 
-**Priority:** P0 (closes the monitor loop) · **Status:** ☐ · Depends: 01
+**Priority:** P0 (closes the monitor loop) · **Status:** ✅ · Depends: 01
+
+> **Built (2026-06-24):** cross-service alert loop. chat-service `POST /internal/notifications` (unconditional x-internal-secret gate → InAppNotificationDriver) + server `notify-client.ts`. Anomaly→notification bridge in `anomaly-detector.ts` (ADDITIVE: upsert unchanged, fire-and-forget enqueue, dedup, no-op pre-migration). Alert-rule engine + digest runner on the server cron tick (`maybeRunAlertRules`/`maybeRunDigests`, self-gating, digest idempotence via last_run_date + running flag). Migrations `071-alert-rules.sql` + `072-digest-subscriptions.sql` (written, NOT applied — apply on next server boot). CRUD routes + FE Alert-rules & Digests tabs; Catalog `/catalog/digest`→Alerts redirect. All gates pass. **Concerns (deferred to Phase 08):** alert engine assumes `<cube>.log_date` time-dim; anomaly-bridge catch-all notifies game's first rule-owner if no exact match (benign single-admin); free-text metric input (no member autocomplete); orphaned old Catalog/digest mock file.
 
 ## Goal
 Make `/liveops/alerts` the alerting home: **Inbox** (relocated anomaly inbox), **Alert rules**

@@ -18,7 +18,6 @@ import { CatalogBrowseBody } from './catalog-browse-body';
 import { ConceptDetailPage } from './concept-detail/concept-detail-page';
 import { DataModelSubtabs, resolveDataModelSubtab } from './catalog-tabs';
 import { DataModelTab } from './data-model-tab/data-model-tab';
-import { DigestPage } from './digest/digest-page';
 import { MetricCompositionWizard } from './metric-composition-wizard/composition-wizard-page';
 import { NotificationsPage } from './notifications/notifications-page';
 import { SavedViewsPage } from './saved-views/saved-views-page';
@@ -75,8 +74,13 @@ export function CatalogPage() {
     const search = location.search ?? '';
     return <Redirect to={`/catalog/data-model/schema${search}`} />;
   }
+  // /catalog/digest relocated to /liveops/alerts?tab=digests — redirect so
+  // bookmarks and the old sidebar entry keep working.
+  if (location.pathname === '/catalog/digest') {
+    return <Redirect to="/liveops/alerts?tab=digests" />;
+  }
+
   const longTailMap: Record<string, JSX.Element> = {
-    '/catalog/digest':        <DigestPage />,
     '/catalog/notifications': <NotificationsPage />,
     '/catalog/saved-views':   <SavedViewsPage />,
     '/catalog/workspaces':    <WorkspacesPage />,

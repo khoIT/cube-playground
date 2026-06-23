@@ -36,7 +36,7 @@ LiveOps  (nav section, revived/elevated)
 | 03 | [Shared annotation primitive + Event timeline (tab 2)](phase-03-annotation-event-timeline.md) | ✅ | 01 |
 | 04 | [Lifecycle flow Sankey (tab 3)](phase-04-lifecycle-flow-sankey.md) | ✅ | 00,01 |
 | 05 | [Monetization deep-dive](phase-05-monetization-deepdive.md) | ✅ | 00,01 |
-| 06 | [Alerts & Digests hub + delivery seam](phase-06-alerts-digests-hub.md) | ☐ | 01 |
+| 06 | [Alerts & Digests hub + delivery seam](phase-06-alerts-digests-hub.md) | ✅ | 01 |
 | 07 | [Portfolio (Command Center "All games")](phase-07-portfolio-all-games.md) | ☐ | 00,01 |
 | 08 | [Tests, docs, design cross-check, rollout](phase-08-tests-docs-rollout.md) | ☐ | all |
 

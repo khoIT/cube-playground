@@ -32,6 +32,7 @@ import { resolveGamePrefix } from '../services/resolve-game-prefix.js';
 import { physicalizeQuery, logicalizeRows } from '../services/cube-member-resolver.js';
 import { upsertAnomaly } from '../services/anomaly-state-store.js';
 import { getDb } from '../db/sqlite.js';
+import { sendNotification } from '../services/notify-client.js';
 import { upsertDriftRows, listDriftRows } from '../db/metric-drift-snapshot-store.js';
 import { recordDriftRun, type DriftRunSource, type DriftRunStatus } from '../db/metric-drift-run-store.js';
 import { groupDriftByRootCause } from '../services/metric-drift-grouping.js';
@@ -359,6 +360,95 @@ export async function maybeRunAnomalyDetector(now: number = Date.now()): Promise
 
 // ─── Phase-2 SQLite detector ──────────────────────────────────────────────────
 
+/**
+ * Returns true when (game, metric, ts) has no existing OPEN row in the
+ * anomalies table, meaning this detection is genuinely new (not a re-run on
+ * the same data point). Snoozed rows are excluded — the owner opted out.
+ * Returns false on any DB error so notification is suppressed rather than
+ * spammed on failure.
+ */
+function shouldNotifyNewAnomaly(game: string, metric: string, ts: string): boolean {
+  try {
+    const db = getDb();
+    const existing = db
+      .prepare(
+        `SELECT id FROM anomalies
+          WHERE game = ? AND metric = ? AND ts = ? AND status = 'open'
+          LIMIT 1`,
+      )
+      .get(game, metric, ts);
+    return existing == null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Looks up owners of enabled alert_rules matching (game, metric) and finds
+ * the owner to notify for a newly-opened anomaly. Falls back to a no-op when
+ * the alert_rules table doesn't exist yet (pre-migration).
+ *
+ * v1 behaviour (documented): if NO matching alert rule exists, the anomaly
+ * bridge still notifies the game's first alert-rule owner as a catch-all.
+ * This ensures newly-opened high/med anomalies are visible even before a user
+ * has configured rules. In practice this is a single-admin playground.
+ */
+function findAlertRuleOwners(game: string, metric: string): string[] {
+  try {
+    const db = getDb();
+    // Strip logical metric name to a bare metric key for flexible matching —
+    // the ANOMALY_METRICS config uses fully-qualified names like
+    // "active_daily.dau" while alert rules store the same string.
+    const rows = db
+      .prepare(
+        `SELECT DISTINCT owner FROM alert_rules
+          WHERE game = ? AND metric = ? AND enabled = 1
+          LIMIT 10`,
+      )
+      .all(game, metric) as Array<{ owner: string }>;
+    if (rows.length > 0) return rows.map((r) => r.owner);
+
+    // Fallback: any enabled rule owner for this game (anomaly bridge catch-all).
+    const fallback = db
+      .prepare(
+        `SELECT DISTINCT owner FROM alert_rules
+          WHERE game = ? AND enabled = 1
+          LIMIT 1`,
+      )
+      .all(game) as Array<{ owner: string }>;
+    return fallback.map((r) => r.owner);
+  } catch {
+    // alert_rules table not yet migrated — skip silently.
+    return [];
+  }
+}
+
+/**
+ * Fire-and-forget: enqueue an in-app notification for a newly-opened anomaly.
+ * Errors are logged but never re-thrown — the detector tick must not break.
+ */
+function enqueueAnomalyNotification(
+  game: string,
+  metric: string,
+  severity: string,
+  observed: number,
+  baseline: number,
+  ts: string,
+  warn: (msg: string) => void,
+): void {
+  const owners = findAlertRuleOwners(game, metric);
+  if (owners.length === 0) return; // no recipients configured → quiet
+
+  const deltaPct = baseline !== 0 ? Math.round(((observed - baseline) / baseline) * 1000) / 10 : 0;
+  const payload = { game, metric, severity, observed, baseline, deltaPct, ts };
+
+  for (const ownerId of owners) {
+    sendNotification({ ownerId, kind: 'anomaly_alert', payload }).catch((err) => {
+      warn(`[anomaly-detector] notification failed for owner="${ownerId}": ${(err as Error).message}`);
+    });
+  }
+}
+
 /** Per-game in-memory mutex: prevents overlapping ticks for same game. */
 const gameInflight = new Map<string, boolean>();
 let sqliteIntervalId: ReturnType<typeof setInterval> | null = null;
@@ -468,8 +558,20 @@ export async function runDetectorTick(
           const baseline = series.slice(0, -1).reduce((s, v) => s + v, 0) / (series.length - 1);
           const observed = series[series.length - 1];
 
+          // Check whether this (game, metric, ts) is newly opening BEFORE upsert
+          // so we can decide whether to fire a notification. A re-detection of the
+          // same anomaly point should not re-spam the owner. Snoozed rows are also
+          // excluded — the owner explicitly asked to be quiet until the snooze expires.
+          const isNewlyOpen = shouldNotifyNewAnomaly(game, cfg.metric, ts);
+
           upsertAnomaly({ game, metric: cfg.metric, severity, baseline, observed, ts });
           upserted++;
+
+          // Bridge: fire an in-app notification for newly-opened high/med severity
+          // anomalies. Wrapped so a notify failure NEVER breaks the detector tick.
+          if (isNewlyOpen && (severity === 'high' || severity === 'med')) {
+            enqueueAnomalyNotification(game, cfg.metric, severity, observed, baseline, ts, warn);
+          }
         } catch (err) {
           warn(`[anomaly-detector] metric "${cfg.metric}" for game="${game}" failed: ${(err as Error).message}`);
         }
