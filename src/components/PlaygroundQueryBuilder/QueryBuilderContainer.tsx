@@ -40,6 +40,7 @@ import type { SegmentEditContext } from '../../utils/playground-deeplink';
 import { segmentsClient } from '../../api/segments-client';
 
 import { PreAggregationStatus } from './components/index';
+import { isDeeplinkForeign, commitDeeplinkWorkspace } from './deeplink-workspace-guard';
 import { PlaygroundVizard } from './playground-vizard';
 import {
   SegmentEditSessionContext,
@@ -257,24 +258,14 @@ function QueryTabsRenderer({
     return () => window.removeEventListener(OPEN_ROLLUP_DESIGNER_EVENT, handler);
   }, [toggleModal]);
 
-  // Workspace is an isolation boundary (like Segments / Dashboards lists). A
-  // deeplinked query carries physical member names from the workspace it was
-  // built in (e.g. prod's `jus_vn__active_daily.dau`); rehydrating it into a
-  // different workspace references cubes that don't exist there ("Cube not
-  // found"). On a workspace SWITCH (not initial mount), drop the deeplink params
-  // so the new workspace's own saved tabs (queryTabs:<workspaceId>:<gameId>)
-  // take over instead of the stale foreign query.
-  const prevWorkspaceRef = useRef<string | undefined>(workspaceId);
-  useEffect(() => {
-    if (prevWorkspaceRef.current === workspaceId) return;
-    prevWorkspaceRef.current = workspaceId;
-    const search = new URLSearchParams(location.search);
-    const DEEPLINK_PARAMS = ['query', 'from-chat-artifact', 'from-segment', 'edit-segment', 'n'];
-    if (!DEEPLINK_PARAMS.some((p) => search.has(p))) return;
-    DEEPLINK_PARAMS.forEach((p) => search.delete(p));
-    const next = search.toString();
-    history.replace({ pathname: location.pathname, search: next ? `?${next}` : '' });
-  }, [workspaceId, location.search, location.pathname, history]);
+  // NOTE: a foreign deeplink (one carried across a workspace switch) is dropped
+  // below via deeplinkIsForeignToWorkspace, NOT by stripping the URL here. The
+  // URL is a losing battleground: ExplorePage re-pushes ?query= on every tab
+  // change and QueryTabs re-seeds from the param on remount, so a strip is
+  // overwritten. Dropping the query at the data layer makes QueryTabs fall back
+  // to the new workspace's own saved tabs. (workspace-context also strips the
+  // hash at the switch source for instant URL hygiene — that's cosmetic; this
+  // is the authoritative guard.)
 
   // Build a predicate from the active /meta — a cube exposes `gameId` if it
   // lists a dimension named `<cube>.gameId`. We probe lazily so the call is
@@ -490,7 +481,7 @@ function QueryTabsRenderer({
       console.warn('[QueryBuilder] ignoring malformed ?query= deeplink param');
     }
   }
-  const rawQuery =
+  const rawQueryFromDeeplink =
     (chatArtifactId && processedArtifactRef.current === chatProcessKey
       ? chatPayloadRef.current
       : null) ??
@@ -498,6 +489,37 @@ function QueryTabsRenderer({
       ? fromSegmentPayloadRef.current
       : null) ??
     parsedQueryParam;
+
+  // Drop the deeplink when it belongs to a different workspace than the active
+  // one (the user switched after opening it). Its physical cube member names
+  // (prod `jus_vn__active_daily.dau` vs local `jus_vn_active_daily.dau`) don't
+  // exist in the new workspace → "Cube not found". Dropping to null lets
+  // QueryTabs restore the new workspace's own tabs instead. The verdict is a
+  // pure read of module-level state (so it survives the remount a switch's
+  // token re-mint triggers, and stays correct under StrictMode); the origin
+  // stamp is committed from the effect below.
+  const hasDeeplinkQuery = rawQueryFromDeeplink != null;
+  const deeplinkForeign = isDeeplinkForeign(workspaceId, hasDeeplinkQuery);
+  const rawQuery = deeplinkForeign ? null : rawQueryFromDeeplink;
+
+  // Commit the origin workspace once per render (commit phase, not during
+  // render). After a foreign drop this adopts the active workspace, so its own
+  // subsequent query pushes are treated as native.
+  useEffect(() => {
+    commitDeeplinkWorkspace(workspaceId, hasDeeplinkQuery);
+  }, [workspaceId, hasDeeplinkQuery]);
+
+  // Foreign deeplink dropped — clean its params out of the URL so the address
+  // bar reflects the active tab rather than the stale foreign query.
+  useEffect(() => {
+    if (!deeplinkForeign) return;
+    const search = new URLSearchParams(location.search);
+    const DEEPLINK_PARAMS = ['query', 'from-chat-artifact', 'from-segment', 'edit-segment', 'n'];
+    if (!DEEPLINK_PARAMS.some((p) => search.has(p))) return;
+    DEEPLINK_PARAMS.forEach((p) => search.delete(p));
+    const next = search.toString();
+    history.replace({ pathname: location.pathname, search: next ? `?${next}` : '' });
+  }, [deeplinkForeign, location.search, location.pathname, history]);
 
   // Rewrite "last N week/month/quarter/year" relative strings to rolling
   // [start, end] tuples before they reach Cube. Cube's date-parser snaps

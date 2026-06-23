@@ -27,6 +27,32 @@ const WORKSPACE_STORAGE_KEY = 'gds-cube:workspace';
 // QueryBuilderContainer). Re-exported below.
 const WORKSPACE_CHANGE_EVENT = 'gds-cube:workspace-change';
 
+// Playground deeplink params encode PHYSICAL cube member names from the
+// workspace the URL was built in (prod `jus_vn__active_daily.dau` vs local
+// `jus_vn_active_daily.dau`). Carried across a switch they reference cubes the
+// new workspace doesn't have, so the builder reports "Cube not found" and the
+// remounted QueryTabs seeds the new workspace's first tab with the foreign
+// query. Strip them from the hash here, at the switch source — this runs once
+// synchronously and so survives the playground component remounting during the
+// token re-mint a switch triggers. An in-component effect keyed on a
+// mount-initialized ref misses the switch entirely when it remounts.
+const PLAYGROUND_DEEPLINK_PARAMS = ['query', 'from-chat-artifact', 'from-segment', 'edit-segment', 'n'];
+
+function stripPlaygroundDeeplinkFromHash(): void {
+  if (typeof window === 'undefined') return;
+  const hash = window.location.hash; // HashRouter shape: "#/build?query=…"
+  const qIndex = hash.indexOf('?');
+  if (qIndex === -1) return;
+  const path = hash.slice(0, qIndex);
+  // Only the playground carries these params — leave other routes untouched.
+  if (!path.startsWith('#/build')) return;
+  const search = new URLSearchParams(hash.slice(qIndex + 1));
+  if (!PLAYGROUND_DEEPLINK_PARAMS.some((p) => search.has(p))) return;
+  PLAYGROUND_DEEPLINK_PARAMS.forEach((p) => search.delete(p));
+  const rest = search.toString();
+  window.location.hash = rest ? `${path}?${rest}` : path;
+}
+
 export interface WorkspaceDef {
   id: string;
   label: string;
@@ -112,7 +138,15 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
   // workspaceId, and the synchronous readers already see the updated mirror.
   useEffect(() => {
     return subscribe(WORKSPACE_STORAGE_KEY, (next) => {
-      if (next) setWorkspaceIdState((prev) => (prev === next ? prev : next));
+      if (next) {
+        setWorkspaceIdState((prev) => {
+          if (prev === next) return prev;
+          // A switch synced from another tab/device bypasses setWorkspaceId, so
+          // strip the foreign playground deeplink here too.
+          stripPlaygroundDeeplinkFromHash();
+          return next;
+        });
+      }
     });
   }, []);
 
@@ -139,6 +173,10 @@ export function WorkspaceProvider({ children }: WorkspaceProviderProps) {
         } catch {
           // ignore quota / privacy errors
         }
+        // Drop any playground deeplink before the switch commits, so the new
+        // workspace boots from its own saved tabs rather than rehydrating the
+        // prior workspace's foreign member names.
+        stripPlaygroundDeeplinkFromHash();
         window.dispatchEvent(
           new CustomEvent(WORKSPACE_CHANGE_EVENT, { detail: { workspaceId: next } }),
         );
