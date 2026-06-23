@@ -16,8 +16,7 @@ import {
   Grid,
   BookOpen,
   Users,
-  AlertTriangle,
-  Database,
+  Lightbulb,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -86,6 +85,10 @@ const RowLabel = styled.span`
   font-weight: 500;
 `;
 
+// One icon per NavItemId. The `Record` type forces this map to stay in lockstep
+// with the union — a new nav item without an icon is a compile error, and the
+// `?? Grid` fallback below keeps an unmapped id from rendering an undefined
+// element (which crashes the whole settings tree with React error #130).
 const ICONS: Record<NavItemId, LucideIcon> = {
   chats: MessageSquare,
   playground: LayoutDashboard,
@@ -93,9 +96,8 @@ const ICONS: Record<NavItemId, LucideIcon> = {
   'metrics-catalog': BookOpen,
   liveops: Radio,
   dashboards: LayoutGrid,
-  'drift-center': AlertTriangle,
-  'data-hub': Database,
   segments: Users,
+  advisor: Lightbulb,
 };
 
 export function NavVisibilitySection(): ReactElement {
@@ -130,7 +132,7 @@ export function NavVisibilitySection(): ReactElement {
           // the only remaining visible entry — disable it to prevent blanking
           // the rail entirely. Matches the guard in useVisibleNavItems.toggle.
           const wouldBeLast = checked && hidden.size === NAV_ITEMS.length - 1;
-          const Icon = ICONS[item.id];
+          const Icon = ICONS[item.id] ?? Grid;
           return (
             <ItemRow
               key={item.id}
