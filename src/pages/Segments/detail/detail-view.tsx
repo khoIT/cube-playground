@@ -249,7 +249,6 @@ export function DetailView(): ReactElement {
               className={[
                 styles.tab,
                 tab === tid ? styles.tabActive : '',
-                isMembers ? styles.tabPrimary : '',
               ].filter(Boolean).join(' ')}
               onClick={() => setTab(tid)}
             >
