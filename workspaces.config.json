@@ -4,18 +4,21 @@
   "workspaces": [
     {
       "id": "local",
-      "label": "Local dev",
+      "label": "Local Workspace",
       "cubeApiUrl": "http://localhost:4000",
       "authMode": "minted",
       "gameModel": "game_id"
     },
     {
       "id": "prod",
-      "label": "Prod cube-dev",
+      "label": "Production Workspace",
       "cubeApiUrl": "https://cube.gds.vng.vn",
-      "authMode": "none",
+      "authMode": "minted",
       "gameModel": "prefix",
-      "allowedRoles": ["editor", "admin"],
+      "allowedRoles": [
+        "editor",
+        "admin"
+      ],
       "gamePrefixMap": {
         "cfm_vn": "cfm",
         "ballistar": "ballistar",

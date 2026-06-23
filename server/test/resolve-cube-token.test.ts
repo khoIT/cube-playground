@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   resolveCubeTokenForGame,
   resolveCubeTokenForGameDetailed,
+  resolveCubeTokenForWorkspace,
   __envKeyFor,
 } from '../src/services/resolve-cube-token.js';
+import type { WorkspaceDef } from '../src/services/workspaces-config-loader.js';
 
 const KEYS = [
   'CUBE_TOKEN',
@@ -12,8 +14,24 @@ const KEYS = [
   'CUBE_TOKEN_BALLISTAR',
   'CUBE_TOKEN_CFM_VN',
   'CUBEJS_API_SECRET',
+  'CUBE_SECRET_PROD',
   'CUBE_PLAYGROUND_USER_ID',
 ];
+
+const PROD_WS: WorkspaceDef = {
+  id: 'prod',
+  label: 'Production Workspace',
+  cubeApiUrl: 'https://cube.gds.vng.vn',
+  authMode: 'minted',
+  gameModel: 'prefix',
+};
+const LOCAL_WS: WorkspaceDef = {
+  id: 'local',
+  label: 'Local Workspace',
+  cubeApiUrl: 'http://localhost:4000',
+  authMode: 'minted',
+  gameModel: 'game_id',
+};
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const seg = token.split('.')[1];
@@ -130,5 +148,44 @@ describe('resolveCubeTokenForGameDetailed', () => {
     process.env.CUBE_PLAYGROUND_USER_ID = '9001';
     const res = resolveCubeTokenForGameDetailed('ptg');
     expect(decodeJwtPayload(res.token!).userId).toBe('9001');
+  });
+});
+
+describe('resolveCubeTokenForWorkspace — per-workspace minting secret', () => {
+  it('prod workspace signs with CUBE_SECRET_PROD, not the shared secret', () => {
+    process.env.CUBEJS_API_SECRET = 'local-secret';
+    process.env.CUBE_SECRET_PROD = 'prod-secret';
+    const prod = resolveCubeTokenForWorkspace(PROD_WS, 'cfm_vn');
+    expect(prod.source).toBe('minted');
+    // Same payload, different secret → different signature segment. A token
+    // signed with the local secret would be rejected by the prod cube.
+    const sigWithProd = prod.token!.split('.')[2];
+    process.env.CUBE_SECRET_PROD = 'local-secret'; // pretend it matched local
+    const sigWithLocal = resolveCubeTokenForWorkspace(PROD_WS, 'cfm_vn').token!.split('.')[2];
+    expect(sigWithProd).not.toBe(sigWithLocal);
+    expect(decodeJwtPayload(prod.token!).game).toBe('cfm_vn');
+  });
+
+  it('prod workspace falls back to the shared secret when CUBE_SECRET_PROD is unset', () => {
+    process.env.CUBEJS_API_SECRET = 'shared-secret';
+    const res = resolveCubeTokenForWorkspace(PROD_WS, 'jus_vn');
+    expect(res.source).toBe('minted');
+    expect(res.token).toBeTruthy();
+  });
+
+  it('local workspace is unaffected by CUBE_SECRET_PROD (uses shared secret)', () => {
+    process.env.CUBEJS_API_SECRET = 'shared-secret';
+    process.env.CUBE_SECRET_PROD = 'prod-secret';
+    const local = resolveCubeTokenForWorkspace(LOCAL_WS, 'cfm_vn').token!.split('.')[2];
+    process.env.CUBE_SECRET_PROD = 'something-else';
+    const localAgain = resolveCubeTokenForWorkspace(LOCAL_WS, 'cfm_vn').token!.split('.')[2];
+    // Local ignores CUBE_SECRET_PROD entirely → signature stable across changes.
+    expect(local).toBe(localAgain);
+  });
+
+  it('minted with no secret at all → none', () => {
+    const res = resolveCubeTokenForWorkspace(PROD_WS, 'cfm_vn');
+    expect(res.token).toBeNull();
+    expect(res.source).toBe('none');
   });
 });

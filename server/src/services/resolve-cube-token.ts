@@ -2,8 +2,9 @@
  * Resolves the Cube JWT to use for a server-side request to Cube.
  *
  * Workspace-aware (`authMode`):
- *   - `none`        → no token (open prod cube-dev). Returns null + source 'none'.
- *   - `minted`      → mint HS256 via `CUBEJS_API_SECRET`; per-game `securityContext.game`.
+ *   - `none`        → no token (open cube). Returns null + source 'none'.
+ *   - `minted`      → mint HS256 via `CUBE_SECRET_<WS>` (per-workspace secret),
+ *                     falling back to `CUBEJS_API_SECRET`; per-game `game` claim.
  *   - `env-token`   → `CUBE_TOKEN_<WS>_<GAME>` → `CUBE_TOKEN_<WS>` → null.
  *
  * Legacy resolver (no ws ctx) keeps the original env order for backwards-compat
@@ -42,6 +43,19 @@ function envKeyForWorkspaceGame(workspaceId: string, gameId: string): string {
 function envKeyForWorkspace(workspaceId: string): string {
   const ws = workspaceId.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
   return `CUBE_TOKEN_${ws}`;
+}
+
+// Per-workspace HS256 minting secret. A 'minted' workspace pointing at a
+// DIFFERENT Cube than local (e.g. prod cube.gds.vng.vn) signs with its own
+// secret via `CUBE_SECRET_<WS>`; falls back to the shared `CUBEJS_API_SECRET`
+// (the local cube's secret) when unset, so the in-stack 'local' workspace is
+// unchanged.
+function mintingSecretFor(workspaceId: string): string | undefined {
+  const ws = workspaceId.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+  const perWs = process.env[`CUBE_SECRET_${ws}`];
+  if (perWs && perWs.length > 0) return perWs;
+  const shared = process.env.CUBEJS_API_SECRET;
+  return shared && shared.length > 0 ? shared : undefined;
 }
 
 // Cube's checkAuth resolves the JWT's userId against the auth-users DB. The
@@ -126,7 +140,7 @@ export function resolveCubeTokenForWorkspace(
     }
 
     case 'minted': {
-      const secret = process.env.CUBEJS_API_SECRET;
+      const secret = mintingSecretFor(workspace.id);
       if (!secret || secret.length === 0) {
         // No secret configured (misconfigured/dev). We cannot mint a per-user
         // token here, so fall back to operator-provided env tokens only. We do

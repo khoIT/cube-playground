@@ -128,7 +128,8 @@ const CheckMark = styled(Check)`
 `;
 
 function workspaceShortLabel(w: WorkspaceDef): string {
-  // "Local dev" → "Local", "Prod cube-dev" → "Prod"
+  // First word of the label for the compact topbar chip:
+  // "Local Workspace" → "Local", "Production Workspace" → "Production".
   return w.label.split(/\s+/)[0] ?? w.id;
 }
 

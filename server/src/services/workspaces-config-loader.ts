@@ -39,7 +39,7 @@ const FALLBACK: WorkspacesConfig = {
   workspaces: [
     {
       id: 'local',
-      label: 'Local dev',
+      label: 'Local Workspace',
       cubeApiUrl: 'http://localhost:4000',
       authMode: 'minted',
       gameModel: 'game_id',
