@@ -339,20 +339,30 @@ async function handleLoad(
 export default async function cubeProxyRoutes(app: FastifyInstance): Promise<void> {
   // GET /cube-api/v1/meta(?extended=true&...)
   app.get('/cube-api/v1/meta', async (req, reply) => {
-    const search = (req.raw.url ?? '').split('?')[1] ?? '';
+    let search = (req.raw.url ?? '').split('?')[1] ?? '';
+    const rawGame = req.headers[GAME_HEADER];
+    const gameId = typeof rawGame === 'string' && rawGame.trim() ? rawGame.trim() : null;
+    const prefix = gamePrefixFor(req.workspace, gameId);
+    // Prefix workspaces front a multi-tenant gateway whose `/meta` defaults to a
+    // members-less "summary" shape (name/description/type only) — feeding that to
+    // the FE leaves every cube without measures/dimensions. Ask for the full member
+    // lists, scoped to the active game's tenant via `cube_id` so we fetch one game
+    // (~hundreds of KB) instead of the whole catalogue (tens of MB). No-op on
+    // game_id workspaces (standard Cube, full members by default, ignores the params).
+    if (prefix && gameId) {
+      const params = new URLSearchParams(search);
+      params.set('full', 'true');
+      params.set('cube_id', gameId);
+      search = params.toString();
+    }
     const { status, body } = await forward(
       req.cubeCtx, 'GET', '/meta', search, undefined,
       undefined, clientAbortController(reply).signal,
     );
-    // On prefix workspaces, Cube returns every game's cubes. Scope the response
-    // to the active game's prefix so consumers (chat agent, Playground) don't
-    // see the same measure name across games. No-op on game_id workspaces or
-    // when no game header is present.
-    if (status === 200) {
-      const rawGame = req.headers[GAME_HEADER];
-      const gameId = typeof rawGame === 'string' && rawGame.trim() ? rawGame.trim() : null;
-      const prefix = gamePrefixFor(req.workspace, gameId);
-      if (prefix) return reply.status(status).send(filterMetaToGamePrefix(body, prefix));
+    // Scope the response to the active game's prefix so consumers (chat agent,
+    // Playground) don't see the same measure name across games.
+    if (status === 200 && prefix) {
+      return reply.status(status).send(filterMetaToGamePrefix(body, prefix));
     }
     return reply.status(status).send(body);
   });

@@ -11,8 +11,8 @@
     },
     {
       "id": "prod",
-      "label": "Prod cube-dev (local mirror)",
-      "cubeApiUrl": "http://localhost:16000",
+      "label": "Prod cube-dev",
+      "cubeApiUrl": "https://cube.gds.vng.vn",
       "authMode": "none",
       "gameModel": "prefix",
       "allowedRoles": ["editor", "admin"],
