@@ -54,6 +54,14 @@ export interface Config {
    */
   anthropicSubscriptionOauthToken: string;
   /**
+   * Additional named subscription OAuth tokens, appended to the failover ladder
+   * after the primary subscription token. Each maps to its own pinnable slot
+   * (subscription-vy / subscription-thi) the admin can select per all-user turn.
+   * Same semantics as anthropicSubscriptionOauthToken — empty = not configured.
+   */
+  anthropicSubscriptionOauthTokenVy: string;
+  anthropicSubscriptionOauthTokenThi: string;
+  /**
    * Cooldown (ms) before a balance-exhausted key is retried. Lets the service
    * fall back to the primary key automatically after a top-up. Default 10 min.
    */
@@ -338,6 +346,8 @@ export const config: Config = {
   anthropicApiStgKey: optional('ANTHROPIC_API_STG_KEY', ''),
   anthropicApiBackupKey: optional('ANTHROPIC_API_BACKUP_KEY', ''),
   anthropicSubscriptionOauthToken: optional('ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN', ''),
+  anthropicSubscriptionOauthTokenVy: optional('ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN_VY', ''),
+  anthropicSubscriptionOauthTokenThi: optional('ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN_THI', ''),
   anthropicKeyRetryCooldownMs: optionalInt('ANTHROPIC_KEY_RETRY_COOLDOWN_MS', 600_000),
   anthropicBaseUrl: required('ANTHROPIC_BASE_URL'),
   chatModel: optional('CHAT_MODEL', 'claude-sonnet-4-6'),

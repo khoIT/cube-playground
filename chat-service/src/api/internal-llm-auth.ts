@@ -1,12 +1,18 @@
 /**
- * GET/PUT /internal/llm-auth-mode — admin bridge for the LLM auth-mode toggle.
+ * GET/PUT /internal/llm-auth-mode — admin bridge for the LLM auth-mode +
+ * global-model toggle.
  *
- *   GET → { mode, keys } where keys = keyFailoverStatus() (labels only).
- *   PUT { mode: 'auto'|'gateway'|'subscription' } → switches the lane the
- *   failover ladder may use, persisted in chat.db (survives restart).
+ *   GET → { mode, keys, modelOverride, allowedModels, defaultModel }
+ *         (keys = keyFailoverStatus(), labels only).
+ *   PUT { mode } → switch which key/lane the failover ladder uses for all
+ *         users: 'auto' | 'gateway' | a specific slot label
+ *         ('subscription' | 'subscription-vy' | 'subscription-thi').
+ *   PUT { model } → set/clear the global model override applied to every turn
+ *         (null/'' clears; otherwise must be in config.allowedModels).
+ * Both fields are independent; a PUT may carry either. Persisted in chat.db.
  *
- * Validation: a mode whose lane has no configured credential is rejected with
- * 400 (e.g. 'subscription' without ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN set) —
+ * Validation: a mode whose lane/slot has no configured credential is rejected
+ * 400 (e.g. 'subscription-vy' without ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN_VY) —
  * the failover module's full-ladder fallback would silently ignore the toggle,
  * which is worse than telling the admin why it can't apply.
  *
@@ -15,8 +21,10 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { buildInternalSecretGate, type InternalSecretGateOptions } from '../middleware/internal-secret.js';
-import { keyFailoverStatus, configuredAuthKinds } from '../core/anthropic-key-failover.js';
+import { keyFailoverStatus, configuredAuthKinds, configuredKeyLabels } from '../core/anthropic-key-failover.js';
 import { getLlmAuthMode, setLlmAuthMode, isLlmAuthMode } from '../core/llm-auth-mode.js';
+import { getLlmModelOverride, setLlmModelOverride } from '../core/llm-model-override.js';
+import { config } from '../config.js';
 
 interface InternalLlmAuthRouteOptions {
   /** Test-only override for the secret gate. */
@@ -24,7 +32,13 @@ interface InternalLlmAuthRouteOptions {
 }
 
 function statusPayload() {
-  return { mode: getLlmAuthMode(), keys: keyFailoverStatus() };
+  return {
+    mode: getLlmAuthMode(),
+    keys: keyFailoverStatus(),
+    modelOverride: getLlmModelOverride(),
+    allowedModels: config.allowedModels,
+    defaultModel: config.chatModel,
+  };
 }
 
 const internalLlmAuthRoutes: FastifyPluginAsync<InternalLlmAuthRouteOptions> = async (
@@ -37,31 +51,58 @@ const internalLlmAuthRoutes: FastifyPluginAsync<InternalLlmAuthRouteOptions> = a
     reply.send(statusPayload());
   });
 
-  fastify.put<{ Body: { mode?: unknown } }>(
+  fastify.put<{ Body: { mode?: unknown; model?: unknown } }>(
     '/internal/llm-auth-mode',
     { preHandler: gate },
     async (req, reply) => {
-      const requested = req.body?.mode;
-      if (!isLlmAuthMode(requested)) {
-        reply.status(400).send({ error: 'invalid_mode', allowed: ['auto', 'gateway', 'subscription'] });
+      const body = req.body ?? {};
+      const hasMode = 'mode' in body;
+      const hasModel = 'model' in body;
+      if (!hasMode && !hasModel) {
+        reply.status(400).send({ error: 'no_change', message: 'Provide a "mode" or "model" to change' });
         return;
       }
-      const kinds = configuredAuthKinds();
-      if (requested === 'subscription' && !kinds.includes('oauth-token')) {
-        reply.status(400).send({
-          error: 'subscription_not_configured',
-          message: 'ANTHROPIC_SUBSCRIPTION_OAUTH_TOKEN is not set on the chat-service',
-        });
-        return;
+
+      // --- Key/lane selection ---
+      if (hasMode) {
+        const requested = body.mode;
+        if (!isLlmAuthMode(requested)) {
+          reply.status(400).send({
+            error: 'invalid_mode',
+            allowed: ['auto', 'gateway', 'subscription', 'subscription-vy', 'subscription-thi'],
+          });
+          return;
+        }
+        const kinds = configuredAuthKinds();
+        if (requested === 'gateway' && !kinds.includes('gateway-key')) {
+          reply.status(400).send({
+            error: 'gateway_not_configured',
+            message: 'No gateway API key is configured on the chat-service',
+          });
+          return;
+        }
+        // A specific slot label must have a configured token.
+        if (requested !== 'auto' && requested !== 'gateway' && !configuredKeyLabels().includes(requested)) {
+          reply.status(400).send({
+            error: 'key_not_configured',
+            message: `No credential configured for '${requested}' on the chat-service`,
+          });
+          return;
+        }
+        setLlmAuthMode(requested);
       }
-      if (requested === 'gateway' && !kinds.includes('gateway-key')) {
-        reply.status(400).send({
-          error: 'gateway_not_configured',
-          message: 'No gateway API key is configured on the chat-service',
-        });
-        return;
+
+      // --- Global model override ---
+      if (hasModel) {
+        const model = body.model;
+        const cleared = model === null || model === '';
+        if (!cleared && (typeof model !== 'string' || !config.allowedModels.includes(model))) {
+          reply.status(400).send({ error: 'invalid_model', allowed: config.allowedModels });
+          return;
+        }
+        setLlmModelOverride(cleared ? null : (model as string));
       }
-      setLlmAuthMode(requested);
+
       reply.send(statusPayload());
     },
   );

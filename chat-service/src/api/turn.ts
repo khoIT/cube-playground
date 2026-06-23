@@ -33,6 +33,7 @@ import { buildSdkTools } from '../tools/registry.js';
 import { writeSseEvent } from '../core/sse-stream.js';
 import { classifyLlmError } from '../core/llm-error-classifier.js';
 import { config } from '../config.js';
+import { getLlmModelOverride } from '../core/llm-model-override.js';
 import { getStreamRegistry } from '../core/stream-registry-instance.js';
 import { RegistryOverflowError } from '../core/stream-registry.js';
 import type { SseEvent, QueryArtifact, ChartArtifact, ToolContext } from '../types.js';
@@ -78,10 +79,13 @@ const TurnBodySchema = z.object({
 
 /**
  * Resolve the model to use for a turn.
- * Honors the X-Model header when the value is in config.allowedModels;
- * unknown values silently fall back to config.chatModel — never echoed raw.
+ * Precedence: admin global override (applies to ALL users) → caller's X-Model
+ * header → config.chatModel default. Each candidate must be in
+ * config.allowedModels; an unknown value silently falls through — never echoed raw.
  */
 function resolveModel(xModelHeader: string | string[] | undefined): string {
+  const override = getLlmModelOverride();
+  if (override && config.allowedModels.includes(override)) return override;
   const requested =
     typeof xModelHeader === 'string' ? xModelHeader.trim() : undefined;
   if (requested && config.allowedModels.includes(requested)) return requested;

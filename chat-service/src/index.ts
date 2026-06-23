@@ -32,6 +32,7 @@ import internalCostRoutes from './api/internal-cost.js';
 import segmentBriefRoutes from './api/segment-brief.js';
 import internalLlmAuthRoutes from './api/internal-llm-auth.js';
 import { initLlmAuthMode } from './core/llm-auth-mode.js';
+import { initLlmModelOverride } from './core/llm-model-override.js';
 import auditRoutes from './api/audit.js';
 import debugRoutes from './api/debug.js';
 import debugAnnotationRoutes from './api/debug-annotations.js';
@@ -72,6 +73,10 @@ async function buildApp(dbPath?: string) {
   // Load the persisted admin LLM auth-mode toggle (auto/gateway/subscription)
   // so a restart keeps the lane the admin selected.
   initLlmAuthMode(db);
+
+  // Load the persisted admin global model override so a restart keeps the
+  // all-users model the admin selected.
+  initLlmModelOverride(db);
 
   // Rate limiter — applied only to POST /agent/turn via the hook
   const limiter = new RateLimiter({

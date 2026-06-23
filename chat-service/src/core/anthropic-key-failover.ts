@@ -29,7 +29,13 @@
 import { config } from '../config.js';
 import { getLlmAuthMode, type LlmAuthMode } from './llm-auth-mode.js';
 
-export type AnthropicKeyLabel = 'primary' | 'stg' | 'backup' | 'subscription';
+export type AnthropicKeyLabel =
+  | 'primary'
+  | 'stg'
+  | 'backup'
+  | 'subscription'
+  | 'subscription-vy'
+  | 'subscription-thi';
 
 /** How the slot's secret authenticates the SDK subprocess. */
 export type AnthropicAuthKind = 'gateway-key' | 'oauth-token';
@@ -131,6 +137,12 @@ function buildSlots(): KeySlot[] {
   if (config.anthropicSubscriptionOauthToken) {
     out.push({ label: 'subscription', key: config.anthropicSubscriptionOauthToken, authKind: 'oauth-token' });
   }
+  if (config.anthropicSubscriptionOauthTokenVy) {
+    out.push({ label: 'subscription-vy', key: config.anthropicSubscriptionOauthTokenVy, authKind: 'oauth-token' });
+  }
+  if (config.anthropicSubscriptionOauthTokenThi) {
+    out.push({ label: 'subscription-thi', key: config.anthropicSubscriptionOauthTokenThi, authKind: 'oauth-token' });
+  }
   return out;
 }
 
@@ -141,17 +153,23 @@ function getSlots(): KeySlot[] {
 
 /**
  * Slots the active admin auth mode permits:
- *   auto → all; gateway → gateway keys only; subscription → OAuth token only.
- * Safety net: a mode whose lane has no configured slot (e.g. 'subscription'
- * persisted, token later removed from env) falls back to the FULL ladder —
- * a key must always be available; the API layer rejects such a mode up front.
+ *   - 'auto'    → all slots, in ladder priority order;
+ *   - 'gateway' → gateway keys only (never burn subscription quota);
+ *   - any other value is a specific slot LABEL (e.g. 'subscription',
+ *     'subscription-vy') and pins to that single slot — the admin's
+ *     "use this exact key for all users" choice.
+ * Safety net: a mode whose lane/slot has no configured key (e.g. a token later
+ * removed from env) falls back to the FULL ladder — a key must always be
+ * available; the API layer rejects such a mode up front.
  */
 function getEffectiveSlots(): KeySlot[] {
   const all = getSlots();
   const mode: LlmAuthMode = getLlmAuthMode();
   if (mode === 'auto') return all;
-  const wanted: AnthropicAuthKind = mode === 'subscription' ? 'oauth-token' : 'gateway-key';
-  const filtered = all.filter((s) => s.authKind === wanted);
+  const filtered =
+    mode === 'gateway'
+      ? all.filter((s) => s.authKind === 'gateway-key')
+      : all.filter((s) => s.label === mode);
   if (filtered.length === 0) {
     console.warn(`[key-failover] auth mode '${mode}' has no configured slot — falling back to full ladder`);
     return all;
@@ -292,6 +310,11 @@ export function keyFailoverStatus(): {
 export function configuredAuthKinds(): AnthropicAuthKind[] {
   const kinds = new Set<AnthropicAuthKind>(getSlots().map((s) => s.authKind));
   return [...kinds];
+}
+
+/** Configured slot labels — lets the admin API validate a pin-to-specific-key mode. */
+export function configuredKeyLabels(): AnthropicKeyLabel[] {
+  return getSlots().map((s) => s.label);
 }
 
 /** Reset module state — exposed for tests. */

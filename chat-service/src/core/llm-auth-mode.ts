@@ -5,8 +5,10 @@
  *   - 'auto'         (default) full ladder: gateway keys first, subscription
  *                    OAuth token as the last-resort rung.
  *   - 'gateway'      gateway keys only — never burn the subscription quota.
- *   - 'subscription' subscription OAuth token only — preserve gateway budget
- *                    (or keep working while every gateway key is drained).
+ *   - 'subscription' | 'subscription-vy' | 'subscription-thi'
+ *                    pin to that one OAuth token — the admin's "use this exact
+ *                    key for all users" choice. Each maps to a configured slot
+ *                    label in anthropic-key-failover.ts.
  *
  * The mode is process-wide and persisted in chat.db's kv_cache table
  * (kind='runtime_setting') so an admin toggle survives a service restart.
@@ -20,9 +22,20 @@
 
 import type Database from 'better-sqlite3';
 
-export type LlmAuthMode = 'auto' | 'gateway' | 'subscription';
+export type LlmAuthMode =
+  | 'auto'
+  | 'gateway'
+  | 'subscription'
+  | 'subscription-vy'
+  | 'subscription-thi';
 
-export const LLM_AUTH_MODES: readonly LlmAuthMode[] = ['auto', 'gateway', 'subscription'];
+export const LLM_AUTH_MODES: readonly LlmAuthMode[] = [
+  'auto',
+  'gateway',
+  'subscription',
+  'subscription-vy',
+  'subscription-thi',
+];
 
 const KV_KIND = 'runtime_setting';
 const KV_KEY = 'llm_auth_mode';
