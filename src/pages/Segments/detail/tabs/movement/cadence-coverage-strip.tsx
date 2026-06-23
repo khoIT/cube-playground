@@ -13,7 +13,8 @@
  * there is no capture timeline yet (older segments / first paint).
  */
 
-import { ReactElement } from 'react';
+import { ReactElement, useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { CaptureEra, MovementGranularity } from '../../../../../api/segment-movement-client';
 import styles from '../../../segments.module.css';
 
@@ -52,22 +53,37 @@ interface Props {
 }
 
 export function CadenceCoverageStrip({ eras, finest }: Props): ReactElement | null {
+  // Auto-collapsed: coverage is reassurance most visits don't need open, so it
+  // starts as a one-line summary the user can expand on demand.
+  const [open, setOpen] = useState(false);
+
   if (!eras || eras.length === 0) return null;
 
   const total = eras.reduce((sum, e) => sum + dayCount(e.from, e.to), 0) || 1;
   const spanLabel = `${shortDate(eras[0].from)} – ${shortDate(eras[eras.length - 1].to)}`;
   const hasFine = eras.some((e) => e.cadence !== 'daily');
   const hasChange = eras.length > 1;
+  const collapsedSummary = eras.length === 1
+    ? `${CADENCE_LABEL[eras[0].cadence]} · ${total}d`
+    : `${eras.length} cadences · ${total}d`;
 
   return (
     <div className={styles.coverWrap} aria-label="Capture coverage timeline">
-      <div className={styles.coverHead}>
+      <button
+        type="button"
+        className={`${styles.coverHead} ${styles.coverHeadBtn}`}
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? <ChevronDown size={13} aria-hidden /> : <ChevronRight size={13} aria-hidden />}
         <span className={styles.coverLbl}>Capture coverage</span>
         <span className={styles.coverSub}>
-          what cadence was actually captured across {spanLabel}
+          {open ? `what cadence was actually captured across ${spanLabel}` : `${spanLabel} · ${collapsedSummary}`}
         </span>
-      </div>
+      </button>
 
+      {open && (
+      <>
       <div className={styles.coverStrip}>
         {eras.map((era, i) => {
           const days = dayCount(era.from, era.to);
@@ -125,6 +141,8 @@ export function CadenceCoverageStrip({ eras, finest }: Props): ReactElement | nu
           </span>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -31,6 +31,7 @@ import { AiBriefCard } from './components/ai-brief-card';
 import { BrokenSegmentBanner } from './components/broken-segment-banner';
 import { ActivationChip } from './components/activation-chip';
 import { HeadlineStatsRow } from './components/headline-stats-row';
+import { useHeadlineDeltas } from './components/use-headline-deltas';
 import { SegmentScopeBar } from './components/segment-scope-bar';
 import { SegmentScopeProvider } from './segment-scope-context';
 import { SegmentHealthPill } from '../status/segment-health-pill';
@@ -97,6 +98,9 @@ export function DetailView(): ReactElement {
   useTopbarBreadcrumbOverride(segment?.name ?? null, [segment?.id, segment?.name]);
 
   const sizeDelta = useSegmentSizeDelta(segment?.id ?? null, segment?.uid_count ?? null, 7);
+  // Per-card vs-yesterday movement (from daily snapshots) — merged onto the
+  // headline strip so the Monitor tab no longer needs a duplicate KPI row.
+  const headlineDeltas = useHeadlineDeltas(segment, preset);
 
   if (error) {
     return (
@@ -133,18 +137,6 @@ export function DetailView(): ReactElement {
   // lifetime-paying segment — today the mf_users hub. Gates both the scope bar
   // and (via the provider) whether a `?scope=paying` deep-link takes effect.
   const scopeAvailable = preset?.hubCube === 'mf_users';
-
-  const sizeTone: 'positive' | 'negative' | null = sizeDelta.percent == null
-    ? null
-    : sizeDelta.percent >= 0
-      ? 'positive'
-      : 'negative';
-  const sizeComparison = sizeDelta.percent != null && sizeTone != null
-    ? {
-        text: `${sizeDelta.percent >= 0 ? '↑' : '↓'} ${Math.abs(sizeDelta.percent).toFixed(1)}% ${t('segments.detail.kpi.vsLastWeek', { defaultValue: 'vs last week' })}`,
-        tone: sizeTone,
-      }
-    : null;
 
   const nextRefreshAt =
     segment.type === 'predicate' && lastRefresh && segment.refresh_cadence_min
@@ -209,7 +201,7 @@ export function DetailView(): ReactElement {
       <HeadlineStatsRow
         segment={segment}
         preset={preset}
-        sizeComparison={sizeComparison}
+        deltas={headlineDeltas}
         refreshLog={sizeDelta.rows}
         lastRefresh={lastRefresh}
         lastRefreshFooter={lastRefreshFooter}
@@ -235,7 +227,7 @@ export function DetailView(): ReactElement {
       </div>
       </div>
 
-      {tab === 'monitor' && <MonitorTab segment={segment} preset={preset} onSegmentChange={setSegment} />}
+      {tab === 'monitor' && <MonitorTab segment={segment} onSegmentChange={setSegment} />}
       {tab === 'insights' && (
         <InsightsTab
           segment={segment}

@@ -61,6 +61,14 @@ function shortDay(ts: string): string {
   return Number.isFinite(m) && m >= 1 && m <= 12 ? `${MONTHS[m - 1]} ${d}` : ts.slice(0, 10);
 }
 
+/** `2026-06-24 00:00:00` → `Jun 24, 00:00` for the freshness stamp — drops the
+ *  seconds and ISO noise. Midnight collapses to a bare date ("Jun 24"). */
+function shortStamp(ts: string): string {
+  const day = shortDay(ts);
+  const hhmm = ts.slice(11, 16);
+  return !hhmm || hhmm === '00:00' ? day : `${day}, ${hhmm}`;
+}
+
 export function MonitorControlBar({
   grain, availability, onGrainChange, range, onRangeChange,
   asOf, stale, cadenceChanges, carryForward, clamped, segment, onSegmentChange,
@@ -176,7 +184,11 @@ export function MonitorControlBar({
         </div>
         </div>
 
-        {asOf && <Pill tone="success">as of {asOf} GMT+7</Pill>}
+        {asOf && (
+          <Pill tone="success">
+            <span title={`as of ${asOf} GMT+7`}>as of {shortStamp(asOf)}</span>
+          </Pill>
+        )}
       </div>
     </div>
   );

@@ -23,9 +23,8 @@ import type { Segment, RefreshLogRow } from '../../../../types/segment-api';
 import { StatsRow, StatItem, StatCellInner, useStatItemFromKpi } from './stats-row';
 import { formatCompact } from '../cards/format-value';
 import { useSegmentScope } from '../segment-scope-context';
+import type { HeadlineDelta } from './use-headline-deltas';
 import styles from './stats-row.module.css';
-
-type Tone = 'neutral' | 'positive' | 'negative';
 
 const ICON_SIZE = 16;
 
@@ -52,7 +51,8 @@ function resolveKpiIcon(spec: KpiSpec): ReactNode {
 interface Props {
   segment: Segment;
   preset: Preset | null;
-  sizeComparison: { text: string; tone: Tone } | null;
+  /** Per-card vs-yesterday movement, keyed by KPI id (see useHeadlineDeltas). */
+  deltas: Map<string, HeadlineDelta>;
   refreshLog: RefreshLogRow[] | undefined;
   lastRefresh: string | null | undefined;
   lastRefreshFooter: ReactNode;
@@ -60,7 +60,7 @@ interface Props {
 }
 
 export function HeadlineStatsRow({
-  segment, preset, sizeComparison, refreshLog, lastRefresh,
+  segment, preset, deltas, refreshLog, lastRefresh,
   lastRefreshFooter, ownerFooter,
 }: Props): ReactElement {
   const { t } = useTranslation();
@@ -70,10 +70,12 @@ export function HeadlineStatsRow({
       <ScopedHeadlineKpis
         segment={segment}
         preset={preset}
-        sizeComparison={sizeComparison}
+        deltas={deltas}
       />
     );
   }
+
+  const sizeDelta = deltas.get('size') ?? null;
 
   // Fallback: no preset — synthesize Size / Last refresh / Owner / Status.
   const sizeSparkSeries = (refreshLog ?? []).map((r) => r.uid_count);
@@ -94,8 +96,8 @@ export function HeadlineStatsRow({
           {formatCompact(segment.uid_count)}
         </span>
       ),
-      delta: sizeComparison?.text,
-      tone: sizeComparison?.tone ?? 'neutral',
+      delta: sizeDelta?.text,
+      tone: sizeDelta?.tone ?? 'neutral',
       footer: sizeSparkSeries.length >= 2
         ? <Sparkline data={sizeSparkSeries} height={16} />
         : null,
@@ -177,11 +179,11 @@ function resolveScopedKpi(spec: KpiSpec, paying: boolean): ScopedKpi {
 
 /** Headline KPI grid that rewrites each spec for the active population scope. */
 function ScopedHeadlineKpis({
-  segment, preset, sizeComparison,
+  segment, preset, deltas,
 }: {
   segment: Segment;
   preset: Preset;
-  sizeComparison: { text: string; tone: Tone } | null;
+  deltas: Map<string, HeadlineDelta>;
 }): ReactElement {
   const { scope } = useSegmentScope();
   const paying = scope === 'paying';
@@ -195,7 +197,7 @@ function ScopedHeadlineKpis({
               resolved={resolved}
               segment={segment}
               preset={preset}
-              sizeComparison={sizeComparison}
+              delta={deltas.get(spec.id) ?? null}
             />
           </div>
         );
@@ -206,12 +208,12 @@ function ScopedHeadlineKpis({
 
 /** Inline preset-driven cell — same as StatsRow row but cell-scoped. */
 function InlineKpi({
-  resolved, segment, preset, sizeComparison,
+  resolved, segment, preset, delta,
 }: {
   resolved: ScopedKpi;
   segment: Segment;
   preset: Preset;
-  sizeComparison: { text: string; tone: Tone } | null;
+  delta: HeadlineDelta | null;
 }): ReactElement {
   const { spec, renderSizeLive, ignorePayingScope, suppressCache } = resolved;
   // Special-case the Size KPI (unscoped only): the segment object already
@@ -225,7 +227,7 @@ function InlineKpi({
         icon={resolveKpiIcon(spec)}
         label={spec.label}
         count={segment.uid_count}
-        comparison={sizeComparison}
+        delta={delta}
       />
     );
   }
@@ -237,27 +239,31 @@ function InlineKpi({
     null,
     { ignorePayingScope },
   );
+  // The vs-yesterday delta (from snapshot movement) overrides any spec-level
+  // comparison — it's the merged Monitor detail now riding the headline.
   return (
     <StatCellInner
       icon={resolveKpiIcon(spec)}
       label={item.label}
       value={item.value}
-      delta={item.delta}
-      tone={item.tone}
+      delta={delta?.text ?? item.delta}
+      tone={delta?.tone ?? item.tone}
       footer={item.footer}
     />
   );
 }
 
 /** Size cell rendered from segment.uid_count — exact thousands-separated value
- *  with the compact form ("82.4k") underneath for quick scanning. */
+ *  with the compact form ("82.4k") underneath for quick scanning. The value
+ *  stays the server-authoritative cohort count (what Members / Pull API serve);
+ *  the delta is the snapshot vs-yesterday movement merged from the Monitor tab. */
 function SizeStatCell({
-  icon, label, count, comparison,
+  icon, label, count, delta,
 }: {
   icon: ReactNode;
   label: string;
   count: number;
-  comparison: { text: string; tone: Tone } | null;
+  delta: HeadlineDelta | null;
 }): ReactElement {
   // Exact thousands-separated value up to 1M — precise counts beat compact
   // noise at this scale. From 1M up the tile compacts ("2.41M") and the
@@ -269,8 +275,8 @@ function SizeStatCell({
       icon={icon}
       label={<span title={`${exact} users`}>{label}</span>}
       value={<span title={`${exact} users`}>{display}</span>}
-      delta={comparison?.text}
-      tone={comparison?.tone}
+      delta={delta?.text}
+      tone={delta?.tone}
     />
   );
 }

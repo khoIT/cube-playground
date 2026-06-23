@@ -477,9 +477,16 @@
   border-bottom: 1px solid var(--border-card);
   margin: 4px -32px 0;
   padding: 0 32px;
-  background: var(--surface-sidebar);
+  /* Transparent so the strip reads as part of the content header (--bg-app)
+     rather than the warm sidebar — a surface-sidebar fill blended into the
+     left nav at the panel edge. */
+  background: transparent;
+  /* Six short tabs fit; keep horizontal scroll as a narrow-width fallback but
+     never show its bar (it otherwise renders as a stray track at full width). */
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.tabStrip::-webkit-scrollbar { display: none; }
 
 .tab {
   display: inline-flex;
@@ -1351,6 +1358,18 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+/* Collapsible toggle variant — the head doubles as the expand/collapse control. */
+.coverHeadBtn {
+  align-items: center;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  color: var(--text-muted);
+  text-align: left;
+}
 .coverHead .coverLbl {
   font-size: 11px;
   font-weight: 600;
@@ -1831,7 +1850,14 @@
   background: var(--bg-card);
   font-family: var(--font-sans);
 }
-.monitorControlCardView { flex: 1 1 440px; }
+/* View grain + Range sit borderless (like the status rail) so the controls
+ * breathe across the row instead of inside a boxed card. */
+.monitorControlCardView {
+  flex: 1 1 440px;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+}
 
 /* Status & controls rail — borderless (no card box). Notices + Settings ride
  * the top row; the freshness stamp sits on its own row beneath, right-aligned.

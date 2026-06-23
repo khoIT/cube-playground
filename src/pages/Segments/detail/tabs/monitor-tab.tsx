@@ -13,7 +13,6 @@
 
 import { ReactElement, useCallback, useMemo, useState } from 'react';
 import type { Segment } from '../../../../types/segment-api';
-import type { Preset } from '../../presets/types';
 import type { CadenceChange, CaptureEra, MovementGranularity } from '../../../../api/segment-movement-client';
 import { computeGrainAvailability, isGrainSelectable, finestFullGrain } from './movement/grain-availability';
 import { CadenceCoverageStrip } from './movement/cadence-coverage-strip';
@@ -26,7 +25,6 @@ import { RefreshHistorySection } from './monitor/refresh-history-section';
 import { SnapshotLedgerSection } from './monitor/snapshot-ledger-section';
 import { TrackCadenceControl } from './monitor/track-cadence-control';
 import { MonitorControlBar } from './monitor/monitor-control-bar';
-import { MonitorKpiTiles } from './monitor/monitor-kpi-tiles';
 import { clampRangeToGrain, defaultRange, dayCountInclusive, type DateRange } from './monitor/monitor-range';
 import { SliceScopeNote } from '../../slice-scope/slice-scope-note';
 import { parseCubeSegmentsFromQueryJson } from '../../slice-scope/parse-cube-segments';
@@ -45,13 +43,11 @@ interface MovementMeta {
 
 interface Props {
   segment: Segment;
-  /** Resolved preset — supplies the headline KPI labels/formats for the tiles. */
-  preset?: Preset | null;
   /** Propagates a segment change (track cadence) up so the header pill stays in sync. */
   onSegmentChange?: (next: Segment) => void;
 }
 
-export function MonitorTab({ segment, preset = null, onSegmentChange }: Props): ReactElement {
+export function MonitorTab({ segment, onSegmentChange }: Props): ReactElement {
   // View-grain (display downsample) — distinct from the Track knob (capture cadence).
   const [granularity, setGranularity] = useState<MovementGranularity>('daily');
   // Honest capture timeline + freshness, reported up by the membership section.
@@ -138,7 +134,6 @@ export function MonitorTab({ segment, preset = null, onSegmentChange }: Props): 
         onSegmentChange={onSegmentChange}
       />
       <CadenceCoverageStrip eras={captureEras} finest={finest} />
-      <MonitorKpiTiles segment={segment} preset={preset} range={effRange} granularity={granularity} />
       <TrajectoryCard
         segment={segment}
         days={effDays}
