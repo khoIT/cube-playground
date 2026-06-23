@@ -1,6 +1,8 @@
 # Phase 08 — Tests, docs, design cross-check, rollout
 
-**Priority:** P0 (gate to ship) · **Status:** ☐ · Depends: all
+**Priority:** P0 (gate to ship) · **Status:** ✅ · Depends: all
+
+> **Done (2026-06-24):** 92 new tests (delta-decomp math, alert comparators, digest idempotence/advance, lifecycle classification, annotation x-mapping, route-active exact flag, redirect aliases) — chat-service/server/FE suites all clean. Migrations 069/071/072 verified apply cleanly + CHECK constraints valid against in-memory DB. Docs updated: codebase-summary, system-architecture, lessons-learned (+3 reusable bug-shapes: current-snapshot cubes have no history; explicit /api/chat proxy; no all-games selector sentinel). Design cross-check = `npm run lint` (token enforcement) clean across all phases + page-header pattern mirrored. **Pre-existing (not regressed, another session):** 2 FE failures `segment-proposal-card-edit` + `presets/registry`. **Rollout note:** migrations 069/071/072 apply on next server boot; the anomaly→notification bridge + alert/digest cron activate on server restart.
 
 ## Goal
 Verify the center end-to-end, align it to the design system, document it, and roll out safely.

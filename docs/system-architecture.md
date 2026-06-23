@@ -820,6 +820,16 @@ Five reader patterns: legacy trajectory/metric-series, plus three new movement-a
 
 ---
 
+## LiveOps Monitoring Center (2026-06-24)
+
+**Multi-section KPI + diagnostics hub.** Command Center (`/liveops`) — game-scoped KPI strip + high-sev anomalies + Ops-overview trends + cross-game portfolio grid (fan-out cached queries, bounded concurrency). Diagnostics (`/liveops/diagnostics`) — Delta decomposition (Cube window deltas, ranked contributors via `POST chat-service /liveops/delta-decompose`), Event timeline (annotation overlay on shared chart renderer), Lifecycle flow (mf_users state cards + Sankey SVG). Monetization (`/liveops/monetization`) — payer tiers, LTV-by-cohort, revenue concentration (Gini), SKU/pack (cfm/jus). Retention (cohort grid). Alerts & Digests — anomaly→notification bridge, alert-rules engine, scheduled digests on server cron tick (60s).
+
+**Backend routes:** `server/routes/{lifecycle-flow,monetization-deepdive,annotations,alert-rules}.ts` (GET aggregates + rule CRUD). `chat-service POST /liveops/delta-decompose` (two-window attribution + contribution waterfall). Cross-service notification bridge: `server notify-client.ts` + `chat-service POST /internal/notifications` (x-internal-secret gate) → InAppNotificationDriver.
+
+**Migrations 069/071/072** (segments.db, applied on next server boot): chart-annotations, alert-rules, digest-subscriptions. Alert engine + digest runner on cron tick (self-gating, idempotence via last_run_date flag). No Slack/email drivers in v1 (seam ready for future pluggable `notification-driver` impls).
+
+---
+
 ## Cross-Game Cube Parity Audit & Regression Gate
 
 Read-only static analyzer that fans out over `(game × cube)`, applies canonical-rule checks to every dev cube, and structurally diffs each against its prod-clone oracle (`/Users/.../cube-prod`, schema map cfm→cfm_vn … pubg→pubgm). Lives in `cube-dev/scripts/audit-cube-parity.mjs` + `lib/cube-parity/` (load-and-normalize, canonical-rules, oracle-diff, emit, baseline). Severity rubric: **correctness** (PK fan-out, non-additive rollup, time-dim mismatch, identity-join, ratio truncation) > **parity** (measure present in oracle/peer but missing here) > **cosmetic** (label/order). Emits a JSONL ledger + a cubes×games matrix; also feeds the **Model Audit** UI console (`/model-audit`) via the persisted-snapshot recorder (migration 067).
