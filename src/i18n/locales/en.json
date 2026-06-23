@@ -5,7 +5,9 @@
   "header": {
     "gamePicker": {
       "label": "Active game",
-      "switchToast": "Now showing data for {{gameName}}"
+      "switchToast": "Now showing data for {{gameName}}",
+      "searchPlaceholder": "Search games…",
+      "noMatches": "No games match “{{query}}”"
     }
   },
   "nav": {

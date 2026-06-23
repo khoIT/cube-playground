@@ -5,7 +5,9 @@
   "header": {
     "gamePicker": {
       "label": "Game đang xem",
-      "switchToast": "Đang hiển thị dữ liệu cho {{gameName}}"
+      "switchToast": "Đang hiển thị dữ liệu cho {{gameName}}",
+      "searchPlaceholder": "Tìm game…",
+      "noMatches": "Không có game khớp “{{query}}”"
     }
   },
   "nav": {

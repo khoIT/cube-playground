@@ -12,13 +12,18 @@
  */
 
 import { Dropdown, message } from 'antd';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Search } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useGameContext } from './use-game-context';
 import { useVisibleGames } from '../../pages/Settings/use-visible-games';
 import type { GameDef } from '../../types/segment-api';
+
+// Above this many games the dropdown shows a filter box + scroll cap. Below it
+// (e.g. the 8-game local workspace) the plain list is fine and search is noise.
+const SEARCH_THRESHOLD = 10;
 
 const Chip = styled.button`
   display: inline-flex;
@@ -73,16 +78,63 @@ const Chevron = styled(ChevronDown)`
 `;
 
 // Dropdown shell. Single radius lives here; overflow:hidden clips the active
-// row's full-bleed tint so it follows the shell curvature.
+// row's full-bleed tint so it follows the shell curvature. The shell is a
+// column so the search box can pin while the list scrolls beneath it.
 const Shell = styled.div`
+  display: flex;
+  flex-direction: column;
   width: 268px;
   background: var(--bg-card);
   border: 1px solid var(--border-card);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
-  padding: 4px 0;
   overflow: hidden;
   font-family: var(--font-sans);
+`;
+
+// Pinned filter row — stays put while the game list scrolls under it.
+const SearchRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-card);
+`;
+
+const SearchIcon = styled(Search)`
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+`;
+
+const SearchInput = styled.input`
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+
+  &::placeholder {
+    color: var(--text-muted);
+  }
+`;
+
+// Scroll cap so a 65-game prod workspace never runs off the screen.
+const ListScroll = styled.div`
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px 0;
+`;
+
+const EmptyState = styled.div`
+  padding: 16px 14px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
 `;
 
 const Row = styled.button<{ $active: boolean }>`
@@ -157,6 +209,92 @@ function getInitials(game: GameDef): string {
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
 
+/**
+ * Dropdown body. Owns the filter query so it survives parent re-renders while
+ * the menu is open. With a long roster (prod's ~65 games) it shows a pinned
+ * search box and scrolls; a short roster renders the plain list.
+ */
+export function GameMenu({
+  games,
+  gameId,
+  onSelect,
+  label,
+}: {
+  games: GameDef[];
+  gameId: string;
+  onSelect: (id: string) => void;
+  label: string;
+}) {
+  const { t } = useTranslation();
+  const [query, setQuery] = useState('');
+  const showSearch = games.length > SEARCH_THRESHOLD;
+
+  const q = query.trim().toLowerCase();
+  const filtered = useMemo(
+    () =>
+      q
+        ? games.filter(
+            (g) => g.id.toLowerCase().includes(q) || g.name.toLowerCase().includes(q),
+          )
+        : games,
+    [games, q],
+  );
+
+  return (
+    <Shell role="menu" aria-label={label}>
+      {showSearch && (
+        <SearchRow>
+          <SearchIcon aria-hidden />
+          <SearchInput
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('header.gamePicker.searchPlaceholder', {
+              defaultValue: 'Search games…',
+            })}
+            aria-label={t('header.gamePicker.searchPlaceholder', {
+              defaultValue: 'Search games…',
+            })}
+          />
+        </SearchRow>
+      )}
+      <ListScroll>
+        {filtered.length === 0 ? (
+          <EmptyState>
+            {t('header.gamePicker.noMatches', {
+              query,
+              defaultValue: `No games match “${query}”`,
+            })}
+          </EmptyState>
+        ) : (
+          filtered.map((g) => {
+            const isActive = g.id === gameId;
+            return (
+              <Row
+                key={g.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isActive}
+                $active={isActive}
+                onClick={() => onSelect(g.id)}
+              >
+                <Mark $color={g.color} $size={22}>
+                  {getInitials(g)}
+                </Mark>
+                <RowMeta>
+                  <RowName $active={isActive}>{g.name}</RowName>
+                  <RowId $active={isActive}>{g.id}</RowId>
+                </RowMeta>
+                <CheckSlot aria-hidden>{isActive ? <CheckMark /> : null}</CheckSlot>
+              </Row>
+            );
+          })
+        )}
+      </ListScroll>
+    </Shell>
+  );
+}
+
 export function GamePicker() {
   const { t } = useTranslation();
   const { gameId, games, setGameId } = useGameContext();
@@ -169,6 +307,7 @@ export function GamePicker() {
   // We keep the active id in the visible list so the user can switch away from
   // it without first un-hiding it in Settings.
   const menuGames = games.filter((g) => isVisible(g.id) || g.id === gameId);
+  const label = t('header.gamePicker.label', { defaultValue: 'Active game' });
 
   const onSelect = (id: string) => {
     if (id === gameId) return;
@@ -185,38 +324,12 @@ export function GamePicker() {
   };
 
   const overlay = (
-    <Shell role="menu" aria-label={t('header.gamePicker.label', { defaultValue: 'Active game' })}>
-      {menuGames.map((g) => {
-        const isActive = g.id === gameId;
-        return (
-          <Row
-            key={g.id}
-            type="button"
-            role="menuitemradio"
-            aria-checked={isActive}
-            $active={isActive}
-            onClick={() => onSelect(g.id)}
-          >
-            <Mark $color={g.color} $size={22}>
-              {getInitials(g)}
-            </Mark>
-            <RowMeta>
-              <RowName $active={isActive}>{g.name}</RowName>
-              <RowId $active={isActive}>{g.id}</RowId>
-            </RowMeta>
-            <CheckSlot aria-hidden>{isActive ? <CheckMark /> : null}</CheckSlot>
-          </Row>
-        );
-      })}
-    </Shell>
+    <GameMenu games={menuGames} gameId={gameId} onSelect={onSelect} label={label} />
   );
 
   return (
     <Dropdown overlay={overlay} trigger={['click']} placement="bottomLeft">
-      <Chip
-        type="button"
-        aria-label={t('header.gamePicker.label', { defaultValue: 'Active game' })}
-      >
+      <Chip type="button" aria-label={label}>
         <Mark $color={active.color}>{getInitials(active)}</Mark>
         <Name>{active.name}</Name>
         <Chevron />
