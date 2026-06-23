@@ -115,6 +115,38 @@ Transients during the first pass (Minnow http-error, Whale-revenue/WAU-mom
 turn-errors, top-10 no-artifact) all cleared on the `RESUME=1 RESUME_KEEP=ok`
 re-run — confirms they were `tsx watch` reload drops, not logic.
 
+## Recorded jus_vn AFTER result (2026-06-23, parity check — game #2)
+Frozen at `test/eval/jus_vn-smoketest-after.json` + `runs/smoketest-after-jus/`.
+**14 ok / 2 non-ok — up from 7/16.** Confirms the code-once fix lands identically
+on a second game (no per-game resolver work).
+
+Same fixed set as cfm_vn: all 5 platform breakdowns
+(`active_daily.os_platform` / `user_recharge_daily.os_platform` /
+`game_key_metrics.platform`), `show Minnow` + `Whale this month` →
+`active_daily.dau`, `Whale revenue` → `user_recharge_daily.revenue_vnd_total`.
+Guards stable; empty tripwire stays non-ok (no over-defaulting).
+
+The strict diff reports `12 pass · 4 fail` on **both** games — the 4 are NOT
+regressions from the resolver fix:
+- `sm-plat-roas` (both) / `sm-plat-cpi` (jus): platform dim binds and an artifact
+  emits (no-artifact → ok), but the metric resolves to a revenue/cost proxy
+  (`game_key_metrics.rev` / `.cost_vnd`) rather than the ratio measure the bank
+  hypothesised (`roas` / `cpi_vnd`). ROAS/CPI-as-ratio is a **separate pre-existing
+  measure-resolution gap**, out of scope for the platform-dimension fix. The bank
+  expectedRefs are left unchanged so the gap stays visible (no silent masking).
+- `sm-wau-mom` (both): `ok → no-artifact`. The resolver code is provably inert here
+  (metric present → default-injection guard `!metricSlot.value` is false; no
+  platform synonym in the message), so the change is the agent's mom-handling on a
+  single-month dataset, identical to cfm_vn — the before `ok` was a degenerate
+  single-month emit; the decline is more correct.
+- `sm-seg-dolphin-mom` / `sm-guard-country`: LLM member-choice variance on
+  mom-comparison / country breakdown (jus emitted revenue+log_month, cfm declined;
+  cfm picked `mf_users.country`, jus `active_daily.country_code`) — both valid,
+  status stays ok where an artifact is produced; not on the resolver-fix code path.
+
+Net: identical fixed set, identical guard behaviour, zero true regressions across
+both games → code-once fix verified to generalize.
+
 ## Notes
 - `expectedBefore` in the bank are diagnosed hypotheses; the baseline confirms
   them (a case already `ok` before wasn't a real gap).
