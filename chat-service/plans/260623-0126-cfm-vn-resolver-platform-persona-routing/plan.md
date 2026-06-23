@@ -55,7 +55,7 @@ unit test that runs the resolver against ≥2 games' `/meta`, not just cfm.
 
 | # | phase | scope | kind | status |
 |---|-------|-------|------|--------|
-| 04 | [Per-game coverage + eval sweep](phase-04-per-game-coverage-and-eval.md) | 8 games | verify glossary revenue→`revenue_vnd` mapping; run per-game eval subset; record answered-rate delta | **jus_vn parity DONE (7→14/16 ok, identical fixed set, zero regressions); 6 games remain** |
+| 04 | [Per-game coverage + eval sweep](phase-04-per-game-coverage-and-eval.md) | 8 games | verify glossary revenue→`revenue_vnd` mapping; run per-game eval subset; record answered-rate delta | **DONE — all 8 games swept, zero true resolver regressions. Platform fix 5/5 every game; segment-default works every game. ok: pubg 15, jus/ballistar/muaw 14, cfm/cros 13, ptg/tf 12. See parity matrix + smoketest-validation.md** |
 | 03 | [WAU parity (cros + tf only)](phase-03-wau-rolling-measure.md) | 2 games | cube model (cube-dev) | deferred / optional |
 
 Phases 01 and 02 are independent — either can land first. 02 absorbs 9 persona

@@ -43,6 +43,10 @@ const OWNER_ID = 'answer-quality-eval-runner';
 const LIMIT = process.env['LIMIT'] ? Number(process.env['LIMIT']) : Infinity;
 const GROUP = process.env['GROUP'] ?? ''; // optional curationGroup filter
 const TIMEOUT_MS = process.env['TIMEOUT_MS'] ? Number(process.env['TIMEOUT_MS']) : 270_000;
+// Which subscription lane the run pins. Defaults to the shared 'subscription'
+// token; set AUTH_LANE=subscription-vy (or -thi) to fail over to another
+// account's token when the primary subscription hits its session cap.
+const AUTH_LANE = process.env['AUTH_LANE'] ?? 'subscription';
 
 // Full-trail capture. On by default; TRAIL=0 reverts to the lean-snapshot-only
 // behaviour. One timestamped dir per run so runs accumulate a longitudinal trail
@@ -113,9 +117,9 @@ async function setSubscriptionLane(): Promise<void> {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Owner-Id': OWNER_ID,
         ...(secret ? { 'x-internal-secret': secret } : {}) },
-      body: JSON.stringify({ mode: 'subscription' }),
+      body: JSON.stringify({ mode: AUTH_LANE }),
     });
-    console.log(res.ok ? '[runner] auth lane = subscription'
+    console.log(res.ok ? `[runner] auth lane = ${AUTH_LANE}`
       : `[runner] auth-mode PUT ${res.status} (continuing)`);
   } catch (err) {
     console.warn('[runner] auth-mode unreachable:', (err as Error).message);

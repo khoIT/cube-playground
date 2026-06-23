@@ -147,6 +147,50 @@ regressions from the resolver fix:
 Net: identical fixed set, identical guard behaviour, zero true regressions across
 both games → code-once fix verified to generalize.
 
+## Layer B — remaining 6 games (first pass 2026-06-23, partial, cap-blocked)
+Slugs confirmed via live `/meta` probe (`:3004/cube-api/v1/meta`, ws=local):
+ballistar, cros, muaw, ptg, pubg, **tf** (pubgm is invalid → `pubg`). Member
+coverage matches the plan table: all 6 carry `os_platform` + `payer_tier` +
+`revenue_vnd` family; only **cros + tf lack `wau`** (deferred cube gap).
+
+Cross-game parity matrix: `test/eval/resolver-smoketest-parity-matrix.ts`
+(`GAMES="…" npx tsx …`). Judges each game's AFTER snapshot against the bank with
+the documented caveats; platform cases pass on "artifact emits + a platform-family
+leaf (`os_platform`|`platform`) binds on the metric's resolved cube" — NOT the
+exact cfm member, because the resolved cube/measure name varies per game by design.
+
+**Platform fix (Phase 01) — VERIFIED 5/5 on all 6 swept games** (cfm_vn, jus_vn,
+ballistar, cros, muaw, ptg): every platform breakdown emits an artifact with a
+platform-family dim bound. Per-game member variance observed (all valid, artifact
+emits): ptg revenue→`recharge.revenue_vnd` (dim `recharge.os_platform`),
+ptg installs→`mf_users.user_count`; ballistar/cros/muaw ROAS+CPI bind the **true**
+`game_key_metrics.roas`/`cpi_vnd` ratio measures (cfm/jus bind a rev/cost proxy —
+cfm/jus glossary gap, not a regression).
+
+**Segment-default fix (Phase 02)** — green wherever the turn actually ran
+(ballistar + muaw both cases ok; cros Whale-month ok; cfm/jus baseline ok).
+
+ok-counts first pass: ballistar 14, muaw 13, cros 12, ptg 9 (corrupted — see below).
+
+**Cap-blocked / transient (must resume after the subscription session cap resets,
+8:30pm Asia/Saigon):**
+- **pubg, tf**: capped at 1/16 mid-run — need a full resume run.
+- **ptg**: hit by repeated `tsx watch` reload churn (a concurrent session editing
+  `src` drops in-flight turns) — 5 `no-artifact` drops on cases that pass elsewhere
+  (minnow, whale-month, whale-rev, guard-dau, guard-country). The 9 real passes
+  (all 5 platform + wau plain/mom + grain + rev + empty) confirm ptg's model is
+  fine; the drops are a harness artifact, not a resolver gap. Full resume re-run.
+- **cros**: 1 minnow drop (transient — Whale-month passed, so the default path works
+  on cros). **muaw**: 1 grain drop (transient — bound correctly on every other game).
+
+Resume keeps each game's already-ok cases and re-runs only the non-ok:
+`for g in pubg tf ptg cros muaw; do GAME=$g CORPUS=<bank> SNAPSHOT_OUT=… RUN_DIR=…
+RESUME=1 RESUME_KEEP=ok PACE_MS=4000 npx tsx … answer-quality-runner.ts; done`
+
+Verdict so far: **zero true resolver regressions across all 6 swept games.** Every
+non-ok is a reload/cap transient, the cros/tf `wau` cube gap, the data-blocked mom
+cases, or the correct empty-tripwire decline.
+
 ## Notes
 - `expectedBefore` in the bank are diagnosed hypotheses; the baseline confirms
   them (a case already `ok` before wasn't a real gap).
