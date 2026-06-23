@@ -49,6 +49,8 @@ import {
   formatChartDateTooltip,
   makeTimeTickFormatter,
 } from '../../../utils/format-chart-datetime-label';
+import { AnnotationOverlay } from '../../../components/charts/annotation-overlay';
+import type { ChartAnnotation } from '../../../api/chart-annotations';
 
 const CHART_HEIGHT = 320;
 
@@ -88,6 +90,12 @@ interface AssistantChartSectionProps {
    * artifacts via the ComparisonViewToggle in the card header.
    */
   indexed?: boolean;
+  /**
+   * Optional event annotations to overlay on time/trend charts (line, area,
+   * dual-axis, composed). When omitted or empty the chart renders exactly as
+   * before — no visual or behavioural change to existing call sites.
+   */
+  annotations?: ChartAnnotation[];
 }
 
 export function AssistantChartSection({
@@ -98,6 +106,7 @@ export function AssistantChartSection({
   headerAction,
   defaultView,
   indexed,
+  annotations,
 }: AssistantChartSectionProps) {
   const { spec, truncated, originalRowCount } = artifact;
   // Table-first for table-shaped results (leaderboards / wide multi-column);
@@ -143,7 +152,7 @@ export function AssistantChartSection({
   if (embedded) {
     return (
       <div style={{ marginTop: 12, marginBottom: 0, padding: 0 }}>
-        <ChartBody spec={finalSpec} labels={labels} />
+        <ChartBody spec={finalSpec} labels={labels} annotations={annotations} />
         {(spec.caption || truncated) && (
           <Footer spec={spec} truncated={truncated} originalRowCount={originalRowCount} />
         )}
@@ -214,7 +223,7 @@ export function AssistantChartSection({
       {/* Body: chart or table — symmetric horizontal padding so content reads centered */}
       <div style={{ padding: '16px 24px' }}>
         {view === 'chart' ? (
-          <ChartBody spec={finalSpec} labels={labels} />
+          <ChartBody spec={finalSpec} labels={labels} annotations={annotations} />
         ) : (
           <ChartSectionDataTable rows={spec.data} spec={spec} labels={labels} />
         )}
@@ -264,7 +273,15 @@ function Footer({ spec, truncated, originalRowCount }: FooterProps) {
 // recharts tree in renderChartBody.
 // ---------------------------------------------------------------------------
 
-function ChartBody({ spec, labels }: { spec: ChartSpec; labels: LabelMap }) {
+function ChartBody({
+  spec,
+  labels,
+  annotations,
+}: {
+  spec: ChartSpec;
+  labels: LabelMap;
+  annotations?: ChartAnnotation[];
+}) {
   if (spec.type === 'heatmap') {
     const unit = detectChartUnit(spec);
     const valueScale =
@@ -281,7 +298,7 @@ function ChartBody({ spec, labels }: { spec: ChartSpec; labels: LabelMap }) {
   }
   return (
     <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-      {renderChartBody(spec, labels)}
+      {renderChartBody(spec, labels, annotations)}
     </ResponsiveContainer>
   );
 }
@@ -319,7 +336,17 @@ function paddedTrendDomain(values: Array<number | string>): [number, number] | u
 // renderChartBody — switch on spec.type → recharts component tree
 // ---------------------------------------------------------------------------
 
-function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactElement {
+function renderChartBody(spec: ChartSpec, labels: LabelMap = {}, annotations?: ChartAnnotation[]): React.ReactElement {
+  // Pre-compute category domain once so the overlay can resolve date → x-value.
+  // Only non-empty when annotations are provided — avoids the map cost otherwise.
+  const categoryDomain = annotations?.length
+    ? spec.data.map((r) => String(r[spec.encoding.category] ?? ''))
+    : [];
+  // Helper: injects annotation overlay elements if any annotations are present.
+  // Used only in cartesian/time chart branches (line, area, dual-axis, composed).
+  const overlay = annotations?.length
+    ? AnnotationOverlay({ annotations, categoryDomain })
+    : [];
   // Unit detection drives axis ticks, tooltips, pie labels. Done once per
   // chart so detectUnit's regex work doesn't run per tick / per tooltip.
   const unit = detectChartUnit(spec);
@@ -450,6 +477,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
             strokeWidth={2}
             dot={false}
           />
+          {overlay}
         </LineChart>
       );
 
@@ -508,6 +536,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
                 <Line key={s} yAxisId="left" type="monotone" dataKey={s} stroke={CHART[i % CHART.length]} strokeWidth={2} dot={false} />
               ),
             )}
+            {overlay}
           </ComposedChart>
         );
       }
@@ -528,6 +557,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
               dot={false}
             />
           ))}
+          {overlay}
         </LineChart>
       );
     }
@@ -546,6 +576,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
             fill={CHART[0]}
             fillOpacity={0.25}
           />
+          {overlay}
         </AreaChart>
       );
 
@@ -613,6 +644,7 @@ function renderChartBody(spec: ChartSpec, labels: LabelMap = {}): React.ReactEle
           <Legend formatter={legendFormatter} />
           <Bar yAxisId="left" dataKey={leftCol} fill={CHART[0]} />
           <Line yAxisId="right" type="monotone" dataKey={rightCol} stroke={CHART[1]} strokeWidth={2} dot={{ r: 3 }} />
+          {overlay}
         </ComposedChart>
       );
     }

@@ -1,6 +1,8 @@
 # Phase 03 — Shared annotation primitive + Event timeline (Diagnostics tab 2)
 
-**Priority:** P1 · **Status:** ☐ · Depends: 01
+**Priority:** P1 · **Status:** ✅ · Depends: 01
+
+> **Built (2026-06-24):** migration `069-chart-annotations.sql` (written, NOT yet applied — auto-applies on next server boot), `annotation-store.ts` + `routes/annotations.ts` (GET/POST/PATCH/DELETE, global game=NULL), FE `chart-annotations.ts` + `use-chart-annotations.ts` + reusable `components/charts/annotation-overlay.tsx`, optional additive `annotations` prop on `assistant-chart-section.tsx` (overlay=[] when omitted → existing charts unchanged), Diagnostics Timeline tab (trend + flags + detail panel + editor + type chips). All build gates pass. **Deferred polish:** Command Center trends overlay retrofit + Delta→event cross-link.
 
 ## Goal
 A shared "event annotation" layer (patches / events / campaigns / incidents) that overlays markers on

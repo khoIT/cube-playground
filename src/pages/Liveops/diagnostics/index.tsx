@@ -13,6 +13,7 @@ import { LiveopsTabs, type LiveopsHubTab } from '../_hub/liveops-tabs';
 import { useLiveopsTab } from '../_hub/use-liveops-tab';
 import { HubSectionPlaceholder } from '../_hub/hub-section-placeholder';
 import { DeltaDecompositionView } from './delta/delta-decomposition-view';
+import { EventTimelineView } from './timeline/event-timeline-view';
 
 type DiagnosticsTab = 'delta' | 'timeline' | 'lifecycle';
 
@@ -66,13 +67,7 @@ export function DiagnosticsPage() {
       <LiveopsTabs tabs={TABS} active={active} onChange={setActive} ariaLabel="Diagnostics sections" />
 
       {active === 'delta' && <DeltaDecompositionView />}
-      {active === 'timeline' && (
-        <HubSectionPlaceholder
-          icon={CalendarClock}
-          title="Event timeline"
-          note="Overlay patches, campaigns, and incidents on a trend line to read cause against effect. Arriving in a later build step."
-        />
-      )}
+      {active === 'timeline' && <EventTimelineView />}
       {active === 'lifecycle' && (
         <HubSectionPlaceholder
           icon={Workflow}

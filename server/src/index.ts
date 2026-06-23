@@ -73,6 +73,7 @@ import cubeParityRoutes from './routes/cube-parity.js';
 import distributionRoutes from './routes/distribution.js';
 import cohortProfileRoutes from './routes/cohort-profile.js';
 import overlapCandidateRoutes from './routes/overlap-candidate.js';
+import annotationsRoutes from './routes/annotations.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -177,6 +178,7 @@ export async function buildApp() {
   await app.register(distributionRoutes);
   await app.register(cohortProfileRoutes);
   await app.register(overlapCandidateRoutes);
+  await app.register(annotationsRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.
