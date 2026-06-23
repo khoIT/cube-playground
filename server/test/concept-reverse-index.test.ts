@@ -104,7 +104,9 @@ describe('concept-reverse-index', () => {
   });
 
   it('finds metrics that reference a data_model field', () => {
-    const r = getRelations('data_model/mf_users.acu', { workspaceId: WS, gameId: 'ptg', principal: P });
+    // ACU is built from the ccu cube (formula.ref: ccu.avg) — concurrency comes
+    // from etl_ingame_ccu sampling, not mf_users.
+    const r = getRelations('data_model/ccu.avg', { workspaceId: WS, gameId: 'ptg', principal: P });
     const acu = r?.metrics.find((m) => m.id === 'acu');
     expect(acu).toBeTruthy();
     expect(acu?.label).toBe('ACU');
@@ -140,7 +142,7 @@ describe('concept-reverse-index', () => {
 
   it('returns the fields a business_metrics ref is built from', () => {
     const r = getRelations('business_metrics/acu', { workspaceId: WS, gameId: 'ptg', principal: P });
-    expect(r?.fields.find((f) => f.member === 'mf_users.acu')).toBeTruthy();
+    expect(r?.fields.find((f) => f.member === 'ccu.avg')).toBeTruthy();
   });
 
   it('returns empty fields for an unknown business_metrics ref', () => {
