@@ -1,6 +1,8 @@
 # Phase 05 — Monetization deep-dive
 
-**Priority:** P1 · **Status:** ☐ · Depends: 00 (SKU verdict), 01
+**Priority:** P1 · **Status:** ✅ · Depends: 00 (SKU verdict), 01
+
+> **Built (2026-06-24):** `services/monetization-deepdive.ts` + `routes/monetization-deepdive.ts` (3 aggregate GETs: payer-tiers, cohort-ltv, sku-performance) + FE cards `monetization/{payer-tier,revenue-concentration,ltv-cohort,sku-performance}-card.tsx` + `use-monetization-queries.ts`. All REAL Cube data (verified live: cfm whale 8.6k/₫189.9B, Gini 0.255; jus Gini 0.552; SKU top-5 real). jus VND-filtered. SKU gated to cfm/jus (others "not available"). **Tier-migration disclosed-empty** (mf_users snapshot-only — no fabrication). LTV-by-cohort capped D0–D90. Build gates pass.
 
 ## Goal
 A monetization economics page: payer-tier distribution (+ migration), realized LTV-by-cohort curves,

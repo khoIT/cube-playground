@@ -75,6 +75,7 @@ import cohortProfileRoutes from './routes/cohort-profile.js';
 import overlapCandidateRoutes from './routes/overlap-candidate.js';
 import annotationsRoutes from './routes/annotations.js';
 import lifecycleFlowRoutes from './routes/lifecycle-flow.js';
+import monetizationDeepdiveRoutes from './routes/monetization-deepdive.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -181,6 +182,7 @@ export async function buildApp() {
   await app.register(overlapCandidateRoutes);
   await app.register(annotationsRoutes);
   await app.register(lifecycleFlowRoutes);
+  await app.register(monetizationDeepdiveRoutes);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.
