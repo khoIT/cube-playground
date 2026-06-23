@@ -3,7 +3,9 @@
  *
  * Headers derive from the keys present in the first data row. Numeric cells
  * are right-aligned; everything else stays left-aligned. Long content scrolls
- * horizontally inside the table wrapper.
+ * horizontally inside the table wrapper; tall result sets scroll vertically
+ * inside a capped viewport (mirrors the chart's fixed height) with a pinned
+ * header, so a 30-row table doesn't blow out the message card.
  */
 import React, { useMemo } from 'react';
 import { T } from '../../../shell/theme';
@@ -15,6 +17,13 @@ import {
   type ValueUnit,
 } from './format-chart-value';
 import { labelOf, type LabelMap } from './chart-column-labels';
+
+/**
+ * Vertical cap for the scroll viewport, matching the chart view's fixed height
+ * so chart↔table toggling doesn't change the card's footprint. Beyond this the
+ * body scrolls and the header stays pinned.
+ */
+const TABLE_MAX_HEIGHT = 320;
 
 interface ChartSectionDataTableProps {
   rows: Array<Record<string, string | number>>;
@@ -68,7 +77,7 @@ export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionD
   }, [columns, rows, unitByColumn]);
 
   return (
-    <div style={{ overflowX: 'auto', width: '100%' }}>
+    <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: TABLE_MAX_HEIGHT, width: '100%' }}>
       <table
         style={{
           width: '100%',
@@ -90,6 +99,10 @@ export function ChartSectionDataTable({ rows, spec, labels = {} }: ChartSectionD
                   fontWeight: 600,
                   color: 'var(--shell-text-muted)',
                   whiteSpace: 'nowrap',
+                  position: 'sticky',
+                  top: 0,
+                  background: 'var(--surface-raised)',
+                  zIndex: 1,
                 }}
               >
                 {labelOf(labels, c)}

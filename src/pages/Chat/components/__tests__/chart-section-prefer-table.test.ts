@@ -40,4 +40,19 @@ describe('preferTableView', () => {
     };
     expect(preferTableView(heatmap)).toBe(false);
   });
+
+  it('chart-first for a long time-series trend (line/area open as the chart)', () => {
+    // A 30-day daily series trips the >12-row leaderboard rule, but a trend IS
+    // the chart — opening it as a 30-row table buries the shape.
+    const rows = Array.from({ length: 30 }, (_, i) => ({ log_date: `2026-06-${i + 1}`, revenue: i }));
+    for (const type of ['line', 'area', 'multi-line', 'dual-axis'] as const) {
+      expect(preferTableView({ ...spec(rows), type })).toBe(false);
+    }
+  });
+
+  it('still table-first for a long bar leaderboard (not a trend type)', () => {
+    const rows = Array.from({ length: 30 }, (_, i) => ({ a: `u${i}`, b: i }));
+    expect(preferTableView({ ...spec(rows), type: 'bar' })).toBe(true);
+    expect(preferTableView({ ...spec(rows), type: 'horizontal-bar' })).toBe(true);
+  });
 });

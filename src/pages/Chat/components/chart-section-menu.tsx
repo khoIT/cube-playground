@@ -168,6 +168,19 @@ export function preferTableView(spec: ChartSpec): boolean {
   // Heatmaps are grids — one row per (x, y) cell routinely exceeds the
   // leaderboard threshold, but the chart is the readable view.
   if (spec.type === 'heatmap') return false;
+  // Time-ordered trends (a daily line/area, multiple series over time, or a
+  // dated bars+line combo) ARE the chart — a 30-day series tripping the
+  // row-count rule and opening as a 30-row table buries the shape it was meant
+  // to show. These types are inherently continuous, so they stay chart-first
+  // regardless of length (mirrors the no-truncate set in chart-service).
+  if (
+    spec.type === 'line' ||
+    spec.type === 'area' ||
+    spec.type === 'multi-line' ||
+    spec.type === 'dual-axis'
+  ) {
+    return false;
+  }
   const columnCount = Object.keys(spec.data[0] ?? {}).length;
   return spec.data.length > 12 || columnCount >= 4;
 }

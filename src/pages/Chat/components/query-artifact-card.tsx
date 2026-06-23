@@ -10,7 +10,7 @@
  * view-switcher menu (chart type / data table / Export CSV) and the body
  * swaps between the embedded chart and a data table.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { BarChart2, ExternalLink, Users } from 'lucide-react';
 import { T, Icon } from '../../../shell/theme';
@@ -19,6 +19,7 @@ import { ChartSectionMenu, preferDualAxis, preferTableView } from './chart-secti
 import { ComparisonViewToggle, isComparisonChart, type ComparisonView } from './comparison-view-toggle';
 import { QueryRefineRow } from './query-refine-row';
 import { ChartSectionDataTable } from './chart-section-data-table';
+import { getArtifactViewState, rememberArtifactViewState } from './artifact-view-state';
 import { buildLabelMap } from './chart-column-labels';
 import { openArtifactInPlayground } from './open-artifact-in-playground';
 import { useBuildSegmentFromQuery } from './use-build-segment-from-query';
@@ -50,14 +51,25 @@ const SOURCE_COLOR: Record<QueryArtifact['source'], string> = {
 
 export function QueryArtifactCard({ artifact, onClick, onRefine }: QueryArtifactCardProps) {
   const history = useHistory();
-  // Table-first for table-shaped results (leaderboards / wide multi-column);
-  // small categorical charts open on the chart.
-  const [view, setView] = useState<'chart' | 'table'>(() =>
-    artifact.chart && preferTableView(artifact.chart.spec) ? 'table' : 'chart',
+  // A prior toggle on this artifact (this surface or the side panel) wins over
+  // the data-shape default, so the user's chart/table choice follows it across
+  // surfaces. Falls back to table-first for table-shaped results (leaderboards
+  // / wide multi-column); small categorical and trend charts open on the chart.
+  const saved = getArtifactViewState(artifact.id);
+  const [view, setView] = useState<'chart' | 'table'>(
+    () => saved?.view ?? (artifact.chart && preferTableView(artifact.chart.spec) ? 'table' : 'chart'),
   );
-  const [overrideType, setOverrideType] = useState<ChartSpec['type'] | undefined>(undefined);
-  const [overrideEncoding, setOverrideEncoding] = useState<ChartSpec['encoding'] | undefined>(undefined);
-  const [comparisonView, setComparisonView] = useState<ComparisonView>('overlaid');
+  const [overrideType, setOverrideType] = useState<ChartSpec['type'] | undefined>(saved?.overrideType);
+  const [overrideEncoding, setOverrideEncoding] = useState<ChartSpec['encoding'] | undefined>(
+    saved?.overrideEncoding,
+  );
+  const [comparisonView, setComparisonView] = useState<ComparisonView>(saved?.comparisonView ?? 'overlaid');
+
+  // Mirror every view change into the shared cache so the other surface reads
+  // the same state when it next mounts this artifact.
+  useEffect(() => {
+    rememberArtifactViewState(artifact.id, { view, overrideType, overrideEncoding, comparisonView });
+  }, [artifact.id, view, overrideType, overrideEncoding, comparisonView]);
 
   // "Build segment from this" bridge — eager segmentability probe gates the
   // button; clicking lands a pre-filled SegmentProposalCard inline (below).
