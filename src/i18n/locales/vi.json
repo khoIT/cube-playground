@@ -487,6 +487,7 @@
       "securityContext": "Bảo mật",
       "addRollup": "Thêm Rollup"
     },
+    "signedInAs": "Đăng nhập với",
     "signOut": "Đăng xuất"
   },
   "settings": {

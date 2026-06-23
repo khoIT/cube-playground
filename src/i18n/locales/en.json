@@ -511,6 +511,7 @@
       "securityContext": "Security Context",
       "addRollup": "Add Rollup"
     },
+    "signedInAs": "Signed in as",
     "signOut": "Sign out"
   },
   "settings": {

@@ -1,11 +1,13 @@
 import { Dropdown } from 'antd';
 import { Lock, LogOut, Settings as SettingsIcon, Zap } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useCloud } from '../../cloud';
 import { useAppContext, useSecurityContext } from '../../hooks';
+import { useAuth, useAuthUser } from '../../auth/auth-context';
 import { OPEN_ROLLUP_DESIGNER_EVENT } from '../../rollup-designer';
 import { LanguageToggle } from './language-toggle';
 import { ThemeToggle } from './theme-toggle';
@@ -60,6 +62,47 @@ const Divider = styled.div`
   background: var(--border-card);
 `;
 
+const IdentityHead = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 8px 12px 10px;
+`;
+
+const IdentityEyebrow = styled.span`
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+`;
+
+const IdentityEmail = styled.span`
+  max-width: 100%;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const IdentityRole = styled.span`
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-muted);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
 const MenuItem = styled.button`
   display: flex;
   align-items: center;
@@ -80,11 +123,15 @@ const MenuItem = styled.button`
   }
 `;
 
-function deriveInitials(identifier: string | undefined | null): string {
-  if (!identifier) return 'JN';
-  const cleaned = identifier.replace(/[^a-zA-Z\s]/g, ' ').trim();
-  if (!cleaned) return 'JN';
-  const parts = cleaned.split(/\s+/);
+function deriveInitials(identity: string | undefined | null): string {
+  if (!identity) return 'JN';
+  // For an email, initials come from the local part (before @), never the
+  // domain — "khoitn@vng.com.vn" → "KH", not "VN".
+  const base = identity.includes('@') ? identity.split('@')[0] : identity;
+  // Split on the usual identity separators (dot / underscore / hyphen / space):
+  // "khoi.tran" → "KT", "gds-cube" → "GC", "khoitn" → "KH".
+  const parts = base.split(/[.\-_\s]+/).filter(Boolean);
+  if (parts.length === 0) return 'JN';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[1][0]).toUpperCase();
 }
@@ -94,10 +141,18 @@ export function UserMenu() {
   const location = useLocation();
   const history = useHistory();
   const { identifier } = useAppContext();
+  const authUser = useAuthUser();
+  const { logout } = useAuth();
   const { token: securityContextToken, setIsModalOpen } = useSecurityContext();
   const { isAddRollupButtonVisible } = useCloud();
+  const [signingOut, setSigningOut] = useState(false);
 
-  const initials = deriveInitials(identifier);
+  // Prefer the authenticated identity over the playground context `identifier`,
+  // which in prod is the generic workspace id ('gds-cube' → "GC") and tells the
+  // user nothing about who they're signed in as.
+  const email = authUser?.email ?? null;
+  const initials = deriveInitials(email || authUser?.username || identifier);
+  const role = authUser?.role ?? null;
   const onBuildRoute = location.pathname.startsWith('/build');
   const rollupVisible =
     onBuildRoute &&
@@ -115,8 +170,28 @@ export function UserMenu() {
     history.push('/settings');
   }
 
+  function handleSignOut() {
+    // logout() redirects to the realm end-session endpoint for SSO sessions
+    // (unmounting this menu), so guard against a double-click firing it twice.
+    if (signingOut) return;
+    setSigningOut(true);
+    void logout().catch(() => setSigningOut(false));
+  }
+
   const overlay = (
     <MenuShell role="menu">
+      {email ? (
+        <>
+          <IdentityHead data-testid="user-menu-identity">
+            <IdentityEyebrow>
+              {t('user.signedInAs', { defaultValue: 'Signed in as' })}
+            </IdentityEyebrow>
+            <IdentityEmail title={email}>{email}</IdentityEmail>
+            {role ? <IdentityRole>{role}</IdentityRole> : null}
+          </IdentityHead>
+          <Divider />
+        </>
+      ) : null}
       <ThemeToggle />
       <LanguageToggle />
       <Divider />
@@ -150,7 +225,13 @@ export function UserMenu() {
         </MenuItem>
       ) : null}
       <Divider />
-      <MenuItem type="button" role="menuitem" data-testid="user-menu-sign-out">
+      <MenuItem
+        type="button"
+        role="menuitem"
+        data-testid="user-menu-sign-out"
+        onClick={handleSignOut}
+        disabled={signingOut}
+      >
         <LogOut size={14} strokeWidth={2} aria-hidden />
         {t('user.signOut')}
       </MenuItem>

@@ -263,15 +263,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch {
-      /* server logout is a no-op anyway */
+      /* server logout is a stateless no-op anyway */
     }
     // For SSO sessions, also end the realm session so the next login isn't
     // silently re-bound to the same user via the KC SSO cookie. Pending users
     // log out too so they can retry with a different corporate account.
-    if ((state.status === 'authenticated' || state.status === 'pending') && kcInstance) {
-      await kcInstance.logout({ redirectUri: window.location.origin });
+    //
+    // The adapter may not exist yet: a page that bootstrapped from a still-valid
+    // app JWT never created/inited keycloak-js (bootstrap path 2 returns early).
+    // If we only cleared the local token, the next check-sso would silently
+    // re-authenticate via the realm cookie and the user would never log out.
+    // So create + init the adapter on demand to reach the realm end-session
+    // endpoint.
+    if (state.status === 'authenticated' || state.status === 'pending') {
+      const kc = getKeycloak(state.keycloak);
+      try {
+        await initKeycloakOnce(kc);
+      } catch {
+        /* init hiccup — kc.logout still builds the end-session redirect */
+      }
+      await kc.logout({ redirectUri: window.location.origin });
       return;
     }
+    // AUTH_DISABLED (local dev): no realm session exists — re-bootstrap restores
+    // the synthesized dev user so the app stays usable.
     await bootstrap();
   }, [state, bootstrap]);
 
