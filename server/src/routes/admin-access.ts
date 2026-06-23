@@ -28,6 +28,7 @@ import {
   type WorkspaceDef,
 } from '../services/workspaces-config-loader.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
+import { listWorkspaceGameIds } from '../services/prod-game-registry.js';
 
 const roleEnum = z.enum(['viewer', 'editor', 'admin']);
 const statusEnum = z.enum(['pending', 'active', 'disabled']);
@@ -47,19 +48,15 @@ const wsGameIdsBody = z.object({ gameIds: z.array(z.string()) });
 const featuresBody = z.object({ features: z.record(z.string(), z.boolean()) });
 
 /**
- * Games a workspace can expose: a prefix workspace surfaces only its
- * gamePrefixMap keys; a game_id workspace surfaces every configured game.
- * Drives the admin matrix so it never offers a game a workspace can't resolve.
+ * Games a workspace can expose: a prefix workspace surfaces every game the cube
+ * serves (its `/cubes` registry, ~65 on prod); a game_id workspace surfaces
+ * every configured game. Drives the admin matrix so it offers exactly the games
+ * a workspace can resolve.
  */
-function availableGamesForWorkspace(
-  ws: Pick<WorkspaceDef, 'gameModel' | 'gamePrefixMap'>,
-  allGameIds: string[],
-): string[] {
-  if (ws.gameModel === 'prefix') {
-    const exposed = new Set(Object.keys(ws.gamePrefixMap ?? {}));
-    return allGameIds.filter((id) => exposed.has(id));
-  }
-  return allGameIds;
+async function availableGamesForWorkspace(
+  ws: Pick<WorkspaceDef, 'id' | 'cubeApiUrl' | 'gameModel'>,
+): Promise<string[]> {
+  return listWorkspaceGameIds(ws);
 }
 
 export default async function adminAccessRoutes(app: FastifyInstance): Promise<void> {
@@ -74,17 +71,29 @@ export default async function adminAccessRoutes(app: FastifyInstance): Promise<v
 
   app.get('/api/admin/registry', async () => {
     const workspaces = listWorkspacesPublic();
-    const allGameIds = loadGamesConfig().games.map((g) => g.id);
-    // Per-workspace available games so the admin matrix only offers games a
-    // workspace can expose (a prefix workspace can't surface games outside its
-    // gamePrefixMap).
+    // Per-workspace available games (full def needed for the prefix workspace's
+    // /cubes fetch — listWorkspacesPublic strips cubeApiUrl).
     const gamesByWorkspace: Record<string, string[]> = {};
     for (const w of workspaces) {
-      gamesByWorkspace[w.id] = availableGamesForWorkspace(w, allGameIds);
+      const full = resolveWorkspace(w.id);
+      gamesByWorkspace[w.id] = full ? await availableGamesForWorkspace(full) : [];
+    }
+    // Game labels: gds.config names for the games it knows, plus id-only entries
+    // for any game a workspace exposes that gds.config doesn't name (prod serves
+    // ~65; gds.config names ~8). The matrix falls back to the id for the rest.
+    const known = loadGamesConfig().games;
+    const knownIds = new Set(known.map((g) => g.id));
+    const extra = new Set<string>();
+    for (const ids of Object.values(gamesByWorkspace)) {
+      for (const id of ids) if (!knownIds.has(id)) extra.add(id);
     }
     return {
       workspaces: workspaces.map((w) => ({ id: w.id, label: w.label })),
-      games: loadGamesConfig().games.map((g) => ({ id: g.id, name: g.name })),
+      games: [
+        ...known.map((g) => ({ id: g.id, name: g.name })),
+        // id-only games sorted for a stable, scannable matrix (it has search too).
+        ...[...extra].sort().map((id) => ({ id, name: id })),
+      ],
       gamesByWorkspace,
       featureKeys: [...FEATURE_KEYS],
     };

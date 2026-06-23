@@ -5,10 +5,10 @@
  * validated before flowing into a file path (calibration JSON) or a per-game
  * /meta scope. This guard:
  *   - rejects anything outside a strict id charset (kills path traversal), and
- *   - confirms the game is real for the active workspace — a prefix workspace's
- *     gamePrefixMap on prod, the games config on a game_id workspace — which
- *     doubles as the allow-list the data path otherwise enforces via the
- *     x-cube-game header (this route reads the query param instead).
+ *   - confirms the game is real for the active workspace — the games config on a
+ *     game_id workspace; on a prefix workspace any charset-valid id resolves to
+ *     its own cube-name prefix (the prod cube serves a game per id), so a bogus
+ *     id simply yields an empty /meta scope rather than a rejection.
  *
  * Returns the game's Cube-name PREFIX (prefix workspaces) or null (game_id),
  * which the availability resolver uses to scope /meta to exactly this game —
@@ -30,8 +30,9 @@ export function resolveGameScope(workspace: WorkspaceDef, game: string | undefin
   if (!GAME_ID_RE.test(g)) return { ok: false, error: `invalid game id "${g}"` };
 
   if (workspace.gameModel === 'prefix') {
-    const prefix = workspace.gamePrefixMap?.[g];
-    if (!prefix) return { ok: false, error: `game "${g}" is not mapped on workspace "${workspace.id}"` };
+    // The prod cube names every game's cubes `<gameId>__*`, so the prefix is the
+    // (charset-validated) game id by default; gamePrefixMap overrides id ≠ prefix.
+    const prefix = workspace.gamePrefixMap?.[g] ?? g;
     return { ok: true, gamePrefix: prefix };
   }
 

@@ -18,13 +18,7 @@
       "allowedRoles": [
         "editor",
         "admin"
-      ],
-      "gamePrefixMap": {
-        "cfm_vn": "cfm",
-        "ballistar": "ballistar",
-        "cros": "cros",
-        "jus_vn": "jus"
-      }
+      ]
     }
   ]
 }

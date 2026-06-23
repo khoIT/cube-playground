@@ -29,15 +29,16 @@ interface PrefixWorkspaceShape {
 
 /**
  * Resolve the cube-name prefix for a game, or null when translation does not
- * apply (non-prefix workspace, no game, or unmapped game). Mirrors the server's
- * `gamePrefixFor`.
+ * apply (non-prefix workspace, or no game). Mirrors the server's `gamePrefixFor`:
+ * the prod game id IS the cube-name prefix verbatim, so it defaults to the game
+ * id; `gamePrefixMap` is an optional override for any game whose id ≠ prefix.
  */
 export function resolveGamePrefix(
   workspace: PrefixWorkspaceShape | null,
   gameId: string | null,
 ): string | null {
   if (!workspace || workspace.gameModel !== 'prefix' || !gameId) return null;
-  return workspace.gamePrefixMap?.[gameId] ?? null;
+  return workspace.gamePrefixMap?.[gameId] ?? gameId;
 }
 
 /** `cube.field` → `prefix_cube.field`. Idempotent on the `${prefix}_` boundary. */

@@ -10,15 +10,18 @@ import {
 
 describe('FE cube-member-resolver', () => {
   describe('resolveGamePrefix', () => {
-    it('returns the mapped prefix on a prefix workspace', () => {
+    it('uses a gamePrefixMap override on a prefix workspace (id ≠ prefix)', () => {
       expect(
-        resolveGamePrefix({ gameModel: 'prefix', gamePrefixMap: { ballistar: 'ballistar' } }, 'ballistar'),
-      ).toBe('ballistar');
+        resolveGamePrefix({ gameModel: 'prefix', gamePrefixMap: { cfm_vn: 'cfm' } }, 'cfm_vn'),
+      ).toBe('cfm');
     });
-    it('is null on game_id workspaces, no game, or unmapped game', () => {
+    it('defaults an unmapped game to its id (prod names cubes <gameId>_*)', () => {
+      expect(resolveGamePrefix({ gameModel: 'prefix', gamePrefixMap: {} }, 'ptg')).toBe('ptg');
+      expect(resolveGamePrefix({ gameModel: 'prefix' }, 'nikki')).toBe('nikki');
+    });
+    it('is null on game_id workspaces, no game, or no workspace', () => {
       expect(resolveGamePrefix({ gameModel: 'game_id' }, 'ballistar')).toBeNull();
       expect(resolveGamePrefix({ gameModel: 'prefix', gamePrefixMap: { ballistar: 'ballistar' } }, null)).toBeNull();
-      expect(resolveGamePrefix({ gameModel: 'prefix', gamePrefixMap: {} }, 'unknown')).toBeNull();
       expect(resolveGamePrefix(null, 'ballistar')).toBeNull();
     });
   });

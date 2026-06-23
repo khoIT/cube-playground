@@ -6,11 +6,22 @@
  * workspace-header gate (disallowed game → 403 before any proxy).
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import Database from 'better-sqlite3';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// Keep the suite hermetic: the admin registry enumerates a prefix workspace's
+// games via prod-game-registry, which would otherwise fetch the live
+// cube.gds /cubes endpoint. Stub it with a fixed roster — no network.
+vi.mock('../src/services/prod-game-registry.js', () => ({
+  listWorkspaceGameIds: vi.fn(async (ws: { gameModel: string }) =>
+    ws.gameModel === 'prefix' ? ['cfm_vn', 'jus_vn', 'ballistar', 'ptg'] : ['ptg', 'ballistar', 'cfm_vn'],
+  ),
+  fetchProdCubeIds: vi.fn(async () => ['cfm_vn', 'jus_vn', 'ballistar', 'ptg']),
+  __resetProdGameRegistryCache: vi.fn(),
+}));
 
 import { buildApp } from '../src/index.js';
 import { setDb, closeDb, getDb } from '../src/db/sqlite.js';

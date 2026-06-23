@@ -103,7 +103,7 @@ function WorkspaceGamesMatrix({
       saving={section.saving}
       saved={section.saved}
       error={section.error}
-      onSelectAll={() => section.selectAll(options.map((o) => o.id))}
+      onSelectAll={(ids) => section.selectAll(ids)}
       onClear={section.clear}
     />
   );

@@ -80,9 +80,10 @@ async function main(): Promise<void> {
   const workspace = (wsId ? resolveWorkspace(wsId) : undefined) ?? getDefaultWorkspace();
   const { token } = resolveCubeTokenForWorkspace(workspace, game);
   const ctx: WorkspaceCtx = { cubeApiUrl: workspace.cubeApiUrl, token };
-  // Scope /meta to THIS game's prefix on prod (prefix) workspaces — never the union.
+  // Scope /meta to THIS game's prefix on prod (prefix) workspaces — never the
+  // union. Prefix defaults to the game id (prod names cubes `<gameId>__*`).
   const gamePrefix =
-    workspace.gameModel === 'prefix' ? workspace.gamePrefixMap?.[game] ?? null : null;
+    workspace.gameModel === 'prefix' ? workspace.gamePrefixMap?.[game] ?? game : null;
 
   console.log(`Calibrating ${game} on workspace "${workspace.id}" (${workspace.cubeApiUrl})`);
   const members = await getGameMembers(ctx, gamePrefix, `calibrate:${workspace.id}:${game}`, true);

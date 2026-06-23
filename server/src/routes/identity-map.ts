@@ -15,6 +15,7 @@ import { getDb } from '../db/sqlite.js';
 import { suggestIdentities, type IdentitySuggestion } from '../services/identity-suggester.js';
 import { logicalCubeAcross, logicalMember, physicalMember } from '../services/cube-member-resolver.js';
 import { loadGamesConfig } from '../services/games-config-loader.js';
+import { listWorkspaceGameIds } from '../services/prod-game-registry.js';
 import type { WorkspaceCtx } from '../services/cube-client.js';
 
 const identityPutSchema = z.object({
@@ -118,10 +119,14 @@ export function mergeIdentityRows(
   return out;
 }
 
-/** Derive the list of game prefixes for the active workspace. Empty on game_id workspaces. */
-function getPrefixes(req: FastifyRequest): string[] {
+/**
+ * Derive the list of game (cube-name) prefixes for the active workspace. On a
+ * prefix workspace this is the cube's `/cubes` registry (game id == prefix);
+ * empty on game_id workspaces. Async because the prod list is fetched + cached.
+ */
+async function getPrefixes(req: FastifyRequest): Promise<string[]> {
   if (req.workspace.gameModel === 'prefix') {
-    return Object.values(req.workspace.gamePrefixMap ?? {});
+    return listWorkspaceGameIds(req.workspace);
   }
   return [];
 }
@@ -166,7 +171,7 @@ export function introspectionCtx(req: FastifyRequest): WorkspaceCtx {
 export default async function identityMapRoutes(app: FastifyInstance): Promise<void> {
   // GET /api/identity-map — merged view, workspace-aware
   app.get('/api/identity-map', async (req, _reply) => {
-    const prefixes = getPrefixes(req);
+    const prefixes = await getPrefixes(req);
     const db = getDb();
     const persisted = db
       .prepare('SELECT cube, identity_field, source, confidence, updated_at FROM cube_identity_map')
@@ -196,7 +201,7 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
   // PUT /api/identity-map/:cube
   app.put('/api/identity-map/:cube', async (req, reply) => {
     const { cube } = req.params as { cube: string };
-    const prefixes = getPrefixes(req);
+    const prefixes = await getPrefixes(req);
 
     const parsed = identityPutSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -244,7 +249,7 @@ export default async function identityMapRoutes(app: FastifyInstance): Promise<v
   // DELETE /api/identity-map/:cube — revert to auto-suggest
   app.delete('/api/identity-map/:cube', async (req, reply) => {
     const { cube } = req.params as { cube: string };
-    const prefixes = getPrefixes(req);
+    const prefixes = await getPrefixes(req);
     // Logicalize so the delete hits the same logical key the PUT wrote.
     const cubeKey = logicalCubeAcross(cube, prefixes);
     const db = getDb();

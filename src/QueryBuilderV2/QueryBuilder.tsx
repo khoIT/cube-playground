@@ -152,19 +152,20 @@ export function QueryBuilder(
   // Restrict the playground sidebar / search / joinable graph to the active
   // game's prefix so the user sees only `<prefix>_*`. Three cases:
   //   - gameModel !== 'prefix' (local): no filter — Cube already scopes by schema.
-  //   - prefix workspace, game IS in prefix map: keep `${prefix}_*`.
-  //   - prefix workspace, game NOT in prefix map (e.g. ptg/muaw/pubg on prod):
-  //     reject all — that game has no cubes in this workspace, so showing the
-  //     full unfiltered list would be misleading. Empty sidebar = accurate.
+  //   - prefix workspace: keep `${prefix}_*`, where the prefix defaults to the
+  //     active game id (the prod cube names every game's cubes `<gameId>__*`).
+  //     gamePrefixMap is an optional override for a game whose id ≠ prefix.
   const isPrefixWorkspace = workspace?.gameModel === 'prefix';
   const prefix = isPrefixWorkspace
-    ? workspace?.gamePrefixMap?.[activeGameId] ?? null
+    ? workspace?.gamePrefixMap?.[activeGameId] ?? activeGameId
     : null;
   const cubeFilter = useCallback(
     (cubeName: string) => {
       if (!isPrefixWorkspace) return true;
       if (!prefix) return false;
-      return cubeName.startsWith(`${prefix}_`);
+      // `__` boundary = the real `<gameId>__<concept>` naming; a single `_`
+      // would let `ballistar` also match `ballistar_twid__*` (cross-tenant).
+      return cubeName.startsWith(`${prefix}__`);
     },
     [isPrefixWorkspace, prefix],
   );

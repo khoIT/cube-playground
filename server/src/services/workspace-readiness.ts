@@ -34,6 +34,7 @@ import {
   type WorkspaceDef,
 } from './workspaces-config-loader.js';
 import { loadGamesConfig } from './games-config-loader.js';
+import { listWorkspaceGameIds } from './prod-game-registry.js';
 import {
   snapshotFromMeta,
   type MetaResponse,
@@ -108,9 +109,12 @@ function countGameCubes(
   gameId: string,
 ): { count: number; prefix: string | null } {
   if (workspace.gameModel === 'prefix') {
-    const prefix = workspace.gamePrefixMap?.[gameId];
-    if (!prefix) return { count: 0, prefix: null };
-    const needle = `${prefix}_`;
+    // Prefix defaults to the game id (prod names cubes `<gameId>__*`);
+    // gamePrefixMap overrides any game whose id ≠ prefix. The `__` boundary is
+    // load-bearing: a single `_` would let `ballistar` also match the distinct
+    // tenants `ballistar_twid__*` / `ballistar_vn__*` (cross-tenant over-count).
+    const prefix = workspace.gamePrefixMap?.[gameId] ?? gameId;
+    const needle = `${prefix}__`;
     let count = 0;
     for (const cube of snapshot.cubes) {
       if (cube.startsWith(needle)) count += 1;
@@ -123,7 +127,12 @@ function countGameCubes(
 async function readGamesReadiness(
   workspace: WorkspaceDef,
 ): Promise<{ games: GameReadiness[]; snapshotByGame: Map<string, MetaSnapshot> }> {
-  const cfg = loadGamesConfig();
+  // Enumerate the workspace's games: a prefix workspace lists every game the
+  // cube serves (its `/cubes` registry, ~65 on prod); a game_id workspace lists
+  // the in-repo games config. Friendly labels come from gds.config when known,
+  // else the id itself (the prod cube serves many games gds.config doesn't name).
+  const nameById = new Map(loadGamesConfig().games.map((g) => [g.id, g.name]));
+  const gameIds = await listWorkspaceGameIds(workspace);
   const snapshotByGame = new Map<string, MetaSnapshot>();
   // prefix workspaces: share a single /meta fetch across all games. game_id
   // workspaces: one /meta per game so each per-game JWT scopes correctly.
@@ -139,12 +148,13 @@ async function readGamesReadiness(
   }
 
   const games: GameReadiness[] = [];
-  for (const g of cfg.games) {
+  for (const id of gameIds) {
+    const label = nameById.get(id) ?? id;
     let snapshot: MetaSnapshot | null = sharedSnapshot;
     let error: string | null = sharedError;
     if (workspace.gameModel === 'game_id') {
       try {
-        const meta = (await getMetaWithCtx(buildCtxFor(workspace, g.id))) as MetaResponse;
+        const meta = (await getMetaWithCtx(buildCtxFor(workspace, id))) as MetaResponse;
         snapshot = snapshotFromMeta(meta);
         error = null;
       } catch (err) {
@@ -155,9 +165,9 @@ async function readGamesReadiness(
 
     if (!snapshot) {
       games.push({
-        id: g.id,
-        label: g.name,
-        prefix: workspace.gamePrefixMap?.[g.id] ?? null,
+        id,
+        label,
+        prefix: workspace.gameModel === 'prefix' ? workspace.gamePrefixMap?.[id] ?? id : null,
         status: 'error',
         cubeCount: 0,
         error: error ?? 'no meta available',
@@ -165,11 +175,11 @@ async function readGamesReadiness(
       continue;
     }
 
-    snapshotByGame.set(g.id, snapshot);
-    const { count, prefix } = countGameCubes(snapshot, workspace, g.id);
+    snapshotByGame.set(id, snapshot);
+    const { count, prefix } = countGameCubes(snapshot, workspace, id);
     games.push({
-      id: g.id,
-      label: g.name,
+      id,
+      label,
       prefix,
       status: count > 0 ? 'ok' : 'missing',
       cubeCount: count,

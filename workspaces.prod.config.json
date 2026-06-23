@@ -7,13 +7,7 @@
       "label": "Production Workspace",
       "cubeApiUrl": "https://cube.gds.vng.vn",
       "authMode": "minted",
-      "gameModel": "prefix",
-      "gamePrefixMap": {
-        "cfm_vn": "cfm",
-        "ballistar": "ballistar",
-        "cros": "cros",
-        "jus_vn": "jus"
-      }
+      "gameModel": "prefix"
     },
     {
       "_comment": "In-stack cube-dev (docker-compose.prod.yml cube_api service). Reached over the compose network at cube_api:4000 — NOT the published host port (17001 is browser-only). Multi-tenant: authMode=minted so the JWT's game claim selects the tenant schema.",

@@ -15,6 +15,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -30,6 +31,28 @@ import { getPref, setPref, subscribe } from '../../hooks/server-prefs-store';
 import { GAME_STORAGE_KEY as STORAGE_KEY, GAME_CHANGE_EVENT } from './active-game-storage';
 
 const FALLBACK_GAME: GameDef = { id: 'ballistar', name: 'Ballistar', mark: 'BS' };
+
+/** A prefix workspace's game id == its cube prefix; gds.config names only a few. */
+interface WorkspaceGame {
+  id: string;
+  label?: string;
+}
+
+/** 2-char avatar mark for games gds.config doesn't name (e.g. `tlbb2` → `TL`). */
+function deriveMark(id: string): string {
+  const alnum = id.replace(/[^a-z0-9]/gi, '');
+  return (alnum.slice(0, 2) || id.slice(0, 2) || '?').toUpperCase();
+}
+
+/**
+ * Map a workspace's game list to GameDefs: gds.config metadata (name/mark/color)
+ * wins for the games it knows; the rest render id-only with a derived mark.
+ */
+function toGameDefs(games: WorkspaceGame[], knownById: Map<string, GameDef>): GameDef[] {
+  return games.map(
+    (g) => knownById.get(g.id) ?? { id: g.id, name: g.label ?? g.id, mark: deriveMark(g.id) },
+  );
+}
 
 /**
  * Narrow a game pool to the ACTIVE workspace's grant. Applied for real auth with
@@ -120,6 +143,21 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   // resolves). `null` = not yet loaded / fetch failed → pass-through (show all)
   // so the picker never blocks or wrongly hides on a flaky readiness call.
   const [readyGameIds, setReadyGameIds] = useState<Set<string> | null>(null);
+  // The active workspace's full game list (id + friendly label) from readiness.
+  // A prefix workspace (prod) serves many games gds.config doesn't name, so the
+  // picker pool comes from HERE, not gds.config. `null` until the first fetch.
+  const [workspaceGames, setWorkspaceGames] = useState<WorkspaceGame[] | null>(null);
+
+  // The full set of selectable ids (gds.config ∪ the active workspace's roster).
+  // setGameId / cross-device sync validate against this so a prod-only game
+  // (not in gds.config) isn't rejected as "unknown". Held in a ref so the
+  // stable setGameId callback reads the latest set without re-subscribing.
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const ids = new Set(config.games.map((g) => g.id));
+    for (const g of workspaceGames ?? []) ids.add(g.id);
+    knownIdsRef.current = ids;
+  }, [config.games, workspaceGames]);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,14 +184,15 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Server-pref hydration (or another tab) can update the active game from
-  // another device. Reflect it when the id is valid for the loaded config.
+  // another device. Reflect it when the id is one the active workspace serves
+  // (gds.config ∪ prod roster), read live from the ref.
   useEffect(() => {
     return subscribe(STORAGE_KEY, (next) => {
-      if (next && config.games.some((g) => g.id === next)) {
+      if (next && knownIdsRef.current.has(next)) {
         setGameIdState((prev) => (prev === next ? prev : next));
       }
     });
-  }, [config.games]);
+  }, []);
 
   // Fetch the workspace registry once + listen for workspace-change events so
   // the GamePicker reacts when the user flips the topbar workspace pill.
@@ -199,19 +238,25 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
     // Reset to pass-through while the new workspace's readiness loads so we
     // don't apply the previous workspace's allow-set to this one.
     setReadyGameIds(null);
+    setWorkspaceGames(null);
     fetch(`/api/workspaces/${encodeURIComponent(workspaceId)}/games-readiness`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
-      .then((body: { games?: Array<{ id: string; status: string }> }) => {
+      .then((body: { games?: Array<{ id: string; label?: string; status: string }> }) => {
         if (cancelled) return;
-        const ready = new Set(
-          (body?.games ?? []).filter((g) => g.status === 'ok').map((g) => g.id),
-        );
+        const list = body?.games ?? [];
+        // The full roster drives the picker pool (prod serves games gds.config
+        // doesn't name). The "ok" subset narrows out games with no cubes here.
+        setWorkspaceGames(list.map((g) => ({ id: g.id, label: g.label })));
+        const ready = new Set(list.filter((g) => g.status === 'ok').map((g) => g.id));
         // Empty set (e.g. meta unreachable for every game) is treated as
         // "unknown" → pass-through, rather than hiding every game.
         setReadyGameIds(ready.size > 0 ? ready : null);
       })
       .catch(() => {
-        if (!cancelled) setReadyGameIds(null);
+        if (!cancelled) {
+          setReadyGameIds(null);
+          setWorkspaceGames(null);
+        }
       });
     return () => {
       cancelled = true;
@@ -220,7 +265,8 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
 
   // Filter games by what the active workspace supports AND what this user is
   // granted IN THAT WORKSPACE (per-workspace grants, fail-closed):
-  //   - gameModel='prefix' (prod): only games whose id is in `gamePrefixMap`.
+  //   - gameModel='prefix' (prod): every game the cube serves (from readiness —
+  //     the cube's /cubes registry), seeded with gds.config until it lands.
   //   - gameModel='game_id' (local): every game in gds.config.json.
   //   - Real auth: intersect with the ACTIVE workspace's grant
   //     (`gamesByWorkspace[workspaceId]`). Empty/absent ⇒ NO games (fail-closed).
@@ -234,13 +280,20 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
   const authUser = useAuthUser();
   const { state: authState } = useAuth();
   const isRealAuth = authState.status === 'authenticated';
+  const knownById = useMemo(
+    () => new Map(config.games.map((g) => [g.id, g])),
+    [config.games],
+  );
   const visibleGames = useMemo(() => {
-    let pool = config.games;
-    if (activeWorkspace) {
-      if (activeWorkspace.gameModel === 'prefix') {
-        const allowed = new Set(Object.keys(activeWorkspace.gamePrefixMap ?? {}));
-        pool = pool.filter((g) => allowed.has(g.id));
-      }
+    let pool: GameDef[];
+    if (activeWorkspace?.gameModel === 'prefix') {
+      // Prod: the roster is the cube's, not gds.config (which names only a few).
+      // Seed with gds.config until readiness lands so the picker isn't empty.
+      const roster: WorkspaceGame[] =
+        workspaceGames ?? config.games.map((g) => ({ id: g.id, label: g.name }));
+      pool = toGameDefs(roster, knownById);
+    } else {
+      pool = config.games;
     }
     // Per-workspace grant narrowing — real auth only, once the active workspace
     // id has resolved. Fail-closed: no grant in this workspace ⇒ empty pool.
@@ -251,7 +304,7 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
       pool = pool.filter((g) => readyGameIds.has(g.id));
     }
     return pool;
-  }, [config.games, activeWorkspace, authUser, isRealAuth, workspaceId, readyGameIds]);
+  }, [config.games, knownById, workspaceGames, activeWorkspace, authUser, isRealAuth, workspaceId, readyGameIds]);
 
   // If the active game isn't supported by the new workspace, fall back to the
   // first visible one. Skips while still bootstrapping so we don't clobber a
@@ -266,10 +319,10 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
 
   const setGameId = useCallback(
     (id: string) => {
-      // Accept any id present in the underlying config — the workspace filter
-      // is enforced separately so a programmatic switch (deep-link, restore)
-      // doesn't get silently dropped if the workspace-fetch hasn't landed yet.
-      if (!config.games.some((g) => g.id === id)) return;
+      // Accept any id the active workspace can serve (gds.config ∪ the prod
+      // roster) — the workspace filter is enforced separately so a programmatic
+      // switch (deep-link, restore) isn't dropped if a fetch hasn't landed yet.
+      if (!knownIdsRef.current.has(id)) return;
       setGameIdState(id);
       persistGameId(id);
       if (typeof window !== 'undefined') {
@@ -295,7 +348,9 @@ export function GameContextProvider({ children }: { children: ReactNode }) {
         window.dispatchEvent(new CustomEvent(GAME_CHANGE_EVENT, { detail: { gameId: id } }));
       }
     },
-    [config.games],
+    // knownIdsRef is a ref (stable); no reactive deps — the validation set is
+    // read live inside the callback.
+    [],
   );
 
   const value = useMemo<GameContextValue>(
