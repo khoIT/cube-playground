@@ -1933,6 +1933,38 @@
   white-space: nowrap;
 }
 
+/* Capture-cadence marker that anchors the View grain row — a read-only chip
+   (capture is edited on the header pill) showing the floor the view grain rides
+   on. The → and locked finer pills make the cap legible. */
+.monitorCaptureMarker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--success-ink);
+  background: var(--success-soft);
+  border-radius: var(--radius-full);
+  padding: 3px 10px;
+  white-space: nowrap;
+  cursor: default;
+}
+.monitorCaptureDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--positive);
+}
+.monitorCaptureArrow {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.monitorCaptureHint {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .statusPill {
   border-radius: var(--radius-full);
   padding: 2px 8px;

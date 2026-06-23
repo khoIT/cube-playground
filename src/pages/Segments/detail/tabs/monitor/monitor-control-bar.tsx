@@ -15,7 +15,7 @@ import type {
   CadenceChange,
   MovementGranularity,
 } from '../../../../../api/segment-movement-client';
-import type { Segment } from '../../../../../types/segment-api';
+import type { Segment, TrackCadence } from '../../../../../types/segment-api';
 import type { GrainAvailability } from '../movement/grain-availability';
 import { GranularityToggle } from '../movement/granularity-toggle';
 import { MonitorRangePicker } from './monitor-range-picker';
@@ -49,6 +49,11 @@ type PillTone = 'muted' | 'warning' | 'info' | 'success';
 function Pill({ children, tone }: { children: ReactNode; tone: PillTone }): ReactElement {
   return <span className={`${styles.statusPill} ${styles[`statusPill_${tone}`]}`}>{children}</span>;
 }
+
+/** Short label for the capture-cadence marker that anchors the view-grain row. */
+const CAPTURE_LABEL: Record<TrackCadence, string> = {
+  Off: 'on-demand', '15m': '15m', '30m': '30m', '1h': '1h', '3h': '3h', '6h': '6h', '12h': '12h', daily: 'daily',
+};
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** `2026-06-19 09:00` → `Jun 19` for the cadence-change pill. */
@@ -114,11 +119,26 @@ export function MonitorControlBar({
     (stale ? 1 : 0) +
     (sliceActive ? 1 : 0);
 
+  // Capture cadence anchors the view-grain row: view grain can't go finer than
+  // what's captured. The marker makes that cap legible (the toggle already locks
+  // finer-than-captured grains via `availability`). Capture is edited on the
+  // header status pill — this is a read-only reference here.
+  const captureCadence: TrackCadence = segment.track_cadence ?? 'daily';
+  const someGrainLocked = Object.values(availability).some((a) => a.state === 'unavailable');
+
   return (
     <div className={styles.monitorControlRow}>
-      {/* 1 · View grain — the display controls (downsample + window). */}
+      {/* 1 · View grain — display downsample, capped by the capture cadence. */}
       <section className={`${styles.monitorControlCard} ${styles.monitorControlCardView}`}>
         <div className={styles.monitorControlGroup}>
+          <span
+            className={styles.monitorCaptureMarker}
+            title={`Capture cadence — the segment recomputes + snapshots every ${CAPTURE_LABEL[captureCadence]}. Edit it on the status pill above. View grain can't go finer than this.`}
+          >
+            <span className={styles.monitorCaptureDot} aria-hidden />
+            Capture · {CAPTURE_LABEL[captureCadence]}
+          </span>
+          <span className={styles.monitorCaptureArrow} aria-hidden>→</span>
           <span className={styles.monitorControlLabel}>View grain</span>
           <GranularityToggle value={grain} availability={availability} onChange={onGrainChange} />
         </div>
@@ -126,6 +146,11 @@ export function MonitorControlBar({
           <span className={styles.monitorControlLabel}>Range</span>
           <MonitorRangePicker value={range} onChange={onRangeChange} />
         </div>
+        {someGrainLocked && (
+          <span className={styles.monitorCaptureHint}>
+            Finer views are locked — raise the capture cadence on the status pill above to unlock them.
+          </span>
+        )}
       </section>
 
       {/* 2 · Status & controls — borderless: Notices + Settings ride the top

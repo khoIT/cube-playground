@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>View grain ↔ capture cadence — balance options</title>
+<style>
+  :root{--app:#f7f8fa;--card:#fff;--muted-bg:#f1eee9;--brand:#c2410c;--brand-soft:#fdf0e8;--brand-ink:#9a3412;
+    --border:#e7e2da;--border-strong:#dcd5ca;--text:#1c1917;--text2:#57534e;--muted:#8a8178;--pos:#15803d;
+    --success-soft:#ecfdf3;--success-ink:#15803d;--radius:8px;--font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+  *{box-sizing:border-box}body{margin:0;background:#eceae6;font-family:var(--font);color:var(--text);font-size:13px;padding:36px}
+  h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0 0 4px}.sub{color:var(--text2);margin:0 0 28px;max-width:74ch}
+  .opt{background:var(--card);border:1px solid var(--border-strong);border-radius:12px;padding:20px 22px;margin-bottom:22px;box-shadow:0 6px 22px rgba(40,30,15,.07)}
+  .opt h2{font-size:16px;font-weight:700;margin:0 0 2px;display:flex;align-items:center;gap:10px}
+  .tag{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--brand);padding:3px 8px;border-radius:6px}
+  .pick{font-size:11px;font-weight:700;color:var(--pos);background:var(--success-soft);border:1px solid #bbf7d0;padding:2px 8px;border-radius:99px}
+  .why{color:var(--text2);margin:6px 0 16px;max-width:84ch}.why b{color:var(--text)}
+  /* control bar mock */
+  .bar{display:flex;align-items:center;gap:18px;flex-wrap:wrap;background:var(--app);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+  .grp{display:inline-flex;align-items:center;gap:9px}
+  .lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+  .pills{display:inline-flex;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden;background:var(--card)}
+  .pills button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:600;color:var(--text2);padding:5px 11px;cursor:pointer}
+  .pills button+button{border-left:1px solid var(--border)}
+  .pills button.on{background:var(--brand);color:#fff}
+  .pills button.dis{color:#c4bdb2;cursor:not-allowed;background:repeating-linear-gradient(45deg,transparent,transparent 4px,#f3f0eb 4px,#f3f0eb 6px)}
+  .capchip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--success-ink);background:var(--success-soft);border:1px solid #bbf7d0;border-radius:99px;padding:4px 10px}
+  .capchip .dot{width:7px;height:7px;border-radius:50%;background:var(--pos)}
+  .capedit{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text);background:var(--card);border:1px solid var(--border-strong);border-radius:var(--radius);padding:4px 10px;cursor:pointer}
+  .arrow{color:var(--muted);font-size:16px}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:8px}.hint a{color:var(--brand);text-decoration:none;font-weight:600}
+  .jump{font-size:11px;font-weight:600;color:var(--brand);background:none;border:0;cursor:pointer;padding:0;text-decoration:underline}
+  .headerpill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--success-ink);background:var(--success-soft);border:1px solid #bbf7d0;border-radius:99px;padding:3px 9px}
+  .headerpill.ro{color:var(--text2);background:var(--muted-bg);border-color:var(--border)}
+  .ctx{font-size:11px;color:var(--muted);margin:0 0 8px}
+  .ctx code{background:var(--muted-bg);padding:1px 5px;border-radius:4px}
+</style></head><body>
+<h1>Balancing view grain ↔ capture cadence</h1>
+<p class="sub">Capture cadence sets what history <b>exists</b> (the floor resolution); view grain only changes how it's <b>displayed</b>, and can't go finer than capture. Two ways to make that relationship visible instead of leaving the two controls disconnected.</p>
+
+<!-- OPTION A -->
+<div class="opt">
+  <h2><span class="tag">Option A</span> Capture stays in the header — Monitor view-grain becomes capture-aware <span class="pick">Recommended</span></h2>
+  <p class="why">Keeps the single capture editor on the header pill (the decision we just shipped). The Monitor bar gains a read-only <b>Captured · daily</b> marker and <b>disables view grains finer than capture</b> (hatched), with a jump link to edit capture. One glance shows the cap; no second editor.</p>
+  <p class="ctx">Header (unchanged): <span class="headerpill"><span class="dot"></span>Live · daily ▾</span> &nbsp;—&nbsp; the only place capture is edited.</p>
+  <div class="bar">
+    <span class="grp"><span class="lbl">Captured</span><span class="capchip"><span class="dot"></span>daily</span></span>
+    <span class="arrow">→</span>
+    <span class="grp"><span class="lbl">View grain</span>
+      <span class="pills">
+        <button class="on">Daily</button><button class="dis" title="Capture more often to view finer">12h</button>
+        <button class="dis">6h</button><button class="dis">3h</button><button class="dis">1h</button>
+        <button class="dis">30m</button><button class="dis">15m</button>
+      </span>
+    </span>
+  </div>
+  <p class="hint">Finer grains are locked because capture is <b>daily</b> — they'd just carry forward flat. <button class="jump">Change capture ↗</button> (jumps to the header pill)</p>
+</div>
+
+<!-- OPTION B -->
+<div class="opt">
+  <h2><span class="tag">Option B</span> Co-locate both as a "Resolution" pair in the Monitor bar</h2>
+  <p class="why">Move capture editing down next to view grain so the two read as one unit: <b>Capture every → View at</b>. The header pill demotes to a <b>read-only</b> status badge. Strongest spatial link, but it relocates capture editing away from the header (reverses part of what we just shipped) and puts a write-control back in Monitor.</p>
+  <p class="ctx">Header demotes to read-only: <span class="headerpill ro"><span class="dot" style="background:var(--muted)"></span>Live · daily</span> (status only, not editable)</p>
+  <div class="bar">
+    <span class="grp"><span class="lbl">Capture every</span><button class="capedit">daily ▾</button></span>
+    <span class="arrow">→</span>
+    <span class="grp"><span class="lbl">View at</span>
+      <span class="pills">
+        <button class="on">Daily</button><button class="dis">12h</button><button class="dis">6h</button>
+        <button class="dis">3h</button><button class="dis">1h</button><button class="dis">30m</button><button class="dis">15m</button>
+      </span>
+    </span>
+  </div>
+  <p class="hint">Editing <b>Capture every</b> here unlocks finer <b>View at</b> options live. Capture + view sit together; header is just a status read-out.</p>
+</div>
+
+</body></html>
