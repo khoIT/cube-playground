@@ -11,9 +11,9 @@ import { Stethoscope, TrendingDown, CalendarClock, Workflow } from 'lucide-react
 import { useGameContext } from '../../../components/Header/use-game-context';
 import { LiveopsTabs, type LiveopsHubTab } from '../_hub/liveops-tabs';
 import { useLiveopsTab } from '../_hub/use-liveops-tab';
-import { HubSectionPlaceholder } from '../_hub/hub-section-placeholder';
 import { DeltaDecompositionView } from './delta/delta-decomposition-view';
 import { EventTimelineView } from './timeline/event-timeline-view';
+import { LifecycleFlowView } from './lifecycle/lifecycle-flow-view';
 
 type DiagnosticsTab = 'delta' | 'timeline' | 'lifecycle';
 
@@ -68,13 +68,7 @@ export function DiagnosticsPage() {
 
       {active === 'delta' && <DeltaDecompositionView />}
       {active === 'timeline' && <EventTimelineView />}
-      {active === 'lifecycle' && (
-        <HubSectionPlaceholder
-          icon={Workflow}
-          title="Lifecycle flow"
-          note="Watch players move between New, Core, Lapsing, Reactivated, and Churned week over week. Arriving in a later build step."
-        />
-      )}
+      {active === 'lifecycle' && <LifecycleFlowView />}
     </div>
   );
 }

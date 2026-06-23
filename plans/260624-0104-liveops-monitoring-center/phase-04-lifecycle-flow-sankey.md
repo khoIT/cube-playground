@@ -1,6 +1,8 @@
 # Phase 04 — Lifecycle flow Sankey (Diagnostics tab 3)
 
-**Priority:** P1 · **Status:** ☐ · Depends: 00 (state rule), 01
+**Priority:** P1 · **Status:** ✅ · Depends: 00 (state rule), 01
+
+> **Built (2026-06-24):** `services/lifecycle-flow.ts` + `routes/lifecycle-flow.ts` (GET /api/lifecycle-flow, aggregate `lifecycle_stage × is_paying_user` — no PII) + FE `lifecycle-flow-view.tsx` (5 real state stat-cards, verified live: cfm_vn core 117k/lapsing 59k/churned 6.5M) + hand-rolled SVG `lifecycle-sankey.tsx` + "seed segment" hook. **State counts are REAL Cube data; transitions = disclosed-empty** (mf_users has no history → no fabrication; ribbons show "populate once daily snapshots accumulate"). No migration 070 (not needed for weekly v1). Build gates pass. **Forward note:** transition ribbons require the segment-snapshot-delta accumulation path to be activated later.
 
 ## Goal
 Temporal state-flow: New / Core / Lapsing / Reactivated / Churned with last-week→this-week transition
