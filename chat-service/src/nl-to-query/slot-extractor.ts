@@ -12,12 +12,15 @@ import type {
   ScoredSlot,
   SlotFilter,
 } from './types.js';
-import { resolveTerms, unresolvedSpans, type AliasHit } from './synonym-resolver.js';
+import { resolveTerms, unresolvedSpans, matchDimensionSynonym, type AliasHit } from './synonym-resolver.js';
+import { resolveCubeRelativeDimension } from './member-resolution.js';
 import { resolveMetric } from './metric-resolver.js';
 import { classifyTerm } from './term-classifier.js';
 import { parseNumbers, type ParsedNumber } from './number-normaliser.js';
 import { resolveDateRanges, type ResolvedDate } from './date-resolver.js';
 import { classifyIntent } from './intent-classifier.js';
+import { cubeNameOf } from '../core/cube-meta-capability.js';
+import { resolveDefaultMetric } from '../core/smart-defaults.js';
 
 export interface ExtractInput {
   message: string;
@@ -73,19 +76,49 @@ function buildMetricSlots(
   };
 }
 
-function pickDimension(hits: AliasHit[], glossary: OfficialTerm[]): ScoredSlot<string> | undefined {
+interface DimensionContext {
+  message: string;
+  /** Cube the metric resolved to — scopes a cube-relative breakdown member. */
+  metricCube: string | null;
+  knownMembers?: Set<string>;
+}
+
+function pickDimension(
+  hits: AliasHit[],
+  glossary: OfficialTerm[],
+  ctx: DimensionContext,
+): ScoredSlot<string> | undefined {
   const termById = new Map(glossary.map((t) => [t.id, t]));
   const dimHits = hits.filter((h) => {
     const term = termById.get(h.termId);
     return term ? classifyTerm(term) === 'dimension' : false;
   });
-  if (dimHits.length === 0) return undefined;
-  const best = dimHits[0];
+  const glossaryDim = dimHits[0];
+
+  // Cube-relative override: a breakdown phrase whose physical member name
+  // varies by cube (platform → os_platform | platform) must bind on the
+  // metric's resolved cube. The glossary's static ref for these names a member
+  // that often doesn't exist on this game's cube (the dead `mf_users.platform`),
+  // which trips the /meta gate into a clarify. Prefer the live cube member.
+  const synonym = matchDimensionSynonym(ctx.message);
+  if (synonym && ctx.metricCube) {
+    const member = resolveCubeRelativeDimension(ctx.metricCube, synonym, ctx.knownMembers);
+    if (member) {
+      return {
+        value: member,
+        alias: glossaryDim?.alias ?? synonym.family,
+        span: glossaryDim?.span,
+        confidence: 0.9,
+      };
+    }
+  }
+
+  if (!glossaryDim) return undefined;
   return {
-    value: best.cubeRef ?? undefined,
-    alias: best.alias,
-    span: best.span,
-    confidence: best.cubeRef ? 0.9 : 0.4,
+    value: glossaryDim.cubeRef ?? undefined,
+    alias: glossaryDim.alias,
+    span: glossaryDim.span,
+    confidence: glossaryDim.cubeRef ? 0.9 : 0.4,
   };
 }
 
@@ -185,8 +218,17 @@ export function extractSlots(input: ExtractInput): ExtractResult {
 
   const resolution = resolveMetric(input.message, input.glossary, input.knownMembers);
   const { metric, ratio } = buildMetricSlots(resolution);
-  const dimension = pickDimension(hits, input.glossary);
   const filters = buildFilters(hits, input.glossary, numbers);
+
+  // Cube the metric resolved to — measure ref, else the ratio's numerator.
+  // Scopes the cube-relative breakdown member (platform → os_platform|platform).
+  const metricRef = resolution?.ref ?? resolution?.ratioRef?.numerator ?? ratio?.numerator ?? null;
+  const metricCube = metricRef ? cubeNameOf(metricRef) : null;
+  const dimension = pickDimension(hits, input.glossary, {
+    message: input.message,
+    metricCube,
+    knownMembers: input.knownMembers,
+  });
 
   const primaryDate = dates[0];
   const timeRange = primaryDate
@@ -203,9 +245,30 @@ export function extractSlots(input: ExtractInput): ExtractResult {
   for (const n of numbers) warnings.push(...n.warnings);
   if (resolution?.reason) warnings.push(resolution.reason);
 
+  // Deterministic default metric: a segment/time question that names no metric
+  // ("show Minnow last 7 days", "Whale this month") binds the segment filter
+  // but leaves the metric slot empty, so the composer can't emit a measure and
+  // the turn clarifies → no chart. Fill it: money cue → the game's Revenue
+  // measure, else the active-user count. Gated to a question that already
+  // anchors intent (a filter and/or an explicit time) so a contentless message
+  // still clarifies. Resolved from the glossary, never a hardcoded ref.
+  let metricSlot = metric;
+  if (!metricSlot.value && !ratio && (filters?.length || timeRange?.value)) {
+    const def = resolveDefaultMetric(input.glossary, input.message);
+    // Require the /meta member set, like the cube-relative dimension path: a
+    // meta-down turn must surface the honest "data model unavailable" clarify
+    // rather than auto-route an unvalidated default member.
+    if (def && input.knownMembers?.has(def.ref)) {
+      metricSlot = { value: def.ref, alias: def.label, confidence: 0.8 };
+      warnings.push(
+        `No metric named — defaulted to ${def.label} (${def.ref}); change it if you meant another measure.`,
+      );
+    }
+  }
+
   const intentResult = classifyIntent(input.message);
   const slots: DisambiguationSlots = {
-    metric,
+    metric: metricSlot,
     dimension,
     timeRange,
     filters,

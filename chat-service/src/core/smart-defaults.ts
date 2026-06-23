@@ -41,6 +41,50 @@ export function resolveRevenueDefault(glossary: OfficialTerm[]): RevenueDefault 
 }
 
 /**
+ * Resolve the game's active-user count measure (DAU) from the glossary — the
+ * population default for a bare segment/time question. Prefers the canonical
+ * `active-user`/`dau` concept; else any measure term whose ref leaf is `dau`.
+ * Returns null when none resolves (caller then leaves metric ask-first).
+ */
+const ACTIVE_USER_IDS = ['active-user', 'active_user', 'active-users', 'dau', 'daily-active-users'];
+
+export function resolveActiveUserDefault(glossary: OfficialTerm[]): RevenueDefault | null {
+  for (const id of ACTIVE_USER_IDS) {
+    const t = glossary.find((x) => x.id === id && x.refKind !== 'ratio' && x.measureRef);
+    if (t?.measureRef) return { ref: t.measureRef, label: t.label };
+  }
+  const byLeaf = glossary.find(
+    (t) => t.refKind === 'measure' && !!t.measureRef && t.measureRef.endsWith('.dau'),
+  );
+  if (byLeaf?.measureRef) return { ref: byLeaf.measureRef, label: byLeaf.label };
+  return null;
+}
+
+// A money intent in the message → default to Revenue instead of population.
+// Word-boundary anchored so "player" can't trip "pay"; covers the common
+// spend/revenue/ARPU/paid/sales/LTV/VND vocabulary (EN + the VND currency cue).
+const MONEY_CUE = /\b(revenue|spend(?:ing|s|t)?|arpu|arppu|arpdau|paid|payments?|sales|moneti[sz]\w*|gross|ltv|money|vnd)\b/i;
+
+/** True when the message carries a money cue (spend / revenue / ARPU / …). */
+export function messageHasMoneyCue(message: string): boolean {
+  return MONEY_CUE.test(message);
+}
+
+/**
+ * The deterministic default metric for a segment/time question that names no
+ * metric (user decision, 2026-06-23): a money cue → the game's Revenue measure,
+ * otherwise the active-user population count. Returns null only when neither
+ * resolves from the glossary — the caller then leaves the metric for clarify.
+ */
+export function resolveDefaultMetric(glossary: OfficialTerm[], message: string): RevenueDefault | null {
+  if (messageHasMoneyCue(message)) {
+    const rev = resolveRevenueDefault(glossary);
+    if (rev) return rev;
+  }
+  return resolveActiveUserDefault(glossary) ?? resolveRevenueDefault(glossary);
+}
+
+/**
  * Render the smart-default guidance for the system prompt. Stable per game
  * (depends only on the glossary's revenue measure), so it is safe to place in
  * the cacheable prefix. Returns '' only in the degenerate empty case.

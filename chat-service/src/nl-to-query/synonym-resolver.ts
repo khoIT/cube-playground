@@ -190,6 +190,54 @@ export function findExactMatch(
   return matches[0]!;
 }
 
+/**
+ * Cube-relative dimension synonyms.
+ *
+ * A breakdown phrase like "by platform" maps to a member FAMILY whose physical
+ * name varies by cube — `os_platform` on the user / engagement / recharge cubes,
+ * `platform` on the acquisition cubes — so it cannot be a single static glossary
+ * alias (the glossary's lone `platform` term points at one fixed ref that is
+ * wrong on the other cubes). Resolution must instead pick the family member on
+ * whatever cube the metric resolved to. Kept tiny and data-driven: extend only
+ * on an observed breakdown miss.
+ */
+export interface DimensionSynonym {
+  /** Stable family id, also used as the dimension slot alias. */
+  family: string;
+  /** Phrases that signal this breakdown (word-boundary matched). */
+  aliases: string[];
+  /** Candidate member leaves, in priority order, to find on the metric's cube. */
+  memberLeaves: string[];
+}
+
+export const DIMENSION_SYNONYMS: DimensionSynonym[] = [
+  { family: 'platform', aliases: ['platform', 'device', 'os'], memberLeaves: ['os_platform', 'platform'] },
+];
+
+/**
+ * Return the first cube-relative dimension synonym whose alias appears in the
+ * message as a whole word, or null. Used by the slot extractor to override a
+ * dead/static glossary dimension ref with the family member on the metric cube.
+ */
+export function matchDimensionSynonym(message: string): DimensionSynonym | null {
+  const lower = message.toLowerCase();
+  for (const syn of DIMENSION_SYNONYMS) {
+    for (const alias of syn.aliases) {
+      if (alias.length < 2) continue;
+      let from = 0;
+      while (from <= lower.length - alias.length) {
+        const idx = lower.indexOf(alias, from);
+        if (idx === -1) break;
+        from = idx + 1;
+        if (isWordBoundary(message, idx - 1) && isWordBoundary(message, idx + alias.length)) {
+          return syn;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function unresolvedSpans(message: string, hits: AliasHit[]): string[] {
   const out: string[] = [];
   let cursor = 0;

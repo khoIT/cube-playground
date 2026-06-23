@@ -1,0 +1,125 @@
+# Smoketest validation — before/after harness
+
+A 16-case curated smoketest gates this plan. Capture a **before** baseline on
+current (pre-fix) code, implement, then re-run and diff. The point of the guard
+cases is to catch regressions and over-defaulting, not just confirm the fixes.
+
+## Files (ready, committed)
+- `test/eval/resolver-smoketest-bank.json` — 16 cases (10 `fix` + 6 `guard`).
+  Member names are identical across all 8 games → one bank serves cfm_vn + jus_vn.
+- `test/eval/resolver-smoketest-diff.ts` — judges before vs after; exits non-zero
+  on any fail.
+- `answer-quality-runner.ts` now records `resolvedDims` so the platform
+  breakdown member is machine-checked (not eyeballed).
+
+## Case groups
+- **A · Platform (5, fix):** `DAU/revenue/ROAS/installs/CPI by platform` →
+  must bind `(os_)?platform` on the metric's cube.
+- **B · Segment default-metric (4, fix):** `Minnow last 7 days`, `Whale this
+  month`, `Whale revenue last 7 days` (money cue → Revenue), `compare Dolphin mom`.
+- **C · WAU (2):** `show WAU last 7 days` (guard — already works, must stay green),
+  `compare WAU mom` (fix — the one failing WAU case).
+- **D · Regression guards (5):** plain DAU, revenue-30d, `DAU by country` (existing
+  dimension path), `top 10 players by revenue` (grain not silently defaulted),
+  `asdf qwer` (anti over-default tripwire — must stay non-ok).
+
+## Procedure
+
+Prereq: host chat-service on :3005, subscription lane, workspace=local (the runner
+flips the lane; load `INTERNAL_SECRET` via `--env-file`).
+
+```bash
+# 1. BEFORE baseline — run on CURRENT code, per game (do this before implementing):
+GAME=cfm_vn CORPUS=test/eval/resolver-smoketest-bank.json \
+  SNAPSHOT_OUT=test/eval/cfm_vn-smoketest-before.json \
+  RUN_DIR=test/eval/runs/smoketest-before-cfm PACE_MS=3000 \
+  npx tsx --env-file=../.env --env-file=../.env.local test/eval/answer-quality-runner.ts
+# repeat with GAME=jus_vn → jus_vn-smoketest-before.json
+
+# 2. … implement Phase 01/02/03 …
+
+# 3. AFTER — same command, *-after.json + RUN_DIR=...-after-cfm
+
+# 4. Diff:
+BANK=test/eval/resolver-smoketest-bank.json \
+  BEFORE=test/eval/cfm_vn-smoketest-before.json \
+  AFTER=test/eval/cfm_vn-smoketest-after.json \
+  npx tsx test/eval/resolver-smoketest-diff.ts
+```
+
+## Pass criteria
+- All 10 `fix` cases: AFTER status `ok`, `resolvedRef` matches `expectedRef`,
+  `resolvedDims` includes `expectedDim` (platform cases).
+- All 6 `guard` cases: status + resolvedRef + dims **unchanged** before→after.
+  In particular `sm-guard-empty` must stay non-`ok` — if it flips to `ok`, the
+  Phase 02 default is over-firing.
+- Full trail for every case lands under the `RUN_DIR` for forensics.
+
+## Recorded cfm_vn before-baseline (2026-06-23, canonical token)
+Frozen at `test/eval/cfm_vn-smoketest-before.json` + `runs/smoketest-before-cfm/`.
+**7 ok / 9 no-artifact / 0 http-error.**
+
+- Guards all correct: `show DAU`→`active_daily.dau`; `revenue 30d`→
+  `user_recharge_daily.revenue_vnd_total`; `DAU by country`→ok +
+  `active_daily.country_code`; `top 10 players by revenue`→ok, binds player grain
+  `user_recharge_daily.user_id`; `asdf qwer`→no-artifact; WAU plain + mom both ok.
+- Gaps to close (no-artifact): 5× platform breakdown (Phase 01), `Minnow`,
+  `Whale this month`, `compare Dolphin mom` (Phase 02). `Whale revenue` already ok.
+- After-fix target: **15/16 ok** (empty stays non-ok).
+
+Verified facts that refine the plan:
+- Platform gap is **uniform** across engagement / revenue / UA cubes (all 5 fail
+  with explicit time → true dimension-binding failures, not time-clarify).
+- Revenue ref is **`user_recharge_daily.revenue_vnd_total`** (confirmed 3×), not
+  the earlier-guessed `recharge.revenue_vnd`.
+- WAU plain AND mom already answer → Phase 03 = cros+tf cube parity only, no
+  chat-service work.
+- `top 10 players by revenue` already resolves player grain → grain handling not
+  at risk from Phase 02's default.
+
+**jus_vn parity (2026-06-23):** `test/eval/jus_vn-smoketest-before.json` is
+identical to cfm_vn — 7/16 ok, same 8 gaps, same guards green, same refs/dims,
+same revenue member. Confirms the code-once fix applies uniformly across games.
+After-fix target for both: 15/16 ok.
+
+**Lesson:** the first baseline conflated failure modes — Group A questions without
+a time window tripped a *time* clarify before the dimension was exercised. Fix:
+every dimension-breakdown case carries an explicit time window so the smoketest
+isolates the member under test. (Bank updated; this is why the bank questions read
+"… by platform last 7 days".)
+
+## Recorded cfm_vn AFTER result (2026-06-23, post-implementation)
+Frozen at `test/eval/cfm_vn-smoketest-after.json` + `runs/smoketest-after-cfm/`.
+**13 ok / 3 non-ok — up from 7/16. +6 net, zero true regressions.**
+
+FIXED (7): all 5 platform breakdowns (`active_daily.os_platform`,
+`user_recharge_daily.os_platform`, `game_key_metrics.platform`) + `show Minnow`
++ `Whale this month` (both → `active_daily.dau`, the active-user default).
+Guards all stable (Whale revenue, show WAU/DAU, revenue 30d, DAU by country,
+top-10 players, empty tripwire still non-ok).
+
+The 2 remaining failures are **data-limited, not resolver gaps** (verified):
+- `compare WAU month over month` + `compare Dolphin month over month`:
+  the cfm_vn test set holds **only one month (2026-06)** of data
+  (`active_daily.log_date` granularity=month → single bucket), so a
+  month-over-month comparison is impossible regardless of resolution. WAU-mom's
+  trail shows the agent correctly declining ("Only June 2026 data exists…") and
+  offering week-over-week — the before-baseline `ok` was a degenerate
+  single-month emit, so the decline is *more* correct, not a regression.
+- Secondary observation (not blocking): on a "compare X month over month"
+  framing the agent sometimes skips `disambiguate_query` entirely and
+  free-explores, so the resolver default never runs. Moot here (mom needs ≥2
+  months of data) — a follow-up if a multi-month dataset is loaded.
+
+Transients during the first pass (Minnow http-error, Whale-revenue/WAU-mom
+turn-errors, top-10 no-artifact) all cleared on the `RESUME=1 RESUME_KEEP=ok`
+re-run — confirms they were `tsx watch` reload drops, not logic.
+
+## Notes
+- `expectedBefore` in the bank are diagnosed hypotheses; the baseline confirms
+  them (a case already `ok` before wasn't a real gap).
+- `sm-guard-rev` is the revenue-ref oracle: its baseline `resolvedRef` reveals the
+  real Revenue member, which should match `sm-plat-rev` / `sm-seg-whale-rev`. If
+  the baseline shows a different ref, update those two `expectedRef`s before
+  trusting their AFTER verdict.
+- Subscription cap: 16×2 turns is small but paced; resume if the window caps.

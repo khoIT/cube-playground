@@ -15,7 +15,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import type { OfficialTerm } from './types.js';
-import { resolveTerms, findExactMatch, memberOrNull } from './synonym-resolver.js';
+import {
+  resolveTerms,
+  findExactMatch,
+  memberOrNull,
+  type DimensionSynonym,
+} from './synonym-resolver.js';
 import {
   resolveMemberMeta,
   cubeNameOf,
@@ -261,6 +266,30 @@ export function resolveTerm(
   return Array.from(byMember.values())
     .sort((a, b) => b.confidence - a.confidence)
     .slice(0, topK);
+}
+
+/**
+ * Bind a cube-relative dimension synonym to a concrete member on `cube`.
+ *
+ * Tries each candidate leaf in priority order and returns the first member the
+ * live model actually exposes (validated against `knownMembers`, the /meta
+ * member set the composer also gates on). Returns null when the cube has no
+ * member in the family — the caller then leaves the dimension for clarify
+ * rather than guessing the wrong cube. Requires `knownMembers`: without the
+ * /meta set there is no way to disambiguate os_platform vs platform, so a
+ * meta-down turn falls back to the glossary path instead of guessing.
+ */
+export function resolveCubeRelativeDimension(
+  cube: string | null,
+  synonym: DimensionSynonym,
+  knownMembers: Set<string> | undefined,
+): string | null {
+  if (!cube || !knownMembers) return null;
+  for (const leaf of synonym.memberLeaves) {
+    const ref = `${cube}.${leaf}`;
+    if (knownMembers.has(ref)) return ref;
+  }
+  return null;
 }
 
 /** Resolve a batch of terms in one pass. Never throws; unknown terms → []. */
