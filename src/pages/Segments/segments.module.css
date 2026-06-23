@@ -533,7 +533,7 @@
 }
 .tabPrimary.tabActive {
   color: var(--brand);
-  background: linear-gradient(180deg, var(--brand-soft), color-mix(in srgb, var(--brand) 18%, transparent));
+  background: var(--brand-soft);
 }
 .tabBadge {
   font-size: 10.5px;
