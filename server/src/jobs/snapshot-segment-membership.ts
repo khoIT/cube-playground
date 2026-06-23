@@ -9,6 +9,12 @@
  * ticks pass. Only segments whose cadence bucket has elapsed actually run Trino
  * work; all others are a cheap SQLite lookup.
  *
+ * Within a run, due segments fan out across a bounded worker pool
+ * (SEGMENT_SNAPSHOT_CONCURRENCY, default 3) — distinct segments run concurrently
+ * but each segment's own writer chain stays sequential, and a thrown writer is
+ * isolated to its segment so one failure can't abort the batch. Segments are
+ * ordered most-stale-first so a time-boxed run never starves the same tail.
+ *
  * Safety: the job executes only when SEGMENT_SNAPSHOT_ENABLED=true. Cross-catalog
  * INSERTs write to a SHARED Trino lakehouse, so it must be opt-in per environment
  * rather than firing from every dev machine. An in-flight guard prevents
@@ -44,11 +50,24 @@ import {
 } from '../services/snapshot-cadence.js';
 import { writeMemberStateSnapshot } from '../lakehouse/segment-member-state-writer.js';
 import { writeSegmentKpiSnapshot } from '../lakehouse/segment-kpi-writer.js';
+import { mapWithConcurrency } from '../services/bounded-concurrency.js';
 
 /** Base tick interval — 15 minutes. Each tick is a cheap elapsed-check per segment;
  *  actual Trino work only runs for segments whose cadence bucket has elapsed. */
 const TICK_INTERVAL_MS = 900_000;
 const TZ_OFFSET_MS = 7 * 3_600_000; // GMT+7 (Asia/Saigon)
+
+/**
+ * Across-segment fan-out cap. Each segment's writers are heavy cross-catalog
+ * INSERT...SELECTs against a SHARED Trino (member-state alone lands >1M rows),
+ * so default LOW and let ops tune up once Trino headroom is known — unbounded
+ * fan-out would stampede Trino and risk OOM. Read at call-time so `.env.local`
+ * tunes it without a rebuild.
+ */
+function snapshotConcurrency(): number {
+  const raw = Number(process.env.SEGMENT_SNAPSHOT_CONCURRENCY);
+  return Number.isFinite(raw) && raw >= 1 ? Math.floor(raw) : 3;
+}
 
 /**
  * Cron only attempts snapshot runs during waking hours [08:00, 24:00) GMT+7.
@@ -184,6 +203,130 @@ function logHeartbeat(
   }
 }
 
+/** Most recent logged snapshot_ts for a segment, or null if never snapshotted.
+ *  Drives both the cadence-elapsed guard and the staleness-first run order. */
+function lastSnapshotTs(segmentId: string): string | null {
+  try {
+    const row = getDb()
+      .prepare(
+        `SELECT snapshot_ts FROM segment_snapshot_log
+          WHERE segment_id = ? AND snapshot_ts IS NOT NULL
+          ORDER BY snapshot_ts DESC LIMIT 1`,
+      )
+      .get(segmentId) as { snapshot_ts: string } | undefined;
+    return row?.snapshot_ts ?? null;
+  } catch {
+    return null;
+  }
+}
+
+type SegmentOutcome = 'written' | 'skipped' | 'errored';
+
+interface SegmentSnapshotContext {
+  connector: ReturnType<typeof lakehouseConnectorFromEnv>;
+  /** Shared per-(game, snapshotTs) compiled mf_users SELECT cache. */
+  stateSelectCache: Map<string, string>;
+}
+
+/**
+ * Run the full writer chain for ONE segment at its bucket: definition →
+ * membership → (delta, member-state, KPI). The chain stays sequential WITHIN a
+ * segment (delta diffs against this segment's own prior snapshot; state follows
+ * membership), but distinct segments run concurrently via the caller's pool.
+ *
+ * NEVER throws — any failure is logged to the heartbeat and reported as
+ * 'errored' so one bad segment can't abort its neighbours in the fan-out.
+ */
+async function snapshotOneSegment(
+  seg: SnapshotEligibleSegment,
+  snapshotTs: string,
+  snapshotDate: string,
+  ctx: SegmentSnapshotContext,
+): Promise<SegmentOutcome> {
+  const { connector, stateSelectCache } = ctx;
+  try {
+    // Definition row lands BEFORE membership: a segment whose membership INSERT
+    // errors still gets its definition row (history of what was attempted).
+    await writeSegmentDefinitions([seg], snapshotDate, {
+      connector,
+      snapshotTs,
+      snapshotCadence: seg.snapshotCadence,
+    });
+
+    // Membership snapshot for this (segment, snapshot_ts).
+    const res = await writeSegmentSnapshot(seg, snapshotDate, { connector, snapshotTs });
+    logHeartbeat(
+      snapshotDate,
+      seg.segmentId,
+      seg.gameId,
+      res.rowCount,
+      res.status,
+      res.reason ?? res.error,
+      snapshotTs,
+    );
+
+    if (res.status !== 'written') {
+      return res.status === 'skipped' ? 'skipped' : 'errored';
+    }
+    const memberCount = res.rowCount ?? 0;
+
+    // Delta vs the segment's previous snapshot_ts (per-segment, handles gaps
+    // and cadence changes correctly — no fixed D-1 assumption).
+    const deltaRes = await writeSegmentMembershipDeltaForSegment(
+      seg.gameId,
+      seg.segmentId,
+      snapshotDate,
+      snapshotTs,
+      { connector },
+    );
+    logHeartbeat(
+      snapshotDate,
+      `__delta__:${seg.segmentId}`,
+      seg.gameId,
+      deltaRes.rowCount,
+      deltaRes.status,
+      deltaRes.error,
+      snapshotTs,
+    );
+
+    // Per-user state snapshot: compile mf_users projection once per
+    // (game, snapshotTs) and reuse across that game's segments.
+    const stateCacheKey = `${seg.gameId}:${snapshotTs}`;
+    const stateRes = await writeMemberStateSnapshot(seg, snapshotTs, stateSelectCache, stateCacheKey, {
+      connector,
+    });
+    logHeartbeat(
+      snapshotDate,
+      `__state__:${seg.segmentId}`,
+      seg.gameId,
+      stateRes.rowCount,
+      stateRes.status,
+      stateRes.reason ?? stateRes.error,
+      snapshotTs,
+    );
+
+    // Segment-level KPI time-series: Cube reads scoped to this segment's
+    // predicate, persisted as scalar rows keyed by (snapshot_ts, metric).
+    const kpiRes = await writeSegmentKpiSnapshot(seg, snapshotTs, memberCount, { connector });
+    logHeartbeat(
+      snapshotDate,
+      `__kpi__:${seg.segmentId}`,
+      seg.gameId,
+      kpiRes.rowCount,
+      kpiRes.status,
+      kpiRes.reason ?? kpiRes.error,
+      snapshotTs,
+    );
+
+    return 'written';
+  } catch (err) {
+    const detail = (err as Error).message;
+    logHeartbeat(snapshotDate, seg.segmentId, seg.gameId, undefined, 'error', detail, snapshotTs);
+    console.warn(`[snapshot-segment-membership] segment ${seg.segmentId} failed:`, detail);
+    return 'errored';
+  }
+}
+
 export interface SnapshotRunSummary {
   snapshotDate: string;
   total: number;
@@ -240,130 +383,57 @@ export async function runSegmentMembershipSnapshot(
   // compiles this once per game/ts and reuses across the game's segments.
   const stateSelectCache = new Map<string, string>();
 
+  // Pre-pass (cheap, synchronous SQLite): resolve each segment's bucket and
+  // drop the ones that aren't due, so the Trino fan-out only spends work on
+  // segments that actually need a snapshot. Forced runs skip the guards.
+  interface DueSegment {
+    seg: SnapshotEligibleSegment;
+    snapshotTs: string;
+    snapshotDate: string;
+    lastTs: string | null;
+  }
+  const due: DueSegment[] = [];
   for (const seg of segments) {
     const snapshotTs = floorToCadenceBucket(nowMs, seg.snapshotCadence);
     const snapshotDate = snapshotDateOf(snapshotTs);
 
-    // Per-segment cadence guard: skip if this bucket was already written —
-    // handles restarts and manual/cron overlap. Forced runs bypass this.
-    if (!forced && alreadySnapshotted(seg.segmentId, snapshotTs)) {
-      summary.skipped++;
-      continue;
-    }
-
-    // For non-forced ticks, skip segments whose cadence bucket hasn't elapsed.
-    // We check this AFTER the alreadySnapshotted guard to avoid a DB read on
-    // segments that already fired this tick.
     if (!forced) {
-      // Retrieve the last logged snapshot_ts for this segment to pass to cadenceElapsed.
-      let lastTs: string | null = null;
-      try {
-        const row = getDb()
-          .prepare(
-            `SELECT snapshot_ts FROM segment_snapshot_log
-              WHERE segment_id = ? AND snapshot_ts IS NOT NULL
-              ORDER BY snapshot_ts DESC LIMIT 1`,
-          )
-          .get(seg.segmentId) as { snapshot_ts: string } | undefined;
-        lastTs = row?.snapshot_ts ?? null;
-      } catch {
-        lastTs = null;
+      // Per-segment cadence guard: skip if this bucket was already written —
+      // handles restarts and manual/cron overlap.
+      if (alreadySnapshotted(seg.segmentId, snapshotTs)) {
+        summary.skipped++;
+        continue;
       }
+      const lastTs = lastSnapshotTs(seg.segmentId);
+      // Skip segments whose cadence bucket hasn't elapsed yet.
       if (!cadenceElapsed(lastTs, nowMs, seg.snapshotCadence)) {
         summary.skipped++;
         continue;
       }
-    }
-
-    // Definition row lands BEFORE membership: a segment whose membership INSERT
-    // errors still gets its definition row (history of what was attempted).
-    await writeSegmentDefinitions([seg], snapshotDate, {
-      connector,
-      snapshotTs,
-      snapshotCadence: seg.snapshotCadence,
-    });
-
-    // Membership snapshot for this (segment, snapshot_ts).
-    const res = await writeSegmentSnapshot(seg, snapshotDate, {
-      connector,
-      snapshotTs,
-    });
-
-    logHeartbeat(
-      snapshotDate,
-      seg.segmentId,
-      seg.gameId,
-      res.rowCount,
-      res.status,
-      res.reason ?? res.error,
-      snapshotTs,
-    );
-
-    if (res.status === 'written') {
-      summary.written++;
-      const memberCount = res.rowCount ?? 0;
-
-      // Delta vs the segment's previous snapshot_ts (per-segment, handles gaps
-      // and cadence changes correctly — no fixed D-1 assumption).
-      const deltaRes = await writeSegmentMembershipDeltaForSegment(
-        seg.gameId,
-        seg.segmentId,
-        snapshotDate,
-        snapshotTs,
-        { connector },
-      );
-      logHeartbeat(
-        snapshotDate,
-        `__delta__:${seg.segmentId}`,
-        seg.gameId,
-        deltaRes.rowCount,
-        deltaRes.status,
-        deltaRes.error,
-        snapshotTs,
-      );
-
-      // Per-user state snapshot: compile mf_users projection once per
-      // (game, snapshotTs) and reuse across that game's segments.
-      const stateCacheKey = `${seg.gameId}:${snapshotTs}`;
-      const stateRes = await writeMemberStateSnapshot(
-        seg,
-        snapshotTs,
-        stateSelectCache,
-        stateCacheKey,
-        { connector },
-      );
-      logHeartbeat(
-        snapshotDate,
-        `__state__:${seg.segmentId}`,
-        seg.gameId,
-        stateRes.rowCount,
-        stateRes.status,
-        stateRes.reason ?? stateRes.error,
-        snapshotTs,
-      );
-
-      // Segment-level KPI time-series: Cube reads scoped to this segment's
-      // predicate, persisted as scalar rows keyed by (snapshot_ts, metric).
-      const kpiRes = await writeSegmentKpiSnapshot(seg, snapshotTs, memberCount, {
-        connector,
-      });
-      logHeartbeat(
-        snapshotDate,
-        `__kpi__:${seg.segmentId}`,
-        seg.gameId,
-        kpiRes.rowCount,
-        kpiRes.status,
-        kpiRes.reason ?? kpiRes.error,
-        snapshotTs,
-      );
-
-      summary.deltaStatus = 'written';
-    } else if (res.status === 'skipped') {
-      summary.skipped++;
+      due.push({ seg, snapshotTs, snapshotDate, lastTs });
     } else {
-      summary.errored++;
+      due.push({ seg, snapshotTs, snapshotDate, lastTs: lastSnapshotTs(seg.segmentId) });
     }
   }
+
+  // Staleness-first ordering: the most-behind segments (never snapshotted, or
+  // oldest last snapshot) run first, so a time-boxed run (laptop sleeps before
+  // it finishes) can never starve the same tail segments every night. Empty
+  // string sorts before any timestamp, so never-snapshotted go to the front.
+  due.sort((a, b) => (a.lastTs ?? '').localeCompare(b.lastTs ?? ''));
+
+  // Bounded fan-out: distinct segments run concurrently up to the cap; each
+  // segment's writer chain stays sequential inside snapshotOneSegment. The
+  // pool's cursor guarantees no segment is picked twice within a run.
+  const outcomes = await mapWithConcurrency(due, snapshotConcurrency(), (d) =>
+    snapshotOneSegment(d.seg, d.snapshotTs, d.snapshotDate, { connector, stateSelectCache }),
+  );
+  for (const outcome of outcomes) {
+    if (outcome === 'written') summary.written++;
+    else if (outcome === 'skipped') summary.skipped++;
+    else summary.errored++;
+  }
+  if (summary.written > 0) summary.deltaStatus = 'written';
 
   console.log(
     `[snapshot-segment-membership] ${snapshotDateHint}: ${summary.written} written, ` +
