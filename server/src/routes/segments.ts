@@ -57,6 +57,7 @@ import { emailForSub } from '../auth/principal.js';
 import { corePanelsForGame } from '../services/member360-panel-registry.js';
 import { triggerMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { recordActivity } from '../services/activity-store.js';
+import { LIFECYCLE_TRACKING_OWNER } from '../services/lifecycle-tracking-segment.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 // Member columns sourced from these cross-cutting cubes carry monetization
@@ -427,6 +428,13 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
 
     let sql = 'SELECT * FROM segments WHERE 1=1';
     const params: unknown[] = [];
+
+    // Hide system "all-users" lifecycle-tracking segments from every viewer
+    // (incl. admin): they exist only to feed the transition-matrix snapshots and
+    // would clutter the user-facing list. They remain visible to the snapshot job
+    // and the Admin "Segment Refreshes" ops surface, which use separate queries.
+    sql += ' AND owner != ?';
+    params.push(LIFECYCLE_TRACKING_OWNER);
 
     // Always scope by the active workspace so cross-workspace bleed is
     // structurally impossible. Routes use req.workspace.id from the header

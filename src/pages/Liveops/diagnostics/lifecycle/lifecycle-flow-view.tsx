@@ -20,6 +20,7 @@ import type { EditorLocationState } from '../../../Segments/editor/editor-route-
 import { useLifecycleFlow } from './use-lifecycle-flow';
 import { LifecycleSankey, type SankeyStateNode } from './lifecycle-sankey';
 import type { LifecycleStateName } from '../../../../api/lifecycle-flow-client';
+import { CoverageCadenceBar } from '../../_hub/coverage-cadence-bar';
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
@@ -266,6 +267,11 @@ export function LifecycleFlowView() {
             Week-over-week flow
           </span>
         </div>
+        {data && (
+          <div style={{ marginBottom: 14 }}>
+            <CoverageCadenceBar meta={data.transitionMeta} />
+          </div>
+        )}
         {data ? (
           <LifecycleSankey
             nodes={sankeyNodes}

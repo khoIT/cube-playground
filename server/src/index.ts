@@ -100,6 +100,8 @@ import { startQueryPerfPruneCron } from './jobs/prune-query-perf.js';
 import { startCareSweepPruneCron } from './jobs/prune-care-sweep-membership.js';
 import { startCareAutoSweepCron } from './jobs/care-auto-sweep.js';
 import { startSegmentMembershipSnapshotCron } from './jobs/snapshot-segment-membership.js';
+import { ensureLifecycleTrackingSegments } from './services/lifecycle-tracking-segment.js';
+import { transitionsReadEnabled } from './services/transition-read-gate.js';
 import { registerSlowRequestLog, startEventLoopMonitor } from './services/runtime-observability.js';
 import { startPreaggRunCollector } from './services/preagg-run-collector.js';
 import { restoreLeftoverScopedWorker } from './services/preagg-trigger.js';
@@ -316,6 +318,21 @@ if (isMain || process.env.START_SERVER === '1') {
       startQueryPerfPruneCron();
       startCareSweepPruneCron();
       startCareAutoSweepCron();
+      // Ensure the hidden all-users tracking segments exist so the lifecycle/
+      // tier transition matrices approach full-population coverage. Gated on the
+      // transition read flag (defaults to SEGMENT_SNAPSHOT_ENABLED) so plain dev
+      // boxes don't accrue system rows. Row creation is cheap; snapshot work only
+      // runs when the snapshot job below is enabled.
+      if (transitionsReadEnabled()) {
+        try {
+          const ensured = ensureLifecycleTrackingSegments();
+          if (ensured.created.length) {
+            app.log.info(`[lifecycle-tracking] created ${ensured.created.length} all-users tracking segment(s)`);
+          }
+        } catch (err) {
+          app.log.warn(`[lifecycle-tracking] ensure failed: ${(err as Error).message}`);
+        }
+      }
       // Lakehouse daily segment-membership snapshot — only fires when
       // SEGMENT_SNAPSHOT_ENABLED=true (writes to shared Trino; opt-in per env).
       startSegmentMembershipSnapshotCron();

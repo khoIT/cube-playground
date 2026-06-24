@@ -18,6 +18,7 @@
  */
 
 import { getDb } from '../db/sqlite.js';
+import { LIFECYCLE_TRACKING_OWNER } from './lifecycle-tracking-segment.js';
 import { hasCsCoverage, csProductId } from '../lakehouse/cs-product-map.js';
 import { buildCsCarePayload, type CareBuildRow, type CareStage } from './cs-care-builder.js';
 import { writeCareCache, markCareAttempt } from '../db/segment-care-cache-store.js';
@@ -59,9 +60,9 @@ export function listDueCareSegments(nowMs: number, window = parseCareWindow()): 
       `SELECT s.id, s.game_id, s.last_refreshed_at, c.computed_at
          FROM segments s
          LEFT JOIN segment_care_cache c ON c.segment_id = s.id
-        WHERE s.type = 'predicate'`,
+        WHERE s.type = 'predicate' AND s.owner != ?`,
     )
-    .all() as DueRow[];
+    .all(LIFECYCLE_TRACKING_OWNER) as DueRow[];
 
   const due: string[] = [];
   for (const r of rows) {
@@ -85,8 +86,8 @@ export function parseCareWindow(): ReturnType<typeof parsePrecomputeWindow> {
  *  ones). Used after a logic/schema change when warm payloads must be rebuilt. */
 export function listAllCareSegments(): string[] {
   const rows = getDb()
-    .prepare(`SELECT id, game_id FROM segments WHERE type = 'predicate'`)
-    .all() as Array<{ id: string; game_id: string }>;
+    .prepare(`SELECT id, game_id FROM segments WHERE type = 'predicate' AND owner != ?`)
+    .all(LIFECYCLE_TRACKING_OWNER) as Array<{ id: string; game_id: string }>;
   return rows.filter((r) => hasCsCoverage(r.game_id) && csProductId(r.game_id) != null).map((r) => r.id);
 }
 

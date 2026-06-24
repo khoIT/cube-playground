@@ -15,6 +15,7 @@
  */
 
 import { getDb } from '../db/sqlite.js';
+import { LIFECYCLE_TRACKING_OWNER } from './lifecycle-tracking-segment.js';
 import { getAll as getAllMetrics } from './business-metrics-loader.js';
 import { extractRefs, parseFqn } from './metric-ref-validator.js';
 import { glossaryTrust, parseRef, type Trust } from './trust-mapping.js';
@@ -144,6 +145,10 @@ function build(workspaceId: string, gameId: string | null): IndexData {
   // game — mirrors the segments list endpoint. Never widen past the workspace.
   const segParams: string[] = [workspaceId];
   let segSql = `SELECT id, name, predicate_tree_json, cube_query_json, owner, visibility FROM segments WHERE workspace = ?`;
+  // Exclude hidden system lifecycle-tracking segments — they're snapshot plumbing,
+  // not user concepts, and must never surface in concept→segment reverse links.
+  segSql += ' AND owner != ?';
+  segParams.push(LIFECYCLE_TRACKING_OWNER);
   if (gameId) { segSql += ' AND game_id = ?'; segParams.push(gameId); }
   const segRows = db.prepare(segSql).all(...segParams) as SegmentRow[];
   const segmentFields = new Map<string, string[]>();

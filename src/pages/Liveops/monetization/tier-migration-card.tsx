@@ -13,6 +13,7 @@
 import React from 'react';
 import { formatCompact } from '../../OpsConsole/ops-format';
 import type { TierMigrationData, TierMigrationCell } from './use-monetization-queries';
+import { CoverageCadenceBar } from '../_hub/coverage-cadence-bar';
 
 const PANEL: React.CSSProperties = {
   background: 'var(--bg-card)',
@@ -73,10 +74,21 @@ function Header({ subtitle }: { subtitle?: string }) {
 }
 
 export function TierMigrationCard({ data }: { data: TierMigrationData }) {
+  const coverageMeta = {
+    available: data.available,
+    prevDate: data.prevDate,
+    currDate: data.currDate,
+    capturedDays: data.capturedDays,
+    coverageUsers: data.coverageUsers,
+  };
+
   if (!data.available || data.cells.length === 0) {
     return (
       <div style={PANEL}>
         <Header />
+        <div style={{ marginBottom: 10 }}>
+          <CoverageCadenceBar meta={coverageMeta} />
+        </div>
         <div
           style={{
             padding: '12px 14px',
@@ -122,6 +134,10 @@ export function TierMigrationCard({ data }: { data: TierMigrationData }) {
   return (
     <div style={PANEL}>
       <Header subtitle={data.prevDate && data.currDate ? `${data.prevDate} → ${data.currDate}` : undefined} />
+
+      <div style={{ marginBottom: 12 }}>
+        <CoverageCadenceBar meta={coverageMeta} />
+      </div>
 
       {/* Roll-up chips */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
