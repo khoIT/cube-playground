@@ -1230,6 +1230,20 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 - **Signal:** a cross-game feature trying to add an "All" entry to the global game selector; downstream components starting to special-case `game === 'ALL'` or `game === null`; Cube token requests failing with unrecognized game name.
 - **Apply:** keep the global selector as-is (actual games only). For cross-game views, add a local useState toggle and branch the render based on it. If you need to query multiple games, fan out with bounded concurrency and merge results. See `src/pages/Liveops/command-center/use-portfolio.ts` for the pattern.
 
+### A row-capped event scan (`LIMIT N`) silently truncates any "last 30d" aggregate derived from it
+
+- **Rule:** if you compute a windowed aggregate (count, daily sparkline, "sessions in last 30d") by scanning rows from an event table with a `LIMIT N` cost guard, the aggregate reflects only the **newest N rows**, not the window. For a busy actor whose N-row budget covers ~1 day, every older day reads as zero. Derive headline counts + time-bucketed series from a **separate, narrow full-window query** (e.g. `SELECT ts … WHERE ts BETWEEN …`, no row cap — one column is cheap), and keep the row cap only for the bounded **detail** you actually render.
+- **Why:** the admin Session-history card derived its "57 session(s) · last 30d" headline and the 30-day daily sparkline from the same `LIMIT 1000` scan used for per-session event detail. khoitn had 12k events/30d, so the 1000-row budget covered ~1–2 days: the headline undercounted sessions and the sparkline's left ~28 days were empty bars even though the user was active daily. The cap was a cost guard for detail, never meant to bound the window aggregate.
+- **Signal:** a "last N days" count or time-series where older buckets are empty for an active subject; the number shrinks as the subject gets busier (more recent rows push the window's start later); the value is computed in app code by looping over rows fetched with a `LIMIT`.
+- **Apply:** split the read — one cheap full-window scan (single column, no cap) for counts/series, one capped scan for rendered detail. They agree at the recent end (same newest rows), so the newest detail cards still line up with the headline. See `session-aggregator.ts` (`activityTimestamps` + `sessionizeTimestamps` vs the capped `queryActivity` detail pass).
+
+### Infra-health telemetry on the same spine as user activity pollutes user-facing activity views
+
+- **Rule:** background/system-emitted events (reachability probes, health flaps, cron heartbeats) and user-initiated actions can share one append-only telemetry table, but any **user-facing "what did this person do" view must filter the system classes out at the query layer**. They are not actions, they fire without interaction, and a long-lived browser tab emits a stream of them — so they out-number real activity and fabricate phantom "sessions" / inflate counts.
+- **Why:** `cube_outage` reachability beacons (fired on every gateway/Cube flap by a 15s poll, with zero user interaction) lived on the same `activity_events` spine as `feature_open`/`query_run`. The Session-history card included them verbatim: each flap rendered as "open recovered", a tab left open while Cube blipped produced "today · 0m · 3 event(s)" phantom sessions, and 1,400+ flaps/30d buried real activity and skewed the session count + avg duration.
+- **Signal:** a per-user activity/session view dominated by events the user never triggered; 0-duration sessions made entirely of system events; an event type whose volume tracks uptime/poll cadence rather than usage; a label like "open recovered" that's clearly not a user action.
+- **Apply:** keep the shared spine (system events are still worth counting for ops), but exclude the system classes from the user-activity read path — add an `excludeEventTypes` to the query and a named constant listing them (`TIMELINE_EXCLUDE = ['cube_outage']`). Surface outage/health stats on the ops/observability surface instead, where they belong. See `session-aggregator.ts` + `queryActivity`'s `excludeEventTypes`.
+
 ---
 
 ## How to extend this doc
