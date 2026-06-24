@@ -1,9 +1,13 @@
 /**
  * Ranked contributor list for the Delta view — the design's "Top contributors"
- * panel. Each row: rank · segment name + slice chip · divergent center-anchored
- * bar (red left = negative swing, green right = positive) · Δ · % of swing ·
- * hover Explore→ deep-link into Playground. Bars share one scale (max |Δ|) so
- * magnitudes read comparably. Tokens only.
+ * panel. Each row: rank badge · segment name · divergent center-anchored bar
+ * (red left = negative swing, green right = positive) · Δ · % of swing · hover
+ * Explore→ deep-link into Playground. Bars share one scale (max |Δ|) so
+ * magnitudes read comparably.
+ *
+ * The decompose-by dimension is NOT repeated per row — it's stated once in the
+ * card header, so a per-row pill would be redundant noise. Only the rolled-up
+ * tail carries a "Bucketed" chip, which is genuinely distinguishing. Tokens only.
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -25,7 +29,6 @@ function exploreUrl(measure: string, dimension: string, value: string, periodB: 
 function ContributorRow({
   rank,
   c,
-  dimensionLabel,
   maxAbs,
   fmt,
   measureId,
@@ -34,7 +37,6 @@ function ContributorRow({
 }: {
   rank: number;
   c: DeltaContributor;
-  dimensionLabel: string;
   maxAbs: number;
   fmt: (n: number) => string;
   measureId: string;
@@ -45,6 +47,7 @@ function ContributorRow({
   const up = c.delta >= 0;
   const ink = up ? 'var(--success-ink)' : 'var(--destructive-ink)';
   const halfWidth = maxAbs > 0 ? (Math.abs(c.delta) / maxAbs) * 50 : 0; // % of the half-track
+  const canExplore = !c.isOther && !!c.value;
 
   return (
     <div
@@ -54,37 +57,57 @@ function ContributorRow({
         display: 'flex',
         alignItems: 'center',
         gap: 12,
-        padding: '11px 4px',
+        padding: '10px 4px',
         borderBottom: '1px solid var(--border-card)',
         background: hover ? 'var(--bg-muted)' : 'transparent',
       }}
     >
-      <span style={{ width: 16, fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textAlign: 'right' }}>
+      {/* rank badge — fixed square so names left-align regardless of 1 vs 2 digits */}
+      <span
+        style={{
+          flexShrink: 0,
+          width: 22,
+          height: 22,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderRadius: 'var(--radius-sm)',
+          background: 'var(--bg-muted)',
+          fontSize: 11,
+          fontWeight: 700,
+          color: 'var(--text-muted)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
         {rank}
       </span>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      {/* segment name owns its line; only the rolled-up tail gets a chip */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {c.value || '∅'}
-        </div>
-        <span
-          style={{
-            display: 'inline-block',
-            marginTop: 4,
-            fontSize: 10.5,
-            fontWeight: 600,
-            padding: '2px 7px',
-            borderRadius: 'var(--radius-full)',
-            background: c.isOther ? 'var(--muted-soft)' : 'var(--info-soft)',
-            color: c.isOther ? 'var(--muted-ink)' : 'var(--info-ink)',
-          }}
-        >
-          {c.isOther ? 'Bucketed' : dimensionLabel}
         </span>
+        {c.isOther && (
+          <span
+            style={{
+              flexShrink: 0,
+              fontSize: 10,
+              fontWeight: 600,
+              padding: '1px 7px',
+              borderRadius: 'var(--radius-full)',
+              background: 'var(--muted-soft)',
+              color: 'var(--muted-ink)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+            }}
+          >
+            Bucketed
+          </span>
+        )}
       </div>
 
       {/* Divergent bar */}
-      <div style={{ width: 160, height: 8, background: 'var(--surface-inset-strong)', borderRadius: 'var(--radius-full)', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ flexShrink: 0, width: 132, height: 8, background: 'var(--surface-inset-strong)', borderRadius: 'var(--radius-full)', position: 'relative', overflow: 'hidden' }}>
         <div
           style={{
             position: 'absolute',
@@ -99,14 +122,15 @@ function ContributorRow({
         <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'var(--border-strong)' }} />
       </div>
 
-      <span style={{ width: 96, textAlign: 'right', fontSize: 13, fontWeight: 700, color: ink, fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ flexShrink: 0, width: 92, textAlign: 'right', fontSize: 13, fontWeight: 700, color: ink, fontVariantNumeric: 'tabular-nums' }}>
         {up ? '+' : ''}{fmt(c.delta)}
       </span>
-      <span style={{ width: 52, textAlign: 'right', fontSize: 11.5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+      <span style={{ flexShrink: 0, width: 40, textAlign: 'right', fontSize: 11.5, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
         {c.pctOfSwing != null ? formatPct(c.pctOfSwing, 0) : '—'}
       </span>
-      <span style={{ width: 60, textAlign: 'right' }}>
-        {!c.isOther && c.value ? (
+      {/* Explore — reserves width so columns never reflow on hover */}
+      <span style={{ flexShrink: 0, width: 58, textAlign: 'right' }}>
+        {canExplore && (
           <Link
             to={exploreUrl(measureId, dimensionId, c.value, periodB)}
             title={`Explore ${c.value} in Playground`}
@@ -124,7 +148,7 @@ function ContributorRow({
           >
             Explore <ArrowUpRight size={12} />
           </Link>
-        ) : null}
+        )}
       </span>
     </div>
   );
@@ -132,14 +156,12 @@ function ContributorRow({
 
 export function ContributorRankedList({
   contributors,
-  dimensionLabel,
   measureId,
   dimensionId,
   periodB,
   fmt,
 }: {
   contributors: DeltaContributor[];
-  dimensionLabel: string;
   measureId: string;
   dimensionId: string;
   periodB: [string, string];
@@ -153,7 +175,6 @@ export function ContributorRankedList({
           key={c.value || `row-${i}`}
           rank={i + 1}
           c={c}
-          dimensionLabel={dimensionLabel}
           maxAbs={maxAbs}
           fmt={fmt}
           measureId={measureId}

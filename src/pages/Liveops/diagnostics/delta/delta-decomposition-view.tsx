@@ -13,7 +13,7 @@
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock, ChevronDown } from 'lucide-react';
 import { useGameContext } from '../../../../components/Header/use-game-context';
 import { useLiveKpis } from '../../use-live-kpis';
 import { formatVnd, formatInt, formatCompact, formatPct } from '../../../OpsConsole/ops-format';
@@ -39,15 +39,16 @@ const card: React.CSSProperties = {
 
 const selectStyle: React.CSSProperties = {
   appearance: 'none',
-  padding: '7px 12px',
+  padding: '7px 30px 7px 12px', // right room for the chevron affordance
   borderRadius: 'var(--radius-md)',
   border: '1px solid var(--border-strong)',
   background: 'var(--bg-card)',
   color: 'var(--text-primary)',
   fontSize: 13,
-  fontWeight: 500,
+  fontWeight: 600,
   fontFamily: 'var(--font-sans)',
   cursor: 'pointer',
+  width: '100%',
 };
 
 const DEFAULT_MEASURE = DELTA_MEASURES.find((m) => m.available) ?? DELTA_MEASURES[0];
@@ -59,7 +60,6 @@ export function DeltaDecompositionView() {
   const [preset, setPreset] = React.useState<DeltaPeriodPreset>('wow');
 
   const measure = DELTA_MEASURES.find((m) => m.id === measureId) ?? DEFAULT_MEASURE;
-  const dimension = DELTA_DIMENSIONS.find((d) => d.id === dimensionId) ?? DELTA_DIMENSIONS[0];
   const periods = React.useMemo(() => buildPeriods(preset), [preset]);
 
   // Live trend sparkline for the hero — sourced from the KPI strip (real series).
@@ -120,11 +120,18 @@ export function DeltaDecompositionView() {
         </div>
 
         <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>by</span>
-        <select value={dimensionId} onChange={(e) => setDimensionId(e.target.value)} style={selectStyle} aria-label="Decompose by">
-          {DELTA_DIMENSIONS.map((d) => (
-            <option key={d.id} value={d.id}>{d.label}</option>
-          ))}
-        </select>
+        <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+          <select value={dimensionId} onChange={(e) => setDimensionId(e.target.value)} style={selectStyle} aria-label="Decompose by">
+            {DELTA_DIMENSIONS.map((d) => (
+              <option key={d.id} value={d.id}>{d.label}</option>
+            ))}
+          </select>
+          <ChevronDown
+            size={15}
+            aria-hidden
+            style={{ position: 'absolute', right: 10, color: 'var(--text-muted)', pointerEvents: 'none' }}
+          />
+        </div>
 
         <div style={{ display: 'inline-flex', gap: 2, padding: 3, background: 'var(--bg-muted)', borderRadius: 'var(--radius-full)' }}>
           {(['wow', 'mom'] as DeltaPeriodPreset[]).map((p) => (
@@ -199,7 +206,6 @@ export function DeltaDecompositionView() {
             <CardHead title="Top contributors" meta="ranked by share of swing" />
             <ContributorRankedList
               contributors={data.contributors}
-              dimensionLabel={dimension.label}
               measureId={measureId}
               dimensionId={dimensionId}
               periodB={periods.periodB}

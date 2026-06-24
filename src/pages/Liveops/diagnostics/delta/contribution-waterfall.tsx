@@ -4,6 +4,11 @@
  * the cumulative path's own min/max so small steps stay visible against a large
  * base (a 0-based axis would render them as invisible slivers).
  *
+ * High-cardinality dimensions (country, media source) would crush the axis into
+ * dozens of unreadable slivers, so the chart shows only the top movers and folds
+ * the remainder into a single "Other" step — keeping the cumulative path landing
+ * on the period-B total. The full ranked breakdown lives in the side list.
+ *
  * Additive measures only (the caller gates non-additive out). Hand-rolled SVG —
  * full control over the banded axis + dashed step connectors, matching the
  * approved mockup. Design tokens only.
@@ -22,23 +27,40 @@ interface ContributionWaterfallProps {
   labelB: string;
   steps: WaterfallStep[];
   formatValue: (n: number) => string;
+  /** Max segment bars before the tail folds into one "Other" step. */
+  maxSteps?: number;
 }
 
-const W = 720;
-const H = 300;
+const W = 760;
+const H = 320;
 const PAD_TOP = 18;
-const PAD_BOTTOM = 56;
+const PAD_BOTTOM = 78; // room for a value row + an angled category row
 const PAD_LEFT = 8;
 const PAD_RIGHT = 8;
+const DEFAULT_MAX_STEPS = 8;
+
+/** Keep the biggest absolute movers; collapse the rest into one "Other (n)" step
+ *  so the cumulative path still reconciles to the period-B total. */
+export function capSteps(steps: WaterfallStep[], maxSteps: number): WaterfallStep[] {
+  if (steps.length <= maxSteps) return steps;
+  const ranked = [...steps].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  const head = ranked.slice(0, maxSteps - 1);
+  const tail = ranked.slice(maxSteps - 1);
+  const tailDelta = tail.reduce((s, t) => s + t.delta, 0);
+  return [...head, { label: `Other (${tail.length})`, delta: tailDelta }];
+}
 
 export function ContributionWaterfall({
   totalA,
   totalB,
   labelA,
   labelB,
-  steps,
+  steps: rawSteps,
   formatValue,
+  maxSteps = DEFAULT_MAX_STEPS,
 }: ContributionWaterfallProps) {
+  const steps = capSteps(rawSteps, maxSteps);
+
   // Build the cumulative path: each bar spans [prevTop, prevTop+delta].
   const cum: number[] = [totalA];
   for (const s of steps) cum.push(cum[cum.length - 1] + s.delta);
@@ -155,11 +177,15 @@ export function ContributionWaterfall({
         const isStep = i > 0 && i < cols - 1;
         const v = valueAtCol[i];
         const valStr = isStep ? `${v >= 0 ? '+' : ''}${formatValue(v)}` : formatValue(v);
+        const cx = colX(i) + barW / 2;
+        const labY = H - PAD_BOTTOM + 30;
+        const short = lab.length > 14 ? `${lab.slice(0, 13)}…` : lab;
         return (
           <g key={`lab-${i}`}>
+            {/* value sits horizontal directly under the baseline */}
             <text
-              x={colX(i) + barW / 2}
-              y={H - PAD_BOTTOM + 16}
+              x={cx}
+              y={H - PAD_BOTTOM + 15}
               textAnchor="middle"
               fontSize={10.5}
               fontWeight={600}
@@ -167,14 +193,16 @@ export function ContributionWaterfall({
             >
               {valStr}
             </text>
+            {/* category angled so high-cardinality labels never overlap */}
             <text
-              x={colX(i) + barW / 2}
-              y={H - PAD_BOTTOM + 32}
-              textAnchor="middle"
+              x={cx}
+              y={labY}
+              textAnchor="end"
+              transform={`rotate(-32 ${cx} ${labY})`}
               fontSize={10}
               fill="var(--text-muted)"
             >
-              {lab.length > 12 ? `${lab.slice(0, 11)}…` : lab}
+              {short}
             </text>
           </g>
         );
