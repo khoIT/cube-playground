@@ -80,6 +80,14 @@ beforeAll(async () => {
     return reply.status(204).send();
   });
 
+  // Echo the received query so tests can assert which params the proxy forwards.
+  fakeUpstream.get('/debug/sessions', (req, reply) => {
+    return reply.send({ _query: req.query });
+  });
+  fakeUpstream.get('/debug/session-owners', (req, reply) => {
+    return reply.send({ _query: req.query });
+  });
+
   fakeUpstream.get('/stats', (req, reply) => {
     const query = req.query as Record<string, string>;
     return reply.send({
@@ -600,5 +608,61 @@ describe('GET /api/chat/stats', () => {
     });
 
     expect(res.statusCode).toBe(401);
+  });
+});
+
+describe('GET /api/chat/debug/* — hideSynthetic forwarding (admin)', () => {
+  // The debug session routes are admin-gated; build an app that decorates the
+  // request with an admin role so the proxy applies its admin-only forwards.
+  async function buildAdminApp(): Promise<FastifyInstance> {
+    const adminApp = Fastify({ logger: false });
+    adminApp.addHook('onRequest', (req, _reply, done) => {
+      (req as unknown as { user: { role: string } }).user = { role: 'admin' };
+      done();
+    });
+    await adminApp.register(ownerHeader);
+    await adminApp.register(workspaceHeader);
+    await adminApp.register(chatRoutes);
+    await adminApp.ready();
+    return adminApp;
+  }
+
+  it('forwards hideSynthetic=1 to /debug/sessions for admins', async () => {
+    const adminApp = await buildAdminApp();
+    const res = await adminApp.inject({
+      method: 'GET',
+      url: '/api/chat/debug/sessions?game=ptg&scope=all&hideSynthetic=1',
+      headers: { 'x-owner-id': 'admin' },
+    });
+    await adminApp.close();
+    expect(res.statusCode).toBe(200);
+    const q = (res.json() as { _query: Record<string, string> })._query;
+    expect(q.hideSynthetic).toBe('1');
+    expect(q.scope).toBe('all');
+  });
+
+  it('forwards hideSynthetic=1 to /debug/session-owners for admins', async () => {
+    const adminApp = await buildAdminApp();
+    const res = await adminApp.inject({
+      method: 'GET',
+      url: '/api/chat/debug/session-owners?game=ptg&hideSynthetic=1',
+      headers: { 'x-owner-id': 'admin' },
+    });
+    await adminApp.close();
+    expect(res.statusCode).toBe(200);
+    const q = (res.json() as { _query: Record<string, string> })._query;
+    expect(q.hideSynthetic).toBe('1');
+  });
+
+  it('omits hideSynthetic from /debug/sessions when not requested', async () => {
+    const adminApp = await buildAdminApp();
+    const res = await adminApp.inject({
+      method: 'GET',
+      url: '/api/chat/debug/sessions?game=ptg&scope=all',
+      headers: { 'x-owner-id': 'admin' },
+    });
+    await adminApp.close();
+    const q = (res.json() as { _query: Record<string, string> })._query;
+    expect(q.hideSynthetic).toBeUndefined();
   });
 });

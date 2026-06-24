@@ -749,9 +749,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
   // scope=all (admins only) lists sessions across ALL owners; the verified DB
   // role gates it here, then the X-Debug-Admin header carries the decision to
   // chat-service. Non-admins requesting scope=all get an explicit 403.
-  app.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string } }>(
+  app.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string; hideSynthetic?: string } }>(
     '/api/chat/debug/sessions',
-    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string; hideSynthetic?: string } }>, reply: FastifyReply) => {
       const owner = resolveOwner(request);
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       const isAdmin = request.user?.role === 'admin';
@@ -767,6 +767,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       // chat-service ignores it unless X-Debug-Admin is set, so this is defence
       // in depth, not the sole gate.
       if (request.query.owner && isAdmin) params.set('owner', request.query.owner);
+      // hideSynthetic drops eval/test/bot sessions; chat-service re-gates on the
+      // admin header, so forwarding it for admins is defence in depth.
+      if (request.query.hideSynthetic === '1' && isAdmin) params.set('hideSynthetic', '1');
       const url = `${chatServiceUrl()}/debug/sessions?${params.toString()}`;
       try {
         const { status, payload } = await proxyJson(
@@ -782,9 +785,9 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
   // --- GET /api/chat/debug/session-owners?game= ---
   // Distinct chat owners + counts for the admin audit user-filter dropdown.
   // Admin-only here; chat-service re-checks via X-Debug-Admin.
-  app.get<{ Querystring: { game?: string } }>(
+  app.get<{ Querystring: { game?: string; hideSynthetic?: string } }>(
     '/api/chat/debug/session-owners',
-    async (request: FastifyRequest<{ Querystring: { game?: string } }>, reply: FastifyReply) => {
+    async (request: FastifyRequest<{ Querystring: { game?: string; hideSynthetic?: string } }>, reply: FastifyReply) => {
       const owner = resolveOwner(request);
       if (!owner) return reply.status(401).send({ code: 'no_owner' });
       if (request.user?.role !== 'admin') {
@@ -792,6 +795,8 @@ export default async function chatRoutes(app: FastifyInstance): Promise<void> {
       }
       const params = new URLSearchParams();
       if (request.query.game) params.set('game', request.query.game);
+      // Match the session list's synthetic filter so the dropdown + counts agree.
+      if (request.query.hideSynthetic === '1') params.set('hideSynthetic', '1');
       const url = `${chatServiceUrl()}/debug/session-owners?${params.toString()}`;
       try {
         const { status, payload } = await proxyJson(
