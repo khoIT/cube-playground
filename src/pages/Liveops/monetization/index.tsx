@@ -5,20 +5,27 @@
  * revenue concentration (Pareto + Gini), and SKU/pack performance (cfm/jus only).
  *
  * All data is aggregate-only (no per-user PII). Cards map 1-to-1 to server
- * endpoints under /api/monetization/*. The tier-migration card is intentionally
- * absent: mf_users holds current-snapshot only — WoW transition history is not
- * available and fabricating numbers is disallowed.
+ * endpoints under /api/monetization/*. The tier-migration card populates from a
+ * self-join of the two latest daily member-state snapshots; until two days are
+ * captured (or where the snapshot read is disabled) it shows an honest
+ * disclosed-empty state rather than fabricated numbers.
  *
  * Page-header pattern mirrors Dashboards / Cohort / Diagnostics pages.
  */
 import React from 'react';
 import { CircleDollarSign } from 'lucide-react';
 import { useGameContext } from '../../../components/Header/use-game-context';
-import { usePayerTiers, useCohortLtv, useSkuPerformance } from './use-monetization-queries';
+import {
+  usePayerTiers,
+  useCohortLtv,
+  useSkuPerformance,
+  useTierMigration,
+} from './use-monetization-queries';
 import { PayerTierCard } from './payer-tier-card';
 import { RevenueConcentrationCard } from './revenue-concentration-card';
 import { LtvCohortCard } from './ltv-cohort-card';
 import { SkuPerformanceCard } from './sku-performance-card';
+import { TierMigrationCard } from './tier-migration-card';
 
 const pageStyle: React.CSSProperties = {
   padding: '24px 32px',
@@ -67,53 +74,13 @@ function CardError({ label, error }: { label: string; error: string }) {
   );
 }
 
-/**
- * Disclosed-empty state for the tier-migration card.
- *
- * mf_users stores current state only (daily snapshot recomputed from raw activity).
- * Week-over-week tier migration requires historical snapshots that are not yet
- * accumulated. This card is shown as an honest empty state rather than omitting
- * the section entirely — so operators know the feature is planned, not broken.
- */
-function TierMigrationEmptyCard() {
-  return (
-    <div
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-strong)',
-        borderRadius: 'var(--radius-xl)',
-        boxShadow: 'var(--shadow-sm)',
-        padding: 16,
-        fontFamily: 'var(--font-sans)',
-      }}
-    >
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>
-        Tier migration (WoW)
-      </div>
-      <div
-        style={{
-          padding: '12px 14px',
-          background: 'var(--muted-soft)',
-          borderRadius: 'var(--radius-md)',
-          fontSize: 12.5,
-          color: 'var(--muted-ink)',
-        }}
-      >
-        Week-over-week tier migration is not yet available.
-        {' '}mf_users holds only the current snapshot (state recomputed daily from raw activity —
-        no historical records). Migration flows will populate forward once a daily
-        segment-membership snapshot job accumulates at least 7 days of history.
-      </div>
-    </div>
-  );
-}
-
 export function MonetizationPage() {
   const { gameId } = useGameContext();
 
   const tiers = usePayerTiers(gameId);
   const cohort = useCohortLtv(gameId);
   const sku = useSkuPerformance(gameId);
+  const migration = useTierMigration(gameId);
 
   return (
     <div style={pageStyle}>
@@ -176,9 +143,15 @@ export function MonetizationPage() {
           <LtvCohortCard data={cohort.data} />
         ) : null}
 
-        {/* Row 3: tier migration (disclosed-empty) + SKU performance (side-by-side) */}
+        {/* Row 3: tier migration + SKU performance (side-by-side) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: 20 }}>
-          <TierMigrationEmptyCard />
+          {migration.loading ? (
+            <CardSkeleton label="tier migration" />
+          ) : migration.error ? (
+            <CardError label="tier migration" error={migration.error} />
+          ) : migration.data ? (
+            <TierMigrationCard data={migration.data} />
+          ) : null}
 
           {sku.loading ? (
             <CardSkeleton label="SKU performance" />

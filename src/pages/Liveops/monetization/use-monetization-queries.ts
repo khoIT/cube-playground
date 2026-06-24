@@ -58,6 +58,24 @@ export interface SkuData {
   notAvailableReason?: string;
 }
 
+/** One from→to payer-tier movement cell. */
+export interface TierMigrationCell {
+  from: string;
+  to: string;
+  count: number;
+}
+
+export interface TierMigrationData {
+  snapshotAt: string;
+  available: boolean;
+  prevDate: string | null;
+  currDate: string | null;
+  capturedDays: number;
+  coverageUsers: number;
+  cells: TierMigrationCell[];
+  reason: string;
+}
+
 // ---------------------------------------------------------------------------
 // Generic fetch hook
 // ---------------------------------------------------------------------------
@@ -118,4 +136,9 @@ export function useSkuPerformance(gameId: string): FetchState<SkuData> {
     ? `/api/monetization/sku-performance?game=${encodeURIComponent(gameId)}&limit=20`
     : null;
   return useFetch<SkuData>(url);
+}
+
+export function useTierMigration(gameId: string): FetchState<TierMigrationData> {
+  const url = gameId ? `/api/monetization/tier-migration?game=${encodeURIComponent(gameId)}` : null;
+  return useFetch<TierMigrationData>(url);
 }

@@ -9,28 +9,60 @@
  *   Churned:     (churned|dormant|registered_inactive) AND NOT is_paying_user
  *
  * Transitions (week-over-week from→to matrix):
- *   mf_users holds CURRENT snapshot only — no history. The transition matrix
- *   cannot be computed retroactively. This service returns null for transitions,
- *   and the route discloses this to the client so the UI renders an honest empty
- *   state instead of fabricated flows.
+ *   mf_users holds CURRENT snapshot only — no history. But the daily member-state
+ *   snapshot (segment_member_state_daily) accumulates per-uid lifecycle state by
+ *   date, so once two snapshot days exist the from→to matrix is a self-join of the
+ *   two latest dates (see state-transition-reader). The read is gated on the same
+ *   flag that produces the data, so it lights up where the snapshot job runs and
+ *   stays an honest disclosed-empty (no warehouse call) everywhere else.
  *
- * State counts are real, queried via Cube against mf_users at query time.
+ * State counts are real, queried via Cube against mf_users at query time. State
+ * counts are full-population; the transition matrix covers only the tracked-segment
+ * cohort — the two must not be summed against one another (disclosed via the note).
  */
 
 import { load } from './cube-client.js';
 import { resolveCubeTokenForGame } from './resolve-cube-token.js';
+import {
+  readLifecycleTransitions,
+  type TransitionCell,
+} from '../lakehouse/state-transition-reader.js';
+import { transitionsReadEnabled, TRANSITIONS_DISABLED_REASON } from './transition-read-gate.js';
 
 export type LifecycleStateName = 'new' | 'core' | 'lapsing' | 'reactivated' | 'churned';
+
+/** Availability + coverage metadata for the transition matrix. */
+export interface LifecycleTransitionMeta {
+  available: boolean;
+  /** Earlier snapshot date compared (YYYY-MM-DD), or null. */
+  prevDate: string | null;
+  /** Later (most recent) snapshot date compared (YYYY-MM-DD), or null. */
+  currDate: string | null;
+  /** Distinct snapshot days captured (drives the "N of 2" accumulating message). */
+  capturedDays: number;
+  /** Users classified on BOTH dates — the transition sample size. */
+  coverageUsers: number;
+}
 
 export interface LifecycleStateCounts {
   /** Snapshot time (ISO 8601) — when the query was answered by Cube. */
   snapshotAt: string;
   /** User counts per state derived from mf_users current snapshot. */
   states: Record<LifecycleStateName, number>;
-  /** Null — mf_users has no history; week-over-week diffs not computable. */
-  transitions: null;
+  /** From→to cells when ≥2 snapshot days exist; null otherwise (disclosed-empty). */
+  transitions: TransitionCell[] | null;
+  transitionMeta: LifecycleTransitionMeta;
+  /** Disclosure: coverage note when available, accumulation/why-empty when not. */
   transitionsUnavailableReason: string;
 }
+
+const EMPTY_TRANSITION_META: LifecycleTransitionMeta = {
+  available: false,
+  prevDate: null,
+  currDate: null,
+  capturedDays: 0,
+  coverageUsers: 0,
+};
 
 interface CubeRow {
   'mf_users.lifecycle_stage': string;
@@ -129,13 +161,34 @@ export async function fetchLifecycleFlow(game: string): Promise<LifecycleStateCo
   const rows: CubeRow[] = crossResult?.data ?? [];
   const states = classifyRows(rows, newCount);
 
+  // Transition matrix — self-join of the two latest member-state snapshot days.
+  // Gated + fully isolated: a read failure never fails the (real) state counts.
+  let transitions: TransitionCell[] | null = null;
+  let transitionMeta: LifecycleTransitionMeta = EMPTY_TRANSITION_META;
+  let transitionsUnavailableReason = TRANSITIONS_DISABLED_REASON;
+
+  if (transitionsReadEnabled()) {
+    try {
+      const matrix = await readLifecycleTransitions(game);
+      transitionMeta = {
+        available: matrix.available,
+        prevDate: matrix.prevDate,
+        currDate: matrix.currDate,
+        capturedDays: matrix.capturedDays,
+        coverageUsers: matrix.coverageUsers,
+      };
+      transitions = matrix.available ? matrix.cells : null;
+      transitionsUnavailableReason = matrix.reason;
+    } catch (err) {
+      transitionsUnavailableReason = `Transition read failed: ${(err as Error).message}`;
+    }
+  }
+
   return {
     snapshotAt: new Date().toISOString(),
     states,
-    transitions: null,
-    transitionsUnavailableReason:
-      'mf_users holds current state only (daily snapshot, no history). ' +
-      'Week-over-week transition flows require a historical activity table or ' +
-      'a segment-snapshot accumulation period — neither is available yet.',
+    transitions,
+    transitionMeta,
+    transitionsUnavailableReason,
   };
 }

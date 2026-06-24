@@ -269,6 +269,8 @@ export function LifecycleFlowView() {
         {data ? (
           <LifecycleSankey
             nodes={sankeyNodes}
+            transitions={data.transitions}
+            transitionMeta={data.transitionMeta}
             transitionsUnavailableReason={data.transitionsUnavailableReason}
             width={560}
             height={320}

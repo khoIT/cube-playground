@@ -2,6 +2,7 @@
  * GET /api/monetization/payer-tiers?game=<id>
  * GET /api/monetization/cohort-ltv?game=<id>
  * GET /api/monetization/sku-performance?game=<id>&limit=<n>
+ * GET /api/monetization/tier-migration?game=<id>
  *
  * Aggregate-only monetization deep-dive endpoints (no per-user PII).
  * Input: `game` must be a non-empty string matching a known game.
@@ -14,6 +15,7 @@ import {
   fetchPayerTierDistribution,
   fetchCohortLtv,
   fetchSkuPerformance,
+  fetchTierMigration,
 } from '../services/monetization-deepdive.js';
 
 export default async function monetizationDeepdiveRoutes(app: FastifyInstance): Promise<void> {
@@ -65,6 +67,22 @@ export default async function monetizationDeepdiveRoutes(app: FastifyInstance): 
     } catch (err) {
       app.log.error({ err, game }, '[monetization] fetchSkuPerformance failed');
       return reply.status(502).send({ error: `Cube query failed: ${(err as Error).message}` });
+    }
+  });
+
+  app.get('/api/monetization/tier-migration', async (req, reply) => {
+    const q = req.query as Record<string, string | undefined>;
+    const game = resolveGame(q);
+    if (!game) {
+      return reply.status(400).send({ error: '`game` query param required and must be a known game' });
+    }
+    try {
+      // The service already isolates lakehouse failures into a disclosed-empty
+      // result, so this only guards against unexpected throws.
+      return await fetchTierMigration(game);
+    } catch (err) {
+      app.log.error({ err, game }, '[monetization] fetchTierMigration failed');
+      return reply.status(502).send({ error: `Tier migration failed: ${(err as Error).message}` });
     }
   });
 }

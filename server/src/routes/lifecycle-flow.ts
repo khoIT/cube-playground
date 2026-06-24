@@ -2,10 +2,11 @@
  * GET /api/lifecycle-flow?game=<id>
  *
  * Returns the current lifecycle state counts (New / Core / Lapsing / Reactivated /
- * Churned) derived from mf_users via Cube. Transitions are not available because
- * mf_users holds only the current snapshot with no activity history; the response
- * includes a `transitionsUnavailableReason` so the client can render an honest
- * empty-state rather than fabricated flows.
+ * Churned) derived from mf_users via Cube, plus a from→to transition matrix when
+ * two daily member-state snapshots exist (self-join of the two latest snapshot
+ * dates). When fewer than two days are captured or the read is disabled, the
+ * response carries `transitions: null` + a `transitionsUnavailableReason` so the
+ * client renders an honest empty-state rather than fabricated flows.
  *
  * Input validation: `game` must be a non-empty string identifying a known game.
  * Error handling: Cube failures propagate as 502; bad input returns 400.

@@ -17,6 +17,8 @@
 
 import { load } from './cube-client.js';
 import { resolveCubeTokenForGame } from './resolve-cube-token.js';
+import { readTierMigration, type TransitionCell } from '../lakehouse/state-transition-reader.js';
+import { transitionsReadEnabled, TRANSITIONS_DISABLED_REASON } from './transition-read-gate.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -69,6 +71,19 @@ export interface SkuResult {
   /** True when SKU data is not available for this game. */
   notAvailable: boolean;
   notAvailableReason?: string;
+}
+
+export interface TierMigrationResult {
+  snapshotAt: string;
+  available: boolean;
+  prevDate: string | null;
+  currDate: string | null;
+  capturedDays: number;
+  coverageUsers: number;
+  /** From→to payer-tier movement cells (whale/dolphin/minnow/non_payer/unknown). */
+  cells: TransitionCell[];
+  /** Disclosure: coverage note when available, why-empty reason when not. */
+  reason: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +161,45 @@ export async function fetchPayerTierDistribution(game: string): Promise<PayerTie
     totalPayers,
     totalLtv,
   };
+}
+
+/**
+ * Week-over-week payer-tier migration — a from→to matrix self-joined from the
+ * two latest daily member-state snapshots. Gated + isolated like the lifecycle
+ * transitions: a disabled read or fewer than two snapshot days returns an honest
+ * disclosed-empty result (no warehouse call when disabled). Covers only the
+ * tracked-segment cohort, disclosed via `reason`.
+ */
+export async function fetchTierMigration(game: string): Promise<TierMigrationResult> {
+  const snapshotAt = new Date().toISOString();
+  const empty: TierMigrationResult = {
+    snapshotAt,
+    available: false,
+    prevDate: null,
+    currDate: null,
+    capturedDays: 0,
+    coverageUsers: 0,
+    cells: [],
+    reason: TRANSITIONS_DISABLED_REASON,
+  };
+
+  if (!transitionsReadEnabled()) return empty;
+
+  try {
+    const matrix = await readTierMigration(game);
+    return {
+      snapshotAt,
+      available: matrix.available,
+      prevDate: matrix.prevDate,
+      currDate: matrix.currDate,
+      capturedDays: matrix.capturedDays,
+      coverageUsers: matrix.coverageUsers,
+      cells: matrix.available ? matrix.cells : [],
+      reason: matrix.reason,
+    };
+  } catch (err) {
+    return { ...empty, reason: `Tier migration read failed: ${(err as Error).message}` };
+  }
 }
 
 // ---------------------------------------------------------------------------
