@@ -71,13 +71,17 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-/** Look up a measure's agg type from /meta (e.g. 'sum', 'countDistinctApprox'). */
+/** Look up a measure's agg type from /meta (e.g. 'sum', 'countDistinctApprox').
+ *  Cube /meta exposes the AGGREGATION in `aggType`; `type` is the value type
+ *  (almost always 'number'). Reading `type` misclassifies every sum/count as
+ *  non-additive — so prefer `aggType`, falling back to `type` for mocks/older
+ *  meta shapes that fold them together. */
 async function measureType(gameId: string, workspace: string, measure: string): Promise<string> {
   const meta = await cubeMetaCache.getMeta(gameId, workspace).catch(() => null);
   if (!meta?.cubes) return 'number';
   for (const cube of meta.cubes) {
     for (const m of cube.measures ?? []) {
-      if (m.name === measure) return String(m.type ?? 'number');
+      if (m.name === measure) return String(m.aggType ?? m.type ?? 'number');
     }
   }
   return 'number';

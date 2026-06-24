@@ -17,6 +17,9 @@ let mockGroupedBRows: Array<Record<string, unknown>> = [];
 let mockTotalARows: Array<Record<string, unknown>> = [];
 let mockTotalBRows: Array<Record<string, unknown>> = [];
 let mockMeasureType = 'sum';
+// Cube /meta carries the aggregation in `aggType` (value type lives in `type`).
+// undefined → the service falls back to `type`, preserving the older tests.
+let mockMeasureAggType: string | undefined = undefined;
 
 vi.mock('../src/services/load-cube-rows.js', () => ({
   loadCubeRows: vi.fn((query: Record<string, unknown>) => {
@@ -43,7 +46,7 @@ vi.mock('../src/core/cube-meta-cache.js', () => ({
       cubes: [
         {
           name: 'active_daily',
-          measures: [{ name: 'active_daily.dau', type: mockMeasureType }],
+          measures: [{ name: 'active_daily.dau', type: mockMeasureType, aggType: mockMeasureAggType }],
         },
       ],
     }),
@@ -83,6 +86,7 @@ beforeEach(() => {
   mockTotalARows = [];
   mockTotalBRows = [];
   mockMeasureType = 'sum';
+  mockMeasureAggType = undefined;
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -112,6 +116,29 @@ describe('decomposeDelta_additive_contributions_reconcile', () => {
     const sumContribDeltas = result.contributors.reduce((s, c) => s + c.delta, 0);
     // residual must close the gap: headlineDelta = sumContribDeltas + residual
     expect(sumContribDeltas + result.residual).toBeCloseTo(result.headlineDelta, 5);
+  });
+
+  it('reads aggType (not value type) — a sum measure reporting type:number stays additive', async () => {
+    // Real Cube /meta shape: aggType carries 'sum', type is the value type 'number'.
+    // Reading `type` alone would wrongly flag this non-additive and hide the waterfall.
+    mockMeasureType = 'number';
+    mockMeasureAggType = 'sum';
+    mockGroupedARows = makeRows('active_daily.platform', 'active_daily.dau', [
+      ['android', 1000],
+      ['ios', 500],
+    ]);
+    mockGroupedBRows = makeRows('active_daily.platform', 'active_daily.dau', [
+      ['android', 1100],
+      ['ios', 600],
+    ]);
+    mockTotalARows = [{ 'active_daily.dau': 1500 }];
+    mockTotalBRows = [{ 'active_daily.dau': 1700 }];
+
+    const result = await decomposeDelta(baseInput());
+
+    expect(result.measureType).toBe('sum');
+    expect(result.additive).toBe(true);
+    expect(result.contributors.every((c) => c.pctOfSwing != null || c.delta === 0)).toBe(true);
   });
 
   it('pctOfSwing values sum to ~1 when no "Other" bucket and no residual', async () => {

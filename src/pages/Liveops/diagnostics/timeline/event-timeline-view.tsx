@@ -28,6 +28,7 @@ import type { ChartAnnotation, AnnotationType, CreateAnnotationInput } from '../
 import { AnnotationOverlay } from '../../../../components/charts/annotation-overlay';
 import { EventDetailPanel } from './event-detail-panel';
 import { EventEditor } from './event-editor';
+import { buildMockEvents, isMockEvent } from './mock-events';
 import { CHART } from '../../../../shell/theme';
 import { makeTimeTickFormatter } from '../../../../utils/format-chart-datetime-label';
 import { formatCompact } from '../../../OpsConsole/ops-format';
@@ -155,6 +156,19 @@ export function EventTimelineView() {
   // Annotations
   const { annotations, loading: annLoading, refetch } = useChartAnnotations({ game: gameId, from, to });
 
+  // Mock events mapped onto the real visible window — the calendar has no feed
+  // yet, so these illustrate the experience. Clearly labelled "Mocked" in the UI.
+  const mockEvents = useMemo(() => buildMockEvents(from, to, gameId), [from, to, gameId]);
+  const mockStatsById = useMemo(() => {
+    const m = new Map<number, Array<[string, string]>>();
+    for (const e of mockEvents) m.set(e.annotation.id, e.stats);
+    return m;
+  }, [mockEvents]);
+  const allAnnotations = useMemo(
+    () => [...mockEvents.map((e) => e.annotation), ...annotations],
+    [mockEvents, annotations],
+  );
+
   // Type filter — all on by default
   const [activeTypes, setActiveTypes] = useState<Set<AnnotationType>>(new Set(ALL_TYPES));
   const toggleType = (t: AnnotationType) => {
@@ -166,8 +180,8 @@ export function EventTimelineView() {
   };
 
   const filtered = useMemo(
-    () => annotations.filter((a) => activeTypes.has(a.type)),
-    [annotations, activeTypes],
+    () => allAnnotations.filter((a) => activeTypes.has(a.type)),
+    [allAnnotations, activeTypes],
   );
 
   // Selected annotation for detail panel
@@ -282,6 +296,29 @@ export function EventTimelineView() {
         </ResponsiveContainer>
       </div>
 
+      {/* Honest disclosure — the flags below are illustrative, not a live feed */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'flex-start',
+          background: 'var(--info-soft)',
+          border: '1px solid var(--info-ink)',
+          borderRadius: 'var(--radius-md)',
+          padding: '9px 12px',
+          fontSize: 12,
+          color: 'var(--info-ink)',
+          lineHeight: 1.45,
+        }}
+      >
+        <span aria-hidden>ⓘ</span>
+        <span>
+          Event flags are <b>mocked examples</b> placed on the real DAU date range to show the intended experience —
+          impact figures in the detail panel are not measured. The annotation calendar (add / edit / delete) is live;
+          a populated event feed and computed event-impact analytics are not built yet.
+        </span>
+      </div>
+
       {/* ── Event list + add button ── */}
       <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
         {/* Left: event list */}
@@ -350,6 +387,7 @@ export function EventTimelineView() {
         {selected && !editor && (
           <EventDetailPanel
             annotation={selected}
+            mockStats={isMockEvent(selected) ? mockStatsById.get(selected.id) : undefined}
             onClose={() => setSelected(null)}
             onEdit={(ann) => { setEditor({ kind: 'edit', annotation: ann }); }}
             onDelete={handleDelete}

@@ -8,6 +8,7 @@
  */
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { X, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import type { ChartAnnotation, AnnotationType } from '../../../../api/chart-annotations';
 
@@ -27,12 +28,17 @@ export interface EventDetailPanelProps {
   onClose: () => void;
   onEdit: (annotation: ChartAnnotation) => void;
   onDelete: (id: number) => void;
+  /** Illustrative impact rows — present only for mock events. When set, the
+   *  panel renders them under a "Mocked" badge and hides edit/delete (a mock
+   *  isn't a real row). */
+  mockStats?: Array<[string, string]>;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function EventDetailPanel({ annotation, onClose, onEdit, onDelete }: EventDetailPanelProps) {
+export function EventDetailPanel({ annotation, onClose, onEdit, onDelete, mockStats }: EventDetailPanelProps) {
   const badge = TYPE_BADGE[annotation.type] ?? TYPE_BADGE.event;
+  const isMock = mockStats != null;
 
   const dateRange = annotation.ends_at
     ? `${annotation.starts_at} → ${annotation.ends_at}`
@@ -53,23 +59,43 @@ export function EventDetailPanel({ annotation, onClose, onEdit, onDelete }: Even
         gap: 14,
       }}
     >
-      {/* Header row: badge + close */}
+      {/* Header row: badge (+ mocked pill) + close */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span
-          style={{
-            display: 'inline-block',
-            padding: '2px 10px',
-            borderRadius: 99,
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-            background: badge.bg,
-            color: badge.ink,
-          }}
-        >
-          {badge.label}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span
+            style={{
+              display: 'inline-block',
+              padding: '2px 10px',
+              borderRadius: 99,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              background: badge.bg,
+              color: badge.ink,
+            }}
+          >
+            {badge.label}
+          </span>
+          {isMock && (
+            <span
+              title="Illustrative example — impact figures are not measured."
+              style={{
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: 99,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                background: 'var(--warning-soft)',
+                color: 'var(--warning-ink)',
+              }}
+            >
+              Mocked
+            </span>
+          )}
+        </div>
         <button
           onClick={onClose}
           aria-label="Close"
@@ -124,54 +150,90 @@ export function EventDetailPanel({ annotation, onClose, onEdit, onDelete }: Even
         </a>
       )}
 
-      {/* Created by */}
-      {annotation.created_by && (
+      {/* Created by (real events only) */}
+      {!isMock && annotation.created_by && (
         <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           Added by {annotation.created_by}
         </div>
       )}
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-        <button
-          onClick={() => onEdit(annotation)}
+      {/* Mock impact stats */}
+      {isMock && mockStats && (
+        <div>
+          {mockStats.map(([label, value]) => (
+            <div
+              key={label}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '8px 0',
+                borderBottom: '1px solid var(--border-card)',
+                fontSize: 13,
+              }}
+            >
+              <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+              <b style={{ color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>{value}</b>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Actions — mock events offer a (placeholder) drill-in; real events edit/delete */}
+      {isMock ? (
+        <Link
+          to="/segments"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '5px 12px',
+            marginTop: 4,
             fontSize: 12,
             fontWeight: 600,
-            fontFamily: 'var(--font-sans)',
-            border: '1px solid var(--border-card)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'transparent',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
+            color: 'var(--brand)',
+            textDecoration: 'none',
           }}
         >
-          <Pencil size={12} /> Edit
-        </button>
-        <button
-          onClick={() => onDelete(annotation.id)}
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 4,
-            padding: '5px 12px',
-            fontSize: 12,
-            fontWeight: 600,
-            fontFamily: 'var(--font-sans)',
-            border: '1px solid var(--destructive-soft)',
-            borderRadius: 'var(--radius-sm)',
-            background: 'transparent',
-            color: 'var(--destructive-ink)',
-            cursor: 'pointer',
-          }}
-        >
-          <Trash2 size={12} /> Delete
-        </button>
-      </div>
+          View affected segments →
+        </Link>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <button
+            onClick={() => onEdit(annotation)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '5px 12px',
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              border: '1px solid var(--border-card)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'transparent',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            <Pencil size={12} /> Edit
+          </button>
+          <button
+            onClick={() => onDelete(annotation.id)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '5px 12px',
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: 'var(--font-sans)',
+              border: '1px solid var(--destructive-soft)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'transparent',
+              color: 'var(--destructive-ink)',
+              cursor: 'pointer',
+            }}
+          >
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

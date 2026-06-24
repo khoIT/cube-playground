@@ -1,17 +1,25 @@
 /**
  * Delta decomposition view (Diagnostics tab 1).
  *
- * "Why did it move?" — choose a KPI, a decompose-by dimension, and a period
+ * "Why did it move?" — pick a KPI, a decompose-by dimension, and a period
  * comparison; the backend returns each segment's contribution to the headline
- * swing. Renders a contribution waterfall + a ranked contributor table with
- * Explore deep-links. Descriptive attribution, not a forecast. Design tokens only.
+ * swing. Renders a headline hero (with a live trend sparkline), a contribution
+ * waterfall, and a ranked contributor list with Explore deep-links.
+ *
+ * The KPI row carries the full product vision (DAU · Revenue · Payer rate · D7
+ * retention) but only additive measures can be honestly waterfall-decomposed —
+ * the non-additive ones render as DISABLED tabs with the reason on hover. Revenue
+ * is the fully-wired path. Descriptive attribution, not a forecast. Tokens only.
  */
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, MessageSquareText } from 'lucide-react';
+import { CalendarClock } from 'lucide-react';
 import { useGameContext } from '../../../../components/Header/use-game-context';
+import { useLiveKpis } from '../../use-live-kpis';
 import { formatVnd, formatInt, formatCompact, formatPct } from '../../../OpsConsole/ops-format';
 import { ContributionWaterfall } from './contribution-waterfall';
+import { ContributorRankedList } from './contributor-ranked-list';
+import { DeltaHeroSparkline } from './delta-hero-sparkline';
 import { useDeltaDecomposition } from './use-delta-decomposition';
 import {
   DELTA_MEASURES,
@@ -20,7 +28,6 @@ import {
   buildPeriods,
   type DeltaPeriodPreset,
 } from './delta-config';
-import type { DeltaContributor } from './decompose-api';
 
 const card: React.CSSProperties = {
   background: 'var(--bg-card)',
@@ -43,24 +50,21 @@ const selectStyle: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-function exploreUrl(measure: string, dimension: string, value: string, periodB: [string, string]): string {
-  const query = {
-    measures: [measure],
-    dimensions: [dimension],
-    timeDimensions: [{ dimension: DELTA_TIME_DIMENSION, granularity: 'day', dateRange: periodB }],
-    filters: [{ member: dimension, operator: 'equals', values: [value] }],
-  };
-  return `/build?query=${encodeURIComponent(JSON.stringify(query))}`;
-}
+const DEFAULT_MEASURE = DELTA_MEASURES.find((m) => m.available) ?? DELTA_MEASURES[0];
 
 export function DeltaDecompositionView() {
   const { gameId } = useGameContext();
-  const [measureId, setMeasureId] = React.useState(DELTA_MEASURES[0].id);
-  const [dimensionId, setDimensionId] = React.useState(DELTA_DIMENSIONS[1].id);
+  const [measureId, setMeasureId] = React.useState(DEFAULT_MEASURE.id);
+  const [dimensionId, setDimensionId] = React.useState(DELTA_DIMENSIONS[0].id);
   const [preset, setPreset] = React.useState<DeltaPeriodPreset>('wow');
 
-  const measure = DELTA_MEASURES.find((m) => m.id === measureId) ?? DELTA_MEASURES[0];
+  const measure = DELTA_MEASURES.find((m) => m.id === measureId) ?? DEFAULT_MEASURE;
+  const dimension = DELTA_DIMENSIONS.find((d) => d.id === dimensionId) ?? DELTA_DIMENSIONS[0];
   const periods = React.useMemo(() => buildPeriods(preset), [preset]);
+
+  // Live trend sparkline for the hero — sourced from the KPI strip (real series).
+  const { tiles } = useLiveKpis(gameId);
+  const sparkline = measure.sparkTile ? (tiles.find((t) => t.id === measure.sparkTile)?.sparkline ?? []) : [];
 
   const request = React.useMemo(
     () => ({
@@ -82,20 +86,46 @@ export function DeltaDecompositionView() {
   const deltaColor = up ? 'var(--success-ink)' : 'var(--destructive-ink)';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Controls */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingTop: 16 }}>
+      {/* KPI tabs + decompose-by + period */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <select value={measureId} onChange={(e) => setMeasureId(e.target.value)} style={selectStyle} aria-label="Metric">
-          {DELTA_MEASURES.map((m) => (
-            <option key={m.id} value={m.id}>{m.label}</option>
-          ))}
-        </select>
+        <div style={{ display: 'inline-flex', border: '1px solid var(--border-card)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+          {DELTA_MEASURES.map((m, i) => {
+            const active = m.id === measureId;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                disabled={!m.available}
+                title={m.available ? undefined : m.unavailableReason}
+                onClick={() => m.available && setMeasureId(m.id)}
+                style={{
+                  padding: '6px 13px',
+                  fontSize: 12.5,
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-sans)',
+                  border: 'none',
+                  borderLeft: i === 0 ? 'none' : '1px solid var(--border-card)',
+                  background: active ? 'var(--brand)' : 'var(--bg-card)',
+                  color: active ? 'var(--text-on-brand)' : 'var(--text-muted)',
+                  opacity: m.available ? 1 : 0.45,
+                  cursor: m.available ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {m.label}
+                {!m.available && ' · n/a'}
+              </button>
+            );
+          })}
+        </div>
+
         <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>by</span>
         <select value={dimensionId} onChange={(e) => setDimensionId(e.target.value)} style={selectStyle} aria-label="Decompose by">
           {DELTA_DIMENSIONS.map((d) => (
             <option key={d.id} value={d.id}>{d.label}</option>
           ))}
         </select>
+
         <div style={{ display: 'inline-flex', gap: 2, padding: 3, background: 'var(--bg-muted)', borderRadius: 'var(--radius-full)' }}>
           {(['wow', 'mom'] as DeltaPeriodPreset[]).map((p) => (
             <button
@@ -126,141 +156,119 @@ export function DeltaDecompositionView() {
         </div>
       )}
 
-      {/* Headline */}
-      <div style={card}>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-          {measure.label} · {periods.labelB} vs {periods.labelA}
-        </div>
-        {loading || !data ? (
-          <div style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
-            {loading ? 'Decomposing…' : 'No data.'}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 26, fontWeight: 700, color: deltaColor }}>
-              {up ? '+' : ''}{fmt(data.headlineDelta)}
-            </span>
-            <span style={{ fontSize: 14, fontWeight: 600, color: deltaColor }}>
-              {data.headlinePct != null ? `${up ? '+' : ''}${formatPct(data.headlinePct, 1)}` : '—'}
-            </span>
-            <span style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
-              {fmt(data.totalA)} → {fmt(data.totalB)}
-            </span>
+      {/* Headline hero */}
+      <div style={{ ...card, display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' }}>
+        <HeroStat label={`${measure.label} — ${periods.labelB.toLowerCase()}`}>
+          {loading || !data ? '…' : fmt(data.totalB)}
+        </HeroStat>
+        <Sep />
+        <HeroStat label={`Change ${preset === 'wow' ? 'WoW' : 'MoM'}`} color={data ? deltaColor : undefined}>
+          {loading || !data ? '…' : `${up ? '+' : ''}${fmt(data.headlineDelta)}`}
+        </HeroStat>
+        <Sep />
+        <HeroStat label="% change" color={data ? deltaColor : undefined}>
+          {loading || !data ? '…' : data.headlinePct != null ? `${up ? '+' : ''}${formatPct(data.headlinePct, 1)}` : '—'}
+        </HeroStat>
+        {sparkline.length >= 2 && (
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <DeltaHeroSparkline values={sparkline} positive={up} />
           </div>
         )}
       </div>
 
-      {/* Waterfall */}
-      {data && data.additive && data.contributors.length > 0 && (
-        <div style={card}>
-          <ContributionWaterfall
-            totalA={data.totalA}
-            totalB={data.totalB}
-            labelA={periods.labelA}
-            labelB={periods.labelB}
-            steps={data.contributors.map((c) => ({ label: c.value, delta: c.delta }))}
-            formatValue={fmtShort}
-          />
-        </div>
-      )}
-
-      {data && !data.additive && (
-        <div style={{ ...card, fontSize: 12, color: 'var(--text-muted)' }}>{data.note}</div>
-      )}
-
-      {/* Contributor table */}
+      {/* Waterfall + ranked contributors side-by-side */}
       {data && data.contributors.length > 0 && (
-        <div style={card}>
-          <ContributorTable
-            contributors={data.contributors}
-            measureId={measureId}
-            dimensionId={dimensionId}
-            periodB={periods.periodB}
-            fmt={fmt}
-          />
-          <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)', gap: 16 }}>
+          <div style={card}>
+            <CardHead title="Contribution waterfall" meta={`${periods.labelA.toLowerCase()} → ${periods.labelB.toLowerCase()}, by driver`} />
+            {data.additive ? (
+              <ContributionWaterfall
+                totalA={data.totalA}
+                totalB={data.totalB}
+                labelA={periods.labelA}
+                labelB={periods.labelB}
+                steps={data.contributors.map((c) => ({ label: c.value, delta: c.delta }))}
+                formatValue={fmtShort}
+              />
+            ) : (
+              <div style={{ fontSize: 12.5, color: 'var(--text-muted)', padding: '8px 4px' }}>{data.note}</div>
+            )}
+          </div>
+
+          <div style={card}>
+            <CardHead title="Top contributors" meta="ranked by share of swing" />
+            <ContributorRankedList
+              contributors={data.contributors}
+              dimensionLabel={dimension.label}
+              measureId={measureId}
+              dimensionId={dimensionId}
+              periodB={periods.periodB}
+              fmt={fmt}
+            />
+            <div style={{ display: 'flex', gap: 7, alignItems: 'flex-start', marginTop: 12, fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.45 }}>
+              <CalendarClock size={13} style={{ marginTop: 1, flexShrink: 0, color: 'var(--brand)' }} />
+              <span>
+                Cross-check the biggest mover against the{' '}
+                <Link to="/liveops/diagnostics?tab=timeline" style={{ color: 'var(--brand)', fontWeight: 600, textDecoration: 'none' }}>
+                  Event timeline
+                </Link>{' '}
+                — a patch, campaign or incident may line up with the swing.
+              </span>
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-muted)' }}>
               {data.additive
-                ? `Residual ${fmt(data.residual)}${data.bucketedCount > 0 ? ` · ${data.bucketedCount} smaller segments bucketed` : ''}${data.truncated ? ' · high-cardinality: tail beyond top 1000 folded into residual' : ''}`
+                ? `Residual ${fmt(data.residual)}${data.bucketedCount > 0 ? ` · ${data.bucketedCount} smaller segments bucketed` : ''}${data.truncated ? ' · tail beyond top 1000 folded into residual' : ''}`
                 : data.note}
-            </span>
-            <Link
-              to="/chat"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--brand)', textDecoration: 'none' }}
-            >
-              <MessageSquareText size={14} /> Ask in chat
-            </Link>
+            </div>
           </div>
         </div>
       )}
+
+      {/* Descriptive-attribution disclaimer */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'flex-start',
+          background: 'var(--warning-soft)',
+          border: '1px solid var(--warning-ink)',
+          borderRadius: 'var(--radius-md)',
+          padding: '9px 12px',
+          fontSize: 12,
+          color: 'var(--warning-ink)',
+          lineHeight: 1.45,
+        }}
+      >
+        <span aria-hidden>⚠</span>
+        <span>
+          Decomposition is descriptive attribution over existing cubes (mix-shift + level effects) — it explains{' '}
+          <b>where</b> the change concentrated, not a causal forecast.
+        </span>
+      </div>
     </div>
   );
 }
 
-function ContributorTable({
-  contributors,
-  measureId,
-  dimensionId,
-  periodB,
-  fmt,
-}: {
-  contributors: DeltaContributor[];
-  measureId: string;
-  dimensionId: string;
-  periodB: [string, string];
-  fmt: (n: number) => string;
-}) {
-  const th: React.CSSProperties = {
-    textAlign: 'right',
-    padding: '6px 8px',
-    fontSize: 10.5,
-    fontWeight: 600,
-    textTransform: 'uppercase',
-    letterSpacing: '0.04em',
-    color: 'var(--text-muted)',
-    borderBottom: '1px solid var(--border-card)',
-  };
-  const td: React.CSSProperties = { textAlign: 'right', padding: '7px 8px', fontSize: 12.5, color: 'var(--text-primary)' };
-
+function HeroStat({ label, color, children }: { label: string; color?: string; children: React.ReactNode }) {
   return (
-    <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-sans)' }}>
-      <thead>
-        <tr>
-          <th style={{ ...th, textAlign: 'left' }}>Segment</th>
-          <th style={th}>Prior</th>
-          <th style={th}>Current</th>
-          <th style={th}>Δ</th>
-          <th style={th}>% of swing</th>
-          <th style={{ ...th, width: 40 }} aria-label="Explore" />
-        </tr>
-      </thead>
-      <tbody>
-        {contributors.map((c) => {
-          const up = c.delta >= 0;
-          return (
-            <tr key={c.value}>
-              <td style={{ ...td, textAlign: 'left', fontWeight: 500 }}>{c.value || '∅'}</td>
-              <td style={td}>{fmt(c.a)}</td>
-              <td style={td}>{fmt(c.b)}</td>
-              <td style={{ ...td, color: up ? 'var(--success-ink)' : 'var(--destructive-ink)', fontWeight: 600 }}>
-                {up ? '+' : ''}{fmt(c.delta)}
-              </td>
-              <td style={td}>{c.pctOfSwing != null ? formatPct(c.pctOfSwing, 0) : '—'}</td>
-              <td style={{ ...td, padding: '7px 4px' }}>
-                {!c.isOther && c.value ? (
-                  <Link
-                    to={exploreUrl(measureId, dimensionId, c.value, periodB)}
-                    title={`Explore ${c.value} in Playground`}
-                    style={{ color: 'var(--text-muted)', display: 'inline-flex' }}
-                  >
-                    <ArrowUpRight size={14} />
-                  </Link>
-                ) : null}
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
+    <div>
+      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 4 }}>{label}</div>
+      <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1, color: color ?? 'var(--text-primary)' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Sep() {
+  return <div style={{ width: 1, alignSelf: 'stretch', minHeight: 40, background: 'var(--border-card)' }} />;
+}
+
+function CardHead({ title, meta }: { title: string; meta: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{title}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{meta}</span>
+    </div>
   );
 }
