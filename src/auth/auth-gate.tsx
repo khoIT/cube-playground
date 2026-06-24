@@ -29,6 +29,64 @@ const overlayStyle: React.CSSProperties = {
   fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)',
 };
 
+/**
+ * VNGGAMES wordmark + product label, matching the VNG SSO brand lockup:
+ * "VNG" in brand orange, "GAMES" in primary ink, a thin vertical divider,
+ * then the product name in secondary ink.
+ */
+function VngGamesWordmark({ product }: { product: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)',
+      }}
+    >
+      <span
+        style={{
+          fontSize: 26,
+          fontWeight: 800,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+        }}
+      >
+        <span style={{ color: 'var(--brand)' }}>VNG</span>
+        <span style={{ color: 'var(--text-primary)' }}>GAMES</span>
+      </span>
+      <span
+        style={{
+          width: 1,
+          height: 24,
+          background: 'var(--border-strong, var(--border-card))',
+        }}
+      />
+      <span style={{ fontSize: 17, fontWeight: 600, color: 'var(--text-secondary)' }}>
+        {product}
+      </span>
+    </div>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5l8-3z" />
+    </svg>
+  );
+}
+
 export function AuthGate({ children }: AuthGateProps) {
   const { state, loginWithKeycloak, logout } = useAuth();
 
@@ -94,25 +152,57 @@ export function AuthGate({ children }: AuthGateProps) {
   if (state.status === 'unauthenticated') {
     return (
       <div style={overlayStyle}>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Cube Playground</div>
-        <div style={{ fontSize: 14, opacity: 0.7, maxWidth: 360, textAlign: 'center' }}>
-          Sign in with your Keycloak account to continue.
-        </div>
-        <button
-          type="button"
-          onClick={loginWithKeycloak}
+        <div
           style={{
-            padding: '10px 18px',
-            border: '1px solid var(--brand)',
-            background: 'var(--brand)',
-            color: 'var(--text-on-brand)',
-            borderRadius: 'var(--radius-md, 6px)',
-            fontWeight: 600,
-            cursor: 'pointer',
+            width: '100%',
+            maxWidth: 460,
+            padding: '40px 40px 44px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-card)',
+            borderRadius: 'var(--radius-lg, 10px)',
+            boxShadow: 'var(--shadow-lg)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 20,
           }}
         >
-          Sign in with Keycloak
-        </button>
+          <VngGamesWordmark product="Cube Playground" />
+          <div
+            style={{
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: 'var(--text-secondary)',
+              textAlign: 'center',
+              maxWidth: 320,
+            }}
+          >
+            Sign in to access the Cube Playground analytics workspace.
+          </div>
+          <button
+            type="button"
+            onClick={loginWithKeycloak}
+            style={{
+              width: '100%',
+              marginTop: 4,
+              padding: '14px 18px',
+              border: '1px solid var(--brand)',
+              background: 'var(--brand)',
+              color: 'var(--text-on-brand)',
+              borderRadius: 'var(--radius-md, 8px)',
+              fontSize: 16,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+            }}
+          >
+            <ShieldIcon />
+            Sign in with Keycloak
+          </button>
+        </div>
       </div>
     );
   }
