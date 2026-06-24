@@ -27,6 +27,8 @@ interface SessionListProps {
   scope?: 'mine' | 'all';
   /** Admin audit: pin the list to one owner_id (empty/undefined = all owners). */
   owner?: string;
+  /** Hide synthetic (eval/test/bot) sessions. Server ignores when owner is pinned. */
+  hideSynthetic?: boolean;
 }
 
 const S = {
@@ -85,7 +87,7 @@ const S = {
   } as React.CSSProperties,
 };
 
-export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope, owner }: SessionListProps) {
+export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope, owner, hideSynthetic }: SessionListProps) {
   const location = useLocation();
   const urlSkill = new URLSearchParams(location.search).get('skill') ?? '';
   const effectiveSkill = skillFilter ?? urlSkill;
@@ -115,7 +117,7 @@ export function SessionList({ gameId, selectedId, onSelect, skillFilter, scope, 
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [rawQ]);
 
-  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ, scope, owner }, refreshTick);
+  const { data, isLoading, error } = useDebugSessions({ game: gameId, q: debouncedQ, scope, owner, hideSynthetic }, refreshTick);
   const allSessions = data ?? [];
 
   const deletedCount = useMemo(

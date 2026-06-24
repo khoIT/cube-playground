@@ -14,20 +14,31 @@ import type { TabDef } from '../../shell/tab-shell';
 
 // ---------------------------------------------------------------------------
 // Tab definitions — specific to chat-audit; owned here, not in the shell.
+// Built from a base path so the same tab set works at /dev/chat-audit and
+// /admin/dev/chat-audit. Starters is opt-out (admin hub drops it — it's a
+// global dev QA viewer, not a cross-user audit concern).
 // ---------------------------------------------------------------------------
 
-const AUDIT_TABS: TabDef[] = [
-  { key: 'sessions',    label: 'Sessions',    path: '/dev/chat-audit/sessions' },
-  { key: 'search',      label: 'Search',      path: '/dev/chat-audit/search' },
-  { key: 'leaderboard', label: 'Leaderboard', path: '/dev/chat-audit/leaderboard' },
-  { key: 'cache',       label: 'Cache',       path: '/dev/chat-audit/cache' },
-  { key: 'starters',    label: 'Starters',    path: '/dev/chat-audit/starters' },
-];
+export function buildAuditTabs(
+  basePath: string,
+  { includeStarters = true }: { includeStarters?: boolean } = {},
+): TabDef[] {
+  const tabs: TabDef[] = [
+    { key: 'sessions',    label: 'Sessions',    path: `${basePath}/sessions` },
+    { key: 'search',      label: 'Search',      path: `${basePath}/search` },
+    { key: 'leaderboard', label: 'Leaderboard', path: `${basePath}/leaderboard` },
+    { key: 'cache',       label: 'Cache',       path: `${basePath}/cache` },
+  ];
+  if (includeStarters) {
+    tabs.push({ key: 'starters', label: 'Starters', path: `${basePath}/starters` });
+  }
+  return tabs;
+}
 
 // Re-export so any caller that previously imported resolveAuditTab can
 // migrate gradually. New callers should use resolveTab directly.
 export function resolveAuditTab(pathname: string): string {
-  return resolveTab(pathname, AUDIT_TABS);
+  return resolveTab(pathname, buildAuditTabs('/dev/chat-audit'));
 }
 
 // ---------------------------------------------------------------------------
@@ -35,15 +46,23 @@ export function resolveAuditTab(pathname: string): string {
 // ---------------------------------------------------------------------------
 
 interface AuditTabsProps {
+  /** Base path the shell is mounted at (default standalone /dev/chat-audit). */
+  basePath?: string;
+  /** Explicit tab set; defaults to the full set built from basePath. */
+  tabs?: TabDef[];
   /** Optional testid prefix forwarded to TabShell (default 'audit-tab'). */
   testIdPrefix?: string;
 }
 
-export function AuditTabs({ testIdPrefix = 'audit-tab' }: AuditTabsProps) {
+export function AuditTabs({
+  basePath = '/dev/chat-audit',
+  tabs,
+  testIdPrefix = 'audit-tab',
+}: AuditTabsProps) {
   return (
     <TabShell
-      basePath="/dev/chat-audit"
-      tabs={AUDIT_TABS}
+      basePath={basePath}
+      tabs={tabs ?? buildAuditTabs(basePath)}
       ariaLabel="Chat Audit"
       testIdPrefix={testIdPrefix}
     />

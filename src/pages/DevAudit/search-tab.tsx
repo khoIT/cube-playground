@@ -5,7 +5,8 @@
  * - Input debounced 300ms → URL push
  * - Mode chip switch → URL push, results reload
  * - Auto-focuses input on mount
- * - Empty query → per-mode empty hint
+ * - Empty query → default top-10 list per mode (recent turns/sessions, top
+ *   cached queries) so the tab has affordance before the user types.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -20,6 +21,7 @@ import { SearchResultsCached } from './search-results-cached';
 import { useDebugSearch } from './use-debug-search';
 import { useDebugSessionsSearch } from './use-debug-sessions-search';
 import { useDebugCachedQueriesSearch } from './use-debug-cached-queries-search';
+import { useAuditBasePath, auditPath } from './audit-base-path';
 
 // ---------------------------------------------------------------------------
 // URL helpers
@@ -51,10 +53,11 @@ const PLACEHOLDERS: Record<SearchMode, string> = {
   cached:   `Search cached queries…${CMD_HINT}`,
 };
 
-const EMPTY_HINTS: Record<SearchMode, string> = {
-  turns:    'Start typing to search turns across all your sessions.',
-  sessions: 'Start typing to search session titles.',
-  cached:   'Start typing to search cached queries.',
+// Label shown above the default (empty-query) top-10 list per mode.
+const DEFAULT_LIST_LABELS: Record<SearchMode, string> = {
+  turns:    'Recent turns',
+  sessions: 'Recent sessions',
+  cached:   'Top cached queries',
 };
 
 // ---------------------------------------------------------------------------
@@ -92,26 +95,27 @@ const S = {
     boxSizing: 'border-box' as const,
   } as React.CSSProperties,
 
-  emptyHint: {
-    flex: 1,
+  defaultLabelBar: {
+    flexShrink: 0,
+    padding: '6px 16px',
     display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    color: 'var(--shell-text-faint)',
-    fontSize: 12,
-    fontFamily: T.fSans,
-    padding: 32,
-    textAlign: 'center' as const,
+    alignItems: 'baseline',
+    gap: 8,
+    borderBottom: `1px solid var(--shell-border)`,
+    background: 'var(--surface-subtle)',
   } as React.CSSProperties,
 
-  emptyLabel: {
+  defaultLabel: {
     fontFamily: T.fMono,
     fontSize: 10.5,
-    color: 'var(--shell-text-faint)',
+    color: 'var(--shell-text-subtle)',
     textTransform: 'uppercase' as const,
     letterSpacing: '0.06em',
+  } as React.CSSProperties,
+
+  defaultHint: {
+    fontSize: 11,
+    color: 'var(--shell-text-faint)',
   } as React.CSSProperties,
 
   results: {
@@ -130,6 +134,7 @@ export function SearchTab() {
   const history = useHistory();
   const location = useLocation();
   const gameId = useActiveGameId();
+  const basePath = useAuditBasePath();
 
   const { q: urlQ, mode: urlMode } = parseUrlState(location.search);
 
@@ -179,15 +184,15 @@ export function SearchTab() {
     pushUrl(rawInput, mode);
   }
 
-  // Turns mode search
-  const turnsSearch = useDebugSearch(urlQ, { game: gameId ?? undefined });
+  // Turns mode search — recentOnEmpty so an empty query shows recent turns.
+  const turnsSearch = useDebugSearch(urlQ, { game: gameId ?? undefined, recentOnEmpty: true });
   // Sessions mode search
   const sessionsSearch = useDebugSessionsSearch(urlQ, gameId ?? undefined);
   // Cached queries mode search
   const cachedSearch = useDebugCachedQueriesSearch(urlQ, gameId ?? undefined);
 
   function handleTurnSelect(sessionId: string, turnId: string) {
-    history.push(`/dev/chat-audit/sessions/${sessionId}#turn-${turnId}`);
+    history.push(`${auditPath(basePath, 'sessions', sessionId)}#turn-${turnId}`);
   }
 
   const isEmpty = !urlQ.trim();
@@ -218,14 +223,17 @@ export function SearchTab() {
         <SearchModeChips mode={urlMode} onChange={handleModeChange} />
       </div>
 
+      {/* Default-list label (empty query only) */}
+      {isEmpty && (
+        <div style={S.defaultLabelBar} data-testid="search-default-label">
+          <span style={S.defaultLabel}>{DEFAULT_LIST_LABELS[urlMode]}</span>
+          <span style={S.defaultHint}>Top 10 · start typing to search</span>
+        </div>
+      )}
+
       {/* Results area */}
       <div style={S.results}>
-        {isEmpty ? (
-          <div style={S.emptyHint}>
-            <span style={S.emptyLabel}>{urlMode}</span>
-            <span>{EMPTY_HINTS[urlMode]}</span>
-          </div>
-        ) : urlMode === 'turns' ? (
+        {urlMode === 'turns' ? (
           <SearchResultList
             results={turnsSearch.results}
             query={urlQ}

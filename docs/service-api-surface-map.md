@@ -265,10 +265,11 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | GET | `/api/chat/stats` | none (owner req) | `x-owner-id`, `?owner,from,to` | usage stats | chat-service `/stats` |
 | GET | `/api/chat/debug/leaderboard/skills` | none (owner req) | `x-owner-id`, `?game,days` | skill leaderboard | chat-service `/debug/...` |
 | GET | `/api/chat/debug/cache-effectiveness` | none (owner req) | `x-owner-id`, `?game,days,topN,q` | cache metrics | chat-service `/debug/...` |
-| GET | `/api/chat/debug/sessions[/:id]` | none (owner req) | `x-owner-id` | debug sessions | chat-service `/debug/sessions` |
+| GET | `/api/chat/debug/sessions[/:id]` | none (owner req) | `x-owner-id`, `?hideSynthetic=1` (admin-gated, default-ON) | debug sessions (synthetic filter: owner_id shape heuristic) | chat-service `/debug/sessions` |
+| GET | `/api/chat/debug/session-owners` | admin | `authorization`, `?hideSynthetic=1` (default-ON) | `{owners:[{id,label,emailResolved?,runCount}]}` owner list (admin gated; excludes synthetic if filter on) | chat-service `/debug/session-owners` |
 | GET | `/api/chat/debug/turns/:turnId[/raw]` | none (owner req) | `x-owner-id` | turn detail / raw events | chat-service `/debug/turns` |
 | POST/DELETE | `/api/chat/debug/turns/:turnId/annotation` | none ⚠️ not gated (owner req) | `x-owner-id` | star/flag/note | chat-service `/debug/...` |
-| GET | `/api/chat/debug/search[/cached]` | none (owner req) | `x-owner-id`, `?q,…` | turn / cached-query search | chat-service `/debug/search` |
+| GET | `/api/chat/debug/search[/cached]` | none (owner req) | `x-owner-id`, `?q,…` | turn / cached-query search; empty `q` returns recent turns instead of `[]` | chat-service `/debug/search` |
 | DELETE | `/api/chat/debug/cache` | none ⚠️ not gated (owner req) | `x-owner-id`, `?game` | `{deleted}` | chat-service `/debug/cache` |
 | GET | `/api/onboarding/connectors` | none | `x-owner` | `{configured,connectors}` (secret-free) | trino-profiler-config, connector-store |
 | GET | `/api/onboarding/source-types` | none | — | `{sourceTypes}` | source-type-registry |

@@ -43,7 +43,7 @@ function authHeaders(): Record<string, string> {
 // ---------------------------------------------------------------------------
 
 export function useDebugSessions(
-  { game, q, scope, owner }: { game: string; q: string; scope?: 'mine' | 'all'; owner?: string },
+  { game, q, scope, owner, hideSynthetic }: { game: string; q: string; scope?: 'mine' | 'all'; owner?: string; hideSynthetic?: boolean },
   refreshTick = 0,
 ): AsyncState<DebugSession[]> {
   const [state, setState] = useState<AsyncState<DebugSession[]>>({ data: null, error: null, isLoading: false });
@@ -62,6 +62,8 @@ export function useDebugSessions(
     if (scope === 'all') params.set('scope', 'all');
     // Pin the audit to one owner (admin only; server ignores it otherwise).
     if (owner) params.set('owner', owner);
+    // Hide eval/test/bot sessions (server ignores when an owner is pinned).
+    if (hideSynthetic) params.set('hideSynthetic', '1');
 
     fetch(`/api/chat/debug/sessions?${params.toString()}`, {
       headers: authHeaders(),
@@ -78,7 +80,7 @@ export function useDebugSessions(
       });
 
     return () => controller.abort();
-  }, [game, q, scope, owner, refreshTick]);
+  }, [game, q, scope, owner, hideSynthetic, refreshTick]);
 
   return state;
 }
@@ -94,13 +96,14 @@ export interface DebugSessionOwner {
 }
 
 /**
- * Admin-only: lists every chat owner (incl. synthetic test owners) with a
- * session count for the active game. Powers the user-filter dropdown and the
- * exact per-user / total counts in the audit header. Skips fetching unless
- * `enabled` (i.e. the caller is an admin) to avoid a guaranteed 403.
+ * Admin-only: lists chat owners with a session count for the active game.
+ * Powers the user-filter dropdown and the exact per-user / total counts in the
+ * audit header. With `hideSynthetic`, eval/test/bot owners are excluded so the
+ * dropdown matches the hidden-by-default list. Skips fetching unless `enabled`
+ * (i.e. the caller is an admin) to avoid a guaranteed 403.
  */
 export function useDebugSessionOwners(
-  { game, enabled }: { game: string; enabled: boolean },
+  { game, enabled, hideSynthetic }: { game: string; enabled: boolean; hideSynthetic?: boolean },
   refreshTick = 0,
 ): AsyncState<DebugSessionOwner[]> {
   const [state, setState] = useState<AsyncState<DebugSessionOwner[]>>({ data: null, error: null, isLoading: false });
@@ -111,6 +114,8 @@ export function useDebugSessionOwners(
     setState({ data: null, error: null, isLoading: true });
 
     const params = new URLSearchParams({ game });
+    // Match the session list's hidden-by-default synthetic filter.
+    if (hideSynthetic) params.set('hideSynthetic', '1');
     fetch(`/api/chat/debug/session-owners?${params.toString()}`, {
       headers: authHeaders(),
       signal: controller.signal,
@@ -126,7 +131,7 @@ export function useDebugSessionOwners(
       });
 
     return () => controller.abort();
-  }, [game, enabled, refreshTick]);
+  }, [game, enabled, hideSynthetic, refreshTick]);
 
   return state;
 }

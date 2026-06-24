@@ -158,7 +158,7 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   // Includes archived AND soft-deleted sessions (debug UI shows all).
   // scope=all lists across ALL owners — honoured only with the gateway's
   // admin-audit header (verified DB role); otherwise self-scoped.
-  fastify.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string } }>(
+  fastify.get<{ Querystring: { game?: string; q?: string; limit?: string; scope?: string; owner?: string; hideSynthetic?: string } }>(
     '/debug/sessions',
     async (req, reply) => {
       const headers = req.headers as Record<string, string | string[] | undefined>;
@@ -167,6 +167,9 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
 
       const limit = Math.min(Math.max(parseInt(req.query.limit ?? '50', 10) || 50, 1), 500);
       const isAdmin = isAdminAuditRequest(headers);
+      // Admin-gated like scope/owner: a self-scoped owner_id is always human, so
+      // the knob is only meaningful (and only honoured) for the admin audit.
+      const hideSynthetic = isAdmin && (req.query.hideSynthetic === '1' || req.query.hideSynthetic === 'true');
       const sessions = obsStore.listSessionsForDebug(db, {
         ownerId,
         // Verifier sessions are shared: every owner sees them in the audit list
@@ -176,6 +179,8 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
         // owner= pins the audit to one user; honoured only for admins (it's a
         // no-op without allOwners, so a non-admin can never use it to widen).
         filterOwnerId: isAdmin ? req.query.owner : undefined,
+        // Hide eval/test/bot sessions (UI default). An explicit owner pin wins.
+        hideSynthetic,
         gameId: req.query.game,
         q: req.query.q,
         limit,
@@ -187,14 +192,15 @@ const debugRoutes: FastifyPluginAsync<DebugRouteOptions> = async (fastify, opts)
   // GET /debug/session-owners?game=<id>
   // Distinct owners + session counts for the admin audit user-filter dropdown.
   // Admin-only: the gateway sets X-Debug-Admin after verifying the DB role.
-  fastify.get<{ Querystring: { game?: string } }>(
+  fastify.get<{ Querystring: { game?: string; hideSynthetic?: string } }>(
     '/debug/session-owners',
     async (req, reply) => {
       const headers = req.headers as Record<string, string | string[] | undefined>;
       const ownerId = extractOwnerId(headers);
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
       if (!isAdminAuditRequest(headers)) return reply.status(403).send({ error: 'Forbidden' });
-      return reply.send(obsStore.listSessionOwnersForDebug(db, { gameId: req.query.game }));
+      const hideSynthetic = req.query.hideSynthetic === '1' || req.query.hideSynthetic === 'true';
+      return reply.send(obsStore.listSessionOwnersForDebug(db, { gameId: req.query.game, hideSynthetic }));
     },
   );
 

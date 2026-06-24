@@ -16,6 +16,18 @@ import { SessionDetail } from './session-detail';
 import { SearchResultList } from './search-result-list';
 import { useDebugSearch } from './use-debug-search';
 import { useDebugSessionOwners } from './use-debug-api';
+import { useAuditBasePath, auditPath } from './audit-base-path';
+
+/**
+ * Resolve an owner to its display label. Default = `label || ownerId`.
+ * Admin context injects a resolver that maps the Keycloak sub → email.
+ */
+type ResolveOwner = (o: { ownerId: string; label: string | null }) => string;
+const defaultResolveOwner: ResolveOwner = (o) => o.label || o.ownerId;
+
+interface SessionsTabProps {
+  resolveOwner?: ResolveOwner;
+}
 
 const S = {
   root: {
@@ -70,9 +82,10 @@ const S = {
   } as React.CSSProperties,
 };
 
-export function SessionsTab() {
+export function SessionsTab({ resolveOwner = defaultResolveOwner }: SessionsTabProps = {}) {
   const gameId = useActiveGameId();
   const history = useHistory();
+  const basePath = useAuditBasePath();
   const { sessionId: routeSessionId } = useParams<{ sessionId?: string }>();
   const selectedSessionId = routeSessionId ?? null;
 
@@ -84,8 +97,18 @@ export function SessionsTab() {
 
   // Admin user filter — pin the audit to one owner_id ('' = all owners).
   const [ownerFilter, setOwnerFilter] = useState('');
+  // Hide eval/test/bot sessions by default — admins audit real user chats first.
+  // Only applies to the admin all-users audit (where bot noise appears + the
+  // toggle is shown). Self-scoped 'mine'/standalone views are unaffected, so the
+  // shared verifier sessions stay visible there as before.
+  const [hideSynthetic, setHideSynthetic] = useState(true);
   const ownersEnabled = isAdmin && effectiveScope === 'all';
-  const { data: owners } = useDebugSessionOwners({ game: gameId, enabled: ownersEnabled });
+  const effectiveHideSynthetic = ownersEnabled && hideSynthetic;
+  const { data: owners } = useDebugSessionOwners({
+    game: gameId,
+    enabled: ownersEnabled,
+    hideSynthetic: effectiveHideSynthetic,
+  });
 
   // Clear the user pin whenever it can't apply (left admin scope, or the
   // active game changed and the previously-picked owner may not exist here).
@@ -118,11 +141,11 @@ export function SessionsTab() {
     useDebugSearch(debouncedQ, { game: gameId });
 
   function setSelectedSessionId(id: string | null): void {
-    history.replace(id ? `/dev/chat-audit/sessions/${id}` : '/dev/chat-audit/sessions');
+    history.replace(id ? auditPath(basePath, 'sessions', id) : auditPath(basePath, 'sessions'));
   }
 
   function handleSearchSelect(sessionId: string, turnId: string): void {
-    history.push(`/dev/chat-audit/sessions/${sessionId}#turn-${turnId}`);
+    history.push(`${auditPath(basePath, 'sessions', sessionId)}#turn-${turnId}`);
   }
 
   return (
@@ -180,7 +203,7 @@ export function SessionsTab() {
             <option value="">All users ({totalCount})</option>
             {(owners ?? []).map((o) => (
               <option key={o.ownerId} value={o.ownerId}>
-                {(o.label || o.ownerId)} ({o.count})
+                {resolveOwner(o)} ({o.count})
               </option>
             ))}
           </select>
@@ -189,6 +212,21 @@ export function SessionsTab() {
           <span data-testid="session-count" style={{ color: 'var(--shell-text-subtle)', whiteSpace: 'nowrap' }}>
             {selectedCount} session{selectedCount === 1 ? '' : 's'}
           </span>
+        )}
+        {ownersEnabled && (
+          <label
+            style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', whiteSpace: 'nowrap', color: 'var(--shell-text-muted)' }}
+            title="Hide eval / test / bot sessions (verifier, answer-quality eval, probes)"
+          >
+            <input
+              type="checkbox"
+              checked={hideSynthetic}
+              onChange={(e) => setHideSynthetic(e.target.checked)}
+              data-testid="hide-synthetic-toggle"
+              style={{ cursor: 'pointer', accentColor: 'var(--brand)' }}
+            />
+            Hide bot/test
+          </label>
         )}
         <input
           type="search"
@@ -221,6 +259,7 @@ export function SessionsTab() {
               onSelect={setSelectedSessionId}
               scope={effectiveScope}
               owner={ownerFilter}
+              hideSynthetic={effectiveHideSynthetic}
             />
           )}
         </div>

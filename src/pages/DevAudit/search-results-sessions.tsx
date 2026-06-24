@@ -9,6 +9,7 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import type { DebugSession } from './use-debug-api-types';
+import { useAuditBasePath, auditPath } from './audit-base-path';
 
 const S = {
   root: { flex: 1, overflowY: 'auto' as const } as React.CSSProperties,
@@ -118,6 +119,7 @@ export function SearchResultsSessions({
   error,
 }: SearchResultsSessionsProps) {
   const history = useHistory();
+  const basePath = useAuditBasePath();
 
   if (error) return <div style={S.errorBanner}>Error: {error}</div>;
 
@@ -161,9 +163,9 @@ export function SearchResultsSessions({
               <tr
                 key={session.id}
                 style={{ cursor: 'pointer' }}
-                onClick={() => history.push(`/dev/chat-audit/sessions/${session.id}`)}
+                onClick={() => history.push(auditPath(basePath, 'sessions', session.id))}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') history.push(`/dev/chat-audit/sessions/${session.id}`);
+                  if (e.key === 'Enter') history.push(auditPath(basePath, 'sessions', session.id));
                 }}
                 role="button"
                 tabIndex={0}

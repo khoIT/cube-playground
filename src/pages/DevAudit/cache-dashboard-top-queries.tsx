@@ -11,6 +11,7 @@ import React, { useState, useMemo } from 'react';
 import { useHistory } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import type { TopQueryRow } from '../../api/cache-effectiveness-types';
+import { useAuditBasePath, auditPath } from './audit-base-path';
 
 interface Props {
   rows: TopQueryRow[];
@@ -129,6 +130,7 @@ const S = {
 
 export function CacheDashboardTopQueries({ rows, topN }: Props) {
   const history = useHistory();
+  const basePath = useAuditBasePath();
   const [sortCol, setSortCol] = useState<SortCol>('hits');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -152,7 +154,7 @@ export function CacheDashboardTopQueries({ rows, topN }: Props) {
   function handleRowClick(row: TopQueryRow) {
     if (!row.originalSessionId) return;
     const anchor = row.originalTurnId ? `#turn-${row.originalTurnId}` : '';
-    history.push(`/dev/chat-audit/sessions/${row.originalSessionId}${anchor}`);
+    history.push(`${auditPath(basePath, 'sessions', row.originalSessionId)}${anchor}`);
   }
 
   function sortIndicator(col: SortCol): string {

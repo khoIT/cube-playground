@@ -1,10 +1,11 @@
 /**
- * useDevAuditShortcuts — keyboard shortcuts for /dev/chat-audit/* routes.
+ * useDevAuditShortcuts — keyboard shortcuts for the chat-audit route subtree.
  *
- * Only active when the current pathname starts with /dev/chat-audit.
+ * Only active when the current pathname starts with the shell's base path
+ * (default /dev/chat-audit; the admin mount passes /admin/dev/chat-audit).
  * Currently wires cmd-K (or ctrl-K on non-mac) to focus the unified search.
  *
- * Callers pass a callback invoked when cmd-K fires inside a dev-audit route.
+ * Callers pass a callback invoked when cmd-K fires inside the subtree.
  * The shell uses this to navigate to /search and focus the input.
  *
  * Cleans up the document event listener on unmount.
@@ -12,20 +13,20 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
-const DEV_AUDIT_PREFIX = '/dev/chat-audit';
-
 interface Options {
-  /** Called when cmd-K fires while inside a /dev/chat-audit route. */
+  /** Called when cmd-K fires while inside the chat-audit route subtree. */
   onCmdK: () => void;
+  /** Route prefix to scope the shortcut to (default standalone /dev/chat-audit). */
+  basePath?: string;
 }
 
-export function useDevAuditShortcuts({ onCmdK }: Options): void {
+export function useDevAuditShortcuts({ onCmdK, basePath = '/dev/chat-audit' }: Options): void {
   const location = useLocation();
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Only intercept within dev-audit routes
-      if (!location.pathname.startsWith(DEV_AUDIT_PREFIX)) return;
+      // Only intercept within the chat-audit route subtree
+      if (!location.pathname.startsWith(basePath)) return;
 
       const isMac = typeof navigator !== 'undefined'
         ? navigator.platform.toUpperCase().includes('MAC')
@@ -49,6 +50,6 @@ export function useDevAuditShortcuts({ onCmdK }: Options): void {
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-    // Re-register whenever pathname or callback changes
-  }, [location.pathname, onCmdK]);
+    // Re-register whenever pathname, callback, or base path changes
+  }, [location.pathname, onCmdK, basePath]);
 }

@@ -16,6 +16,7 @@ import { useSkillLeaderboard } from './use-skill-leaderboard';
 import { SkillLeaderboardTable } from './skill-leaderboard-table';
 import { SkelRow } from './skeleton-row';
 import { EmptyState } from './empty-state';
+import { useAuditBasePath, auditPath } from './audit-base-path';
 
 const DAY_OPTIONS = [7, 30, 90] as const;
 type DayOption = (typeof DAY_OPTIONS)[number];
@@ -67,6 +68,7 @@ const S = {
 export function SkillLeaderboardPage() {
   const activeGameId = useActiveGameId();
   const history = useHistory();
+  const basePath = useAuditBasePath();
   // Default 30d — matches phase spec; game default is "All games" (activeGameId or undefined)
   const [days, setDays] = useState<DayOption>(30);
 
@@ -77,7 +79,7 @@ export function SkillLeaderboardPage() {
 
   /** Navigate to Sessions tab pre-filtered by skill name (cross-tab navigation). */
   function handleSkillClick(skillName: string) {
-    history.push(`/dev/chat-audit/sessions?skill=${encodeURIComponent(skillName)}`);
+    history.push(`${auditPath(basePath, 'sessions')}?skill=${encodeURIComponent(skillName)}`);
   }
 
   return (

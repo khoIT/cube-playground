@@ -119,20 +119,27 @@ describe('SearchTab — render', () => {
   });
 });
 
-describe('SearchTab — empty state', () => {
-  it('shows empty hint when query is blank (turns mode)', () => {
+describe('SearchTab — default-list affordance (empty query)', () => {
+  it('shows the recent-turns default label when query is blank (turns mode)', () => {
     renderTab();
-    expect(screen.getByText(/Start typing to search turns/)).toBeTruthy();
+    expect(screen.getByTestId('search-default-label')).toBeTruthy();
+    expect(screen.getByText('Recent turns')).toBeTruthy();
+    expect(screen.getByText(/Top 10 · start typing to search/)).toBeTruthy();
   });
 
-  it('shows sessions empty hint in sessions mode with no query', () => {
+  it('shows the recent-sessions default label in sessions mode with no query', () => {
     renderTab('?mode=sessions');
-    expect(screen.getByText(/Start typing to search session titles/)).toBeTruthy();
+    expect(screen.getByText('Recent sessions')).toBeTruthy();
   });
 
-  it('shows cached empty hint in cached mode with no query', () => {
+  it('shows the top-cached-queries default label in cached mode with no query', () => {
     renderTab('?mode=cached');
-    expect(screen.getByText(/Start typing to search cached queries/)).toBeTruthy();
+    expect(screen.getByText('Top cached queries')).toBeTruthy();
+  });
+
+  it('hides the default label once a query is present', () => {
+    renderTab('?q=retention&mode=turns');
+    expect(screen.queryByTestId('search-default-label')).toBeNull();
   });
 });
 

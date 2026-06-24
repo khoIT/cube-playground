@@ -11,6 +11,7 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import { T } from '../../shell/theme';
 import type { CachedQueryHit } from './use-debug-api-types';
+import { useAuditBasePath, auditPath } from './audit-base-path';
 
 const S = {
   root: { flex: 1, overflowY: 'auto' as const } as React.CSSProperties,
@@ -129,6 +130,7 @@ export function SearchResultsCached({
   error,
 }: SearchResultsCachedProps) {
   const history = useHistory();
+  const basePath = useAuditBasePath();
 
   if (error) return <div style={S.errorBanner}>Error: {error}</div>;
 
@@ -167,11 +169,11 @@ export function SearchResultsCached({
               key={hit.key}
               style={{ cursor: 'pointer' }}
               onClick={() =>
-                history.push(`/dev/chat-audit/sessions/${hit.original_session_id}#turn-${hit.original_turn_id}`)
+                history.push(`${auditPath(basePath, 'sessions', hit.original_session_id)}#turn-${hit.original_turn_id}`)
               }
               onKeyDown={(e) => {
                 if (e.key === 'Enter')
-                  history.push(`/dev/chat-audit/sessions/${hit.original_session_id}#turn-${hit.original_turn_id}`);
+                  history.push(`${auditPath(basePath, 'sessions', hit.original_session_id)}#turn-${hit.original_turn_id}`);
               }}
               role="button"
               tabIndex={0}

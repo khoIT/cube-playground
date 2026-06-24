@@ -236,3 +236,69 @@ describe('debug admin audit scope', () => {
     expect(returnedLabels).toEqual([...laneLabels]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// hideSynthetic — drops eval/test/bot owners (non-UUID, non-email owner_ids)
+// from the session list + owners dropdown so admins audit real users first.
+// ---------------------------------------------------------------------------
+
+describe('debug hideSynthetic filter', () => {
+  let db: Database.Database;
+  let app: Awaited<ReturnType<typeof buildTestApp>>;
+
+  const HUMAN_UUID = '11111111-2222-3333-4444-555555555555';
+  const HUMAN_EMAIL = 'khoitn@vng.com.vn';
+  const SYNTH_VERIFIER = 'starter-question-verifier';
+  const SYNTH_EVAL = 'aqeval-sm-guard-dau';
+
+  beforeAll(async () => {
+    db = makeDb();
+    app = await buildTestApp(db);
+    for (const ownerId of [HUMAN_UUID, HUMAN_EMAIL, SYNTH_VERIFIER, SYNTH_EVAL]) {
+      const s = chatStore.createSession(db, { ownerId, gameId: 'g1' });
+      chatStore.appendTurn(db, {
+        sessionId: s.id, turnIndex: 0, role: 'assistant',
+        assistantText: 'x', startedAt: Date.now(),
+      });
+    }
+  });
+
+  afterAll(() => app.close());
+
+  it('hideSynthetic=1 keeps only UUID/email owners in the session list', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/debug/sessions?scope=all&hideSynthetic=1', headers: ADMIN,
+    });
+    expect(res.statusCode).toBe(200);
+    const owners = (res.json() as Array<{ owner_id: string }>).map((s) => s.owner_id).sort();
+    expect(owners).toEqual([HUMAN_UUID, HUMAN_EMAIL].sort());
+  });
+
+  it('without hideSynthetic the list includes synthetic owners', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/debug/sessions?scope=all', headers: ADMIN,
+    });
+    const owners = (res.json() as Array<{ owner_id: string }>).map((s) => s.owner_id);
+    expect(owners).toContain(SYNTH_VERIFIER);
+    expect(owners).toContain(SYNTH_EVAL);
+  });
+
+  it('an explicit owner pin overrides hideSynthetic (synthetic owner still shows)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/debug/sessions?scope=all&hideSynthetic=1&owner=${SYNTH_VERIFIER}`,
+      headers: ADMIN,
+    });
+    const owners = (res.json() as Array<{ owner_id: string }>).map((s) => s.owner_id);
+    expect(owners).toEqual([SYNTH_VERIFIER]);
+  });
+
+  it('session-owners dropdown honours hideSynthetic', async () => {
+    const res = await app.inject({
+      method: 'GET', url: '/debug/session-owners?hideSynthetic=1', headers: ADMIN,
+    });
+    expect(res.statusCode).toBe(200);
+    const ids = (res.json() as Array<{ ownerId: string }>).map((o) => o.ownerId).sort();
+    expect(ids).toEqual([HUMAN_UUID, HUMAN_EMAIL].sort());
+  });
+});

@@ -239,6 +239,17 @@ export function countObservabilityRowsByTurn(
 }
 
 /**
+ * SQL predicate that is TRUE for human-owned sessions and FALSE for synthetic
+ * ones (eval/test/probe/bot runs like the starter-question verifier, `aqeval-*`,
+ * `prof-hit-*`, `verify-*`). There is no `kind`/`source` column on chat_sessions,
+ * so we key off owner_id shape: a real owner_id is a Keycloak `sub` (UUID) or —
+ * in AUTH_DISABLED dev — an email; every synthetic owner uses a readable slug.
+ * Heuristic auto-covers new eval/probe owners without a brittle prefix list.
+ */
+const HUMAN_OWNER_SQL =
+  "(owner_id LIKE '%@%' OR owner_id GLOB '[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]-*')";
+
+/**
  * Lists chat sessions for a given owner (and optional game/query filter).
  * Unlike `listSessions` in chat-store.ts, this does NOT exclude archived or
  * soft-deleted sessions so the debug UI can inspect all historical sessions
@@ -259,6 +270,9 @@ export function listSessionsForDebug(
      * unless allOwners is set, so it can never widen a self-scoped request.
      */
     filterOwnerId?: string;
+    /** Exclude synthetic (eval/test/bot) sessions. Ignored when filterOwnerId
+     *  is set — an explicit owner pick always wins, even for a synthetic owner. */
+    hideSynthetic?: boolean;
     gameId?: string;
     q?: string;
     limit?: number;
@@ -298,6 +312,11 @@ export function listSessionsForDebug(
     bindings.push(`%${safe}%`);
   }
 
+  // Hide synthetic owners unless one was explicitly pinned via the dropdown.
+  if (params.hideSynthetic && !params.filterOwnerId) {
+    conditions.push(HUMAN_OWNER_SQL);
+  }
+
   bindings.push(limit);
 
   // deleted_at IS intentionally NOT filtered here — debug UI shows all sessions.
@@ -328,13 +347,18 @@ export interface DebugSessionOwner {
  */
 export function listSessionOwnersForDebug(
   db: Database.Database,
-  params: { gameId?: string },
+  params: { gameId?: string; hideSynthetic?: boolean },
 ): DebugSessionOwner[] {
   const conditions: string[] = [];
   const bindings: unknown[] = [];
   if (params.gameId) {
     conditions.push('game_id = ?');
     bindings.push(params.gameId);
+  }
+  // Drop synthetic (eval/test/bot) owners so the dropdown + counts match the
+  // hidden-by-default session list.
+  if (params.hideSynthetic) {
+    conditions.push(HUMAN_OWNER_SQL);
   }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   return db

@@ -31,15 +31,14 @@ export function useDebugSessionsSearch(
     setResults([]);
     setError(null);
 
-    if (!q.trim()) {
-      setIsLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
     setIsLoading(true);
 
-    const params = new URLSearchParams({ q: q.trim(), limit: '50' });
+    // Empty query → default affordance: 10 most-recent sessions (endpoint
+    // returns recent rows on empty q). Otherwise the full search list (50).
+    const trimmed = q.trim();
+    const params = new URLSearchParams({ limit: trimmed ? '50' : '10' });
+    if (trimmed) params.set('q', trimmed);
     if (game) params.set('game', game);
 
     fetch(`/api/chat/debug/sessions?${params.toString()}`, {

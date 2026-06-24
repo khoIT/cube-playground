@@ -32,15 +32,14 @@ export function useDebugCachedQueriesSearch(
     setResults([]);
     setError(null);
 
-    if (!q.trim()) {
-      setIsLoading(false);
-      return;
-    }
-
     const controller = new AbortController();
     setIsLoading(true);
 
-    const params = new URLSearchParams({ q: q.trim(), limit: '20' });
+    // Empty query → default affordance: top 10 cached queries (endpoint orders
+    // by hit_count DESC on empty filter). Otherwise the full search list (20).
+    const trimmed = q.trim();
+    const params = new URLSearchParams({ limit: trimmed ? '20' : '10' });
+    if (trimmed) params.set('q', trimmed);
     if (game) params.set('game', game);
 
     fetch(`/api/chat/debug/search/cached?${params.toString()}`, {

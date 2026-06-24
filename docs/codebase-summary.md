@@ -135,6 +135,10 @@ Existing simulator ("Explore" posture): `src/pages/Advisor/use-advisor-investiga
 
 ### Admin audit UI (src/pages/Admin/hub/)
 
+- **`dev-hub-panel.tsx`** — Multi-tab hub at `/admin/dev/*`: Sessions/Search/Leaderboard/Cache (Chat-Audit tabs) + separate data-coverage panel. Full standalone DevAuditShell (Starters intentionally dropped) now mounted at `/admin/dev/chat-audit`. Same component serves both `/dev/chat-audit` (self-scoped) and `/admin/dev/chat-audit` (admin `scope=all`) via `audit-base-path.tsx` (React context + `auditPath()` helper for base-path decoupling). Old thin CrossUserAuditPanel unmounted.
+- **`use-owner-email-resolver.ts`** — (admin-only) Resolves Keycloak `sub` → email via `useAdminUsers()`, passed as optional `resolveOwner` prop to Sessions tab; standalone keeps `label||ownerId`.
+- **Sessions tab** — `?hideSynthetic=1` query param (default-ON toggle "Hide bot/test") filters via `HUMAN_OWNER_SQL` heuristic (owner_id is email OR UUID-shaped = human; else synthetic). Explicit owner pin overrides filter.
+- **Search tab** — Empty `q` now returns recent turns (new `listRecentTurns` in chat-service turn-search-store) instead of `[]`. Cached + sessions modes already returned rows.
 - **`advisor-audit-panel.tsx`** — Tab in `dev-hub-panel.tsx` (3-pane: filters / run list with failure badges / run detail). Responsive to game/owner/stop-reason filters.
 - **`advisor-audit-run-detail.tsx`** — Turn timeline + tool-call rows + lazy paginated SSE replay + failure-hint banner (next-step guidance per failure type).
 - **`advisor-audit-data.ts`** — Client API consumer for audit routes; paginated fetches.

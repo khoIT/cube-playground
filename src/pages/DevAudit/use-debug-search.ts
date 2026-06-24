@@ -27,6 +27,12 @@ export interface SearchOptions {
   game?: string;
   starredOnly?: boolean;
   limit?: number;
+  /**
+   * When true, an empty `q` fetches the most-recent turns (Search-tab default
+   * affordance) instead of returning an idle/empty state. Off by default so
+   * the Sessions-tab inline search makes no request until the user types.
+   */
+  recentOnEmpty?: boolean;
 }
 
 /**
@@ -49,16 +55,19 @@ export function useDebugSearch(q: string, opts: SearchOptions = {}): SearchState
     setError(null);
     loadingRef.current = false;
 
-    if (!q.trim()) return;
+    const trimmed = q.trim();
+    // Idle unless there's a query OR the caller opted into the recent-turns default.
+    if (!trimmed && !opts.recentOnEmpty) return;
 
     const controller = new AbortController();
     setIsLoading(true);
     loadingRef.current = true;
 
-    const params = new URLSearchParams({ q: q.trim() });
+    const params = new URLSearchParams();
+    if (trimmed) params.set('q', trimmed);
     if (opts.game) params.set('game', opts.game);
     if (opts.starredOnly) params.set('starred', '1');
-    if (opts.limit) params.set('limit', String(opts.limit));
+    params.set('limit', String(opts.limit ?? (trimmed ? 20 : 10)));
 
     fetch(`/api/chat/debug/search?${params.toString()}`, {
       headers: authHeaders(),
@@ -84,7 +93,7 @@ export function useDebugSearch(q: string, opts: SearchOptions = {}): SearchState
 
     return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, opts.game, opts.starredOnly]);
+  }, [q, opts.game, opts.starredOnly, opts.recentOnEmpty]);
 
   const loadMore = useCallback(() => {
     if (!q.trim() || !cursor || loadingRef.current) return;

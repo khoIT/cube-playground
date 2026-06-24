@@ -11,7 +11,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type Database from 'better-sqlite3';
 import { extractOwnerId } from './debug-shared.js';
-import { searchTurns } from '../db/turn-search-store.js';
+import { searchTurns, listRecentTurns } from '../db/turn-search-store.js';
 
 interface SearchRouteOptions {
   db: Database.Database;
@@ -36,10 +36,18 @@ const debugSearchRoutes: FastifyPluginAsync<SearchRouteOptions> = async (fastify
       if (!ownerId) return reply.status(401).send({ error: 'Missing X-Owner-Id header' });
 
       const q = (req.query.q ?? '').trim();
-      if (!q) return reply.send({ results: [], nextCursor: null });
-
       const limit = Math.min(Math.max(parseInt(req.query.limit ?? '20', 10) || 20, 1), 100);
       const starredOnly = req.query.starred === '1' || req.query.starred === 'true';
+
+      // Empty query → default affordance: most-recent turns (no pagination).
+      if (!q) {
+        const recent = listRecentTurns(db, {
+          ownerId,
+          gameId: req.query.game,
+          limit,
+        });
+        return reply.send({ results: recent, nextCursor: null });
+      }
 
       const page = searchTurns(db, {
         ownerId,

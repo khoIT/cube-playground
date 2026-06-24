@@ -88,15 +88,34 @@ describe('GET /debug/search', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('returns empty results for blank q', async () => {
+  it('returns recent turns for blank q (default affordance)', async () => {
+    seedTurnRaw(db, { userText: 'first turn', ownerId: 'owner-a', startedAt: 1000 });
+    seedTurnRaw(db, { userText: 'second turn', ownerId: 'owner-a', startedAt: 2000 });
     const app = await buildApp(db);
     const res = await app.inject({
       method: 'GET', url: '/debug/search?q=',
       headers: { 'x-owner-id': 'owner-a' },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json().results).toHaveLength(0);
-    expect(res.json().nextCursor).toBeNull();
+    const { results, nextCursor } = res.json();
+    // Most-recent first; no pagination on the default list.
+    expect(results).toHaveLength(2);
+    expect(results[0].snippet).toContain('second turn');
+    expect(nextCursor).toBeNull();
+  });
+
+  it('blank q is owner-scoped and capped at limit', async () => {
+    seedTurnRaw(db, { userText: 'mine', ownerId: 'owner-a' });
+    seedTurnRaw(db, { userText: 'theirs', ownerId: 'owner-b' });
+    const app = await buildApp(db);
+    const res = await app.inject({
+      method: 'GET', url: '/debug/search?q=&limit=1',
+      headers: { 'x-owner-id': 'owner-a' },
+    });
+    expect(res.statusCode).toBe(200);
+    const { results } = res.json();
+    expect(results).toHaveLength(1);
+    expect(results[0].snippet).toContain('mine');
   });
 
   it('matches user_text via LIKE', async () => {

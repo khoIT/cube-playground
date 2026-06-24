@@ -15,6 +15,7 @@ import { LlmCallsSection } from './turn-llm-calls-section';
 import { ToolInvocationsSection } from './turn-tool-invocations-section';
 import { PermissionDecisionsSection } from './turn-permission-decisions-section';
 import { TurnAnnotationToggle } from './turn-annotation-toggle';
+import { useAuditBasePath, auditPath } from './audit-base-path';
 import { TurnArtifactsSection, ArtifactCountBadge } from './turn-artifacts-section';
 
 // Langfuse deep-link: VITE_LANGFUSE_HOST set at build time; undefined means hidden.
@@ -173,6 +174,7 @@ interface CacheHitBadgeProps {
 }
 
 function CacheHitBadge({ originalTurnId, originalSessionId }: CacheHitBadgeProps) {
+  const basePath = useAuditBasePath();
   const badgeStyle: React.CSSProperties = {
     fontSize: 10,
     padding: '1px 6px',
@@ -188,7 +190,7 @@ function CacheHitBadge({ originalTurnId, originalSessionId }: CacheHitBadgeProps
   };
 
   if (originalTurnId && originalSessionId) {
-    const href = `/dev/chat-audit/sessions/${encodeURIComponent(originalSessionId)}#turn-${encodeURIComponent(originalTurnId)}`;
+    const href = `${auditPath(basePath, 'sessions', encodeURIComponent(originalSessionId))}#turn-${encodeURIComponent(originalTurnId)}`;
     return (
       <a href={href} style={badgeStyle} title={`Cache hit — replayed from turn ${originalTurnId}`} onClick={(e) => e.stopPropagation()}>
         Cache hit

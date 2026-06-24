@@ -186,3 +186,76 @@ export function searchTurns(db: Database.Database, params: SearchParams): Search
 
   return { results, nextCursor };
 }
+
+export interface RecentTurnsParams {
+  ownerId: string;
+  gameId?: string;
+  limit?: number;
+}
+
+/**
+ * Most-recent turns for an owner — powers the Search tab's default (empty-query)
+ * affordance. No text filter; ordered by started_at DESC like searchTurns, so
+ * default rows and search hits share ordering + the SearchHit shape.
+ * Owner-scoped identically to searchTurns (no cross-owner scope on this route).
+ */
+export function listRecentTurns(db: Database.Database, params: RecentTurnsParams): SearchHit[] {
+  const limit = Math.min(Math.max(params.limit ?? 10, 1), 100);
+
+  const bindings: unknown[] = [params.ownerId];
+  const conditions: string[] = ['cs.owner_id = ?'];
+  if (params.gameId) {
+    conditions.push('cs.game_id = ?');
+    bindings.push(params.gameId);
+  }
+  bindings.push(limit);
+
+  const sql = `
+    SELECT
+      ct.id          AS turn_id,
+      ct.session_id  AS session_id,
+      cs.title       AS session_title,
+      ct.role        AS role,
+      ct.started_at  AS started_at,
+      ct.user_text   AS user_text,
+      ct.assistant_text AS assistant_text,
+      COALESCE(ta.starred, 0) AS starred,
+      ta.flag        AS flag
+    FROM chat_turns ct
+    JOIN chat_sessions cs ON cs.id = ct.session_id
+    LEFT JOIN turn_annotations ta
+      ON ta.turn_id = ct.id AND ta.owner_id = cs.owner_id
+    WHERE ${conditions.join(' AND ')}
+    ORDER BY ct.started_at DESC, ct.id DESC
+    LIMIT ?
+  `;
+
+  type RawRow = {
+    turn_id: string;
+    session_id: string;
+    session_title: string | null;
+    role: string;
+    started_at: number;
+    user_text: string | null;
+    assistant_text: string | null;
+    starred: number;
+    flag: string | null;
+  };
+
+  const rows = db.prepare(sql).all(...bindings) as RawRow[];
+
+  return rows.map((row) => {
+    const text = row.user_text ?? row.assistant_text ?? '';
+    return {
+      turnId: row.turn_id,
+      sessionId: row.session_id,
+      sessionTitle: row.session_title,
+      role: row.role,
+      snippet: text.slice(0, 256),
+      matchSource: row.user_text ? 'user_text' : 'assistant_text',
+      createdAt: new Date(row.started_at).toISOString(),
+      starred: row.starred === 1,
+      flag: row.flag,
+    };
+  });
+}

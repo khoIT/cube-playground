@@ -13,9 +13,11 @@
  */
 import React, { useCallback, useRef } from 'react';
 import { Switch, Route, Redirect, useHistory, useLocation, useRouteMatch } from 'react-router-dom';
+import type { TabDef } from '../../shell/tab-shell';
 import { T } from '../../shell/theme';
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { AuditTabs } from './audit-tabs';
+import { AuditBasePathProvider } from './audit-base-path';
 import { SessionsTab } from './sessions-tab';
 import { SearchTab } from './search-tab';
 import { CacheTab } from './cache-tab';
@@ -75,21 +77,37 @@ const S = {
  * Must be placed AFTER the specific sub-routes in the Switch so that
  * /dev/chat-audit/search, /leaderboard, /cache are matched first.
  */
-function LegacySessionRedirect() {
-  const match = useRouteMatch<{ sessionId: string }>('/dev/chat-audit/:sessionId');
+function LegacySessionRedirect({ basePath }: { basePath: string }) {
+  const match = useRouteMatch<{ sessionId: string }>(`${basePath}/:sessionId`);
   const location = useLocation();
-  if (!match) return <Redirect to="/dev/chat-audit/sessions" />;
+  if (!match) return <Redirect to={`${basePath}/sessions`} />;
   // Preserve hash fragment so anchored bookmarks (e.g. #turn-xyz) survive the redirect.
   return (
     <Redirect
-      to={{ pathname: `/dev/chat-audit/sessions/${match.params.sessionId}`, hash: location.hash }}
+      to={{ pathname: `${basePath}/sessions/${match.params.sessionId}`, hash: location.hash }}
     />
   );
 }
 
-export function DevAuditShell() {
+interface DevAuditShellProps {
+  /** Mount path — standalone /dev/chat-audit or /admin/dev/chat-audit. */
+  basePath?: string;
+  /** Explicit tab set; defaults to the full set (incl. Starters) for standalone. */
+  tabs?: TabDef[];
+  /**
+   * Owner→display resolver for the Sessions tab owner filter. Admin context
+   * supplies one that maps Keycloak sub → email; standalone omits it (keeps
+   * `label || ownerId`). Kept as a prop so DevAudit/ takes no Admin/ import.
+   */
+  resolveOwner?: (o: { ownerId: string; label: string | null }) => string;
+}
+
+export function DevAuditShell({ basePath = '/dev/chat-audit', tabs, resolveOwner }: DevAuditShellProps) {
   const gameId = useActiveGameId();
   const history = useHistory();
+  // Standalone mount shows the framing banner; the admin hub already frames the
+  // surface with its own page header + tab row, so suppress the duplicate banner.
+  const isStandalone = basePath === '/dev/chat-audit';
 
   /**
    * searchInputRef: forwarded to SearchTab's input so cmd-K can focus it.
@@ -98,73 +116,77 @@ export function DevAuditShell() {
    */
   const handleCmdK = useCallback(() => {
     // Navigate to search tab if not already there
-    const onSearch = history.location.pathname.startsWith('/dev/chat-audit/search');
+    const onSearch = history.location.pathname.startsWith(`${basePath}/search`);
     if (!onSearch) {
-      history.push('/dev/chat-audit/search');
+      history.push(`${basePath}/search`);
     }
     // Dispatch a custom event that SearchTab listens to for focusing its input.
     // Using a custom event decouples shell from SearchTab's internal ref.
     window.dispatchEvent(new CustomEvent('dev-audit:focus-search'));
-  }, [history]);
+  }, [history, basePath]);
 
-  useDevAuditShortcuts({ onCmdK: handleCmdK });
+  useDevAuditShortcuts({ onCmdK: handleCmdK, basePath });
 
   return (
-    <div style={S.root}>
-      {/* Sticky header: banner + tabs pinned on scroll */}
-      <div style={S.stickyHeader}>
-        {/* Shared banner — stable across tab switches */}
-        <div style={S.banner}>
-          <span>Chat Audit — internal triage tool</span>
-          <span style={S.gameBadge}>game: {gameId}</span>
+    <AuditBasePathProvider value={basePath}>
+      <div style={S.root}>
+        {/* Sticky header: banner + tabs pinned on scroll */}
+        <div style={S.stickyHeader}>
+          {/* Shared banner — standalone only (admin hub frames its own header) */}
+          {isStandalone && (
+            <div style={S.banner}>
+              <span>Chat Audit — internal triage tool</span>
+              <span style={S.gameBadge}>game: {gameId}</span>
+            </div>
+          )}
+
+          {/* Tab navigation */}
+          <AuditTabs basePath={basePath} tabs={tabs} />
         </div>
 
-        {/* Tab navigation */}
-        <AuditTabs />
+        {/* Tab content area */}
+        <div style={S.content}>
+          <Switch>
+            {/* Exact base → redirect to sessions tab */}
+            <Route exact path={basePath}>
+              <Redirect to={`${basePath}/sessions`} />
+            </Route>
+
+            {/* Sessions tab: {base}/sessions/:sessionId? */}
+            <Route path={`${basePath}/sessions/:sessionId?`}>
+              <div role="tabpanel" id="audit-panel-sessions" aria-labelledby="audit-tab-sessions" style={{ display: 'contents' }}>
+                <SessionsTab resolveOwner={resolveOwner} />
+              </div>
+            </Route>
+
+            {/* Search tab: {base}/search */}
+            <Route path={`${basePath}/search`}>
+              <div role="tabpanel" id="audit-panel-search" aria-labelledby="audit-tab-search" style={{ display: 'contents' }}>
+                <SearchTab />
+              </div>
+            </Route>
+
+            {/* Leaderboard tab: {base}/leaderboard */}
+            <Route path={`${basePath}/leaderboard`}>
+              <div role="tabpanel" id="audit-panel-leaderboard" aria-labelledby="audit-tab-leaderboard" style={{ display: 'contents' }}>
+                <SkillLeaderboardPage />
+              </div>
+            </Route>
+
+            {/* Cache tab: {base}/cache */}
+            <Route path={`${basePath}/cache`}>
+              <div role="tabpanel" id="audit-panel-cache" aria-labelledby="audit-tab-cache" style={{ display: 'contents' }}>
+                <CacheTab />
+              </div>
+            </Route>
+
+            {/* Legacy redirect: {base}/:sessionId → {base}/sessions/:sessionId */}
+            <Route path={`${basePath}/:sessionId`}>
+              <LegacySessionRedirect basePath={basePath} />
+            </Route>
+          </Switch>
+        </div>
       </div>
-
-      {/* Tab content area */}
-      <div style={S.content}>
-        <Switch>
-          {/* Exact base → redirect to sessions tab */}
-          <Route exact path="/dev/chat-audit">
-            <Redirect to="/dev/chat-audit/sessions" />
-          </Route>
-
-          {/* Sessions tab: /dev/chat-audit/sessions/:sessionId? */}
-          <Route path="/dev/chat-audit/sessions/:sessionId?">
-            <div role="tabpanel" id="audit-panel-sessions" aria-labelledby="audit-tab-sessions" style={{ display: 'contents' }}>
-              <SessionsTab />
-            </div>
-          </Route>
-
-          {/* Search tab: /dev/chat-audit/search */}
-          <Route path="/dev/chat-audit/search">
-            <div role="tabpanel" id="audit-panel-search" aria-labelledby="audit-tab-search" style={{ display: 'contents' }}>
-              <SearchTab />
-            </div>
-          </Route>
-
-          {/* Leaderboard tab: /dev/chat-audit/leaderboard */}
-          <Route path="/dev/chat-audit/leaderboard">
-            <div role="tabpanel" id="audit-panel-leaderboard" aria-labelledby="audit-tab-leaderboard" style={{ display: 'contents' }}>
-              <SkillLeaderboardPage />
-            </div>
-          </Route>
-
-          {/* Cache tab: /dev/chat-audit/cache */}
-          <Route path="/dev/chat-audit/cache">
-            <div role="tabpanel" id="audit-panel-cache" aria-labelledby="audit-tab-cache" style={{ display: 'contents' }}>
-              <CacheTab />
-            </div>
-          </Route>
-
-          {/* Legacy redirect: /dev/chat-audit/:sessionId → /dev/chat-audit/sessions/:sessionId */}
-          <Route path="/dev/chat-audit/:sessionId">
-            <LegacySessionRedirect />
-          </Route>
-        </Switch>
-      </div>
-    </div>
+    </AuditBasePathProvider>
   );
 }
