@@ -141,4 +141,55 @@ describe('session-aggregator', () => {
     expect(r.sessions).toHaveLength(2);       // capped
     expect(r.sessions[0].start).toBeGreaterThan(r.sessions[1].start); // newest first
   });
+
+  it('cube_outage health flaps are excluded from the timeline, counts, and sparkline', () => {
+    // One real session (two feature opens), interleaved with outage flaps that
+    // would otherwise show as "open recovered" and inflate the event count.
+    feature('alice-sub', 'segments', NOW - 30 * MIN_MS);
+    feature('alice-sub', 'dashboards', NOW - 25 * MIN_MS);
+    for (const phase of ['unreachable', 'recovered', 'unreachable', 'recovered']) {
+      insertActivity(getDb(), principal('alice-sub'), {
+        eventType: 'cube_outage', targetType: 'cube_api', targetId: phase, ts: NOW - 27 * MIN_MS,
+      });
+    }
+    const r = buildUserSessions('alice@corp.com', { now: NOW });
+    expect(r.sessions30).toBe(1);
+    expect(r.sessions[0].events).toHaveLength(2); // only the two feature opens
+    expect(r.sessions[0].events.every((e) => e.type !== 'cube_outage')).toBe(true);
+    expect(r.sparkline[29]).toBe(2); // today: outage flaps not counted
+  });
+
+  it('a window of ONLY cube_outage flaps yields no phantom sessions', () => {
+    // A tab left open while Cube blips emits outage beacons with no user action.
+    for (let i = 0; i < 6; i += 1) {
+      insertActivity(getDb(), principal('alice-sub'), {
+        eventType: 'cube_outage', targetType: 'cube_api',
+        targetId: i % 2 === 0 ? 'unreachable' : 'recovered', ts: NOW - (i + 1) * MIN_MS,
+      });
+    }
+    const r = buildUserSessions('alice@corp.com', { now: NOW });
+    expect(r.sessions30).toBe(0);
+    expect(r.sessions).toEqual([]);
+    expect(r.sparkline.every((n) => n === 0)).toBe(true);
+  });
+
+  it('headline count + sparkline reflect the true 30d window, not just the detail-scan cap', () => {
+    // An old session beyond the newest 1000 events: the capped detail scan can't
+    // see it, but the full-window count + sparkline must.
+    // Both old events sit firmly inside one "days-ago" bucket (12d ago, index 17).
+    const oldStart = NOW - 12 * DAY_MS - 30 * MIN_MS;
+    feature('alice-sub', 'a', oldStart);
+    feature('alice-sub', 'b', oldStart + 2 * MIN_MS); // old session (2 events)
+    // 1000 recent events today, all within one session (well under the gap).
+    for (let i = 0; i < 1000; i += 1) {
+      feature('alice-sub', 'segments', NOW - (1000 - i) * 1000); // 1s apart, ascending
+    }
+    const r = buildUserSessions('alice@corp.com', { now: NOW, limit: 10 });
+    expect(r.sessions30).toBe(2);              // both sessions counted across 30d
+    expect(r.sparkline[29]).toBe(1000);        // today
+    expect(r.sparkline[17]).toBe(2);           // 12 days ago
+    // Detail scan is capped at the newest 1000 events → only the recent session
+    // surfaces in the returned cards, but the headline still counts both.
+    expect(r.sessions.length).toBeGreaterThanOrEqual(1);
+  });
 });

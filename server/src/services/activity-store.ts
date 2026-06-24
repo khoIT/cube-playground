@@ -216,6 +216,11 @@ export interface QueryActivityOpts {
    *  AND if both are given (callers normally set one or the other). */
   actorSubs?: string[];
   eventType?: ActivityEventType;
+  /** Event types to exclude (event_type NOT IN (...)). Used to keep
+   *  infrastructure-health telemetry (`cube_outage`) out of the user-activity
+   *  session timeline so it neither pollutes the events shown nor consumes the
+   *  `limit` scan budget ahead of real activity. */
+  excludeEventTypes?: ActivityEventType[];
   since?: number;
   until?: number;
   limit?: number;
@@ -235,6 +240,10 @@ export function queryActivity(db: Database.Database, opts: QueryActivityOpts = {
   if (opts.eventType) {
     clauses.push('event_type = ?');
     params.push(opts.eventType);
+  }
+  if (opts.excludeEventTypes && opts.excludeEventTypes.length > 0) {
+    clauses.push(`event_type NOT IN (${opts.excludeEventTypes.map(() => '?').join(', ')})`);
+    params.push(...opts.excludeEventTypes);
   }
   if (opts.since !== undefined) {
     clauses.push('ts >= ?');
@@ -259,6 +268,38 @@ export function queryActivity(db: Database.Database, opts: QueryActivityOpts = {
     .all(...params, limit) as RawRow[];
 
   return rows.map(rowFromRaw);
+}
+
+export interface ActivityTimestampsOpts {
+  actorSubs: string[];
+  since: number;
+  until: number;
+  /** Event types to exclude (e.g. `cube_outage` health flaps). */
+  excludeEventTypes?: ActivityEventType[];
+}
+
+/**
+ * Ascending event timestamps for an actor within a window — one narrow column,
+ * no row cap. The session aggregator uses this to derive the TRUE 30-day
+ * session count + daily sparkline, which must reflect the whole window and so
+ * can't ride the row-capped `queryActivity` detail scan (a busy user's older
+ * days would fall outside the cap and read as zero activity). Bounded naturally
+ * by the window + the (actor_sub, ts) index; this is an admin-only surface.
+ */
+export function activityTimestamps(db: Database.Database, opts: ActivityTimestampsOpts): number[] {
+  if (opts.actorSubs.length === 0) return [];
+  const params: unknown[] = [...opts.actorSubs];
+  let where = `actor_sub IN (${opts.actorSubs.map(() => '?').join(', ')}) AND ts >= ? AND ts <= ?`;
+  params.push(opts.since, opts.until);
+  if (opts.excludeEventTypes && opts.excludeEventTypes.length > 0) {
+    where += ` AND event_type NOT IN (${opts.excludeEventTypes.map(() => '?').join(', ')})`;
+    params.push(...opts.excludeEventTypes);
+  }
+  return (
+    db
+      .prepare(`SELECT ts FROM activity_events WHERE ${where} ORDER BY ts ASC`)
+      .all(...params) as Array<{ ts: number }>
+  ).map((r) => r.ts);
 }
 
 /** Distinct actor subs that produced any event at or after `since`. */

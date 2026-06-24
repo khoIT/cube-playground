@@ -62,30 +62,66 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
-function EventRow({ ev }: { ev: SessionEvent }) {
-  const isQuery = ev.type === 'query_run';
+type EventTone = 'info' | 'muted' | 'success';
+const TONE_BG: Record<EventTone, string> = {
+  info: 'var(--info-soft)', muted: 'var(--muted-soft)', success: 'var(--success-soft)',
+};
+const TONE_INK: Record<EventTone, string> = {
+  info: 'var(--info-ink)', muted: 'var(--muted-ink)', success: 'var(--success-ink)',
+};
+
+/**
+ * Maps a non-query event to its badge label, tone, and human body text.
+ * `cube_outage` is filtered out server-side (it's backend-health telemetry, not
+ * user activity), so the timeline only carries real actions. segment_op carries
+ * an opaque segment id, so it shows the action word with no raw id body.
+ */
+function describeEvent(ev: SessionEvent): { badge: string; tone: EventTone; body: string | null } {
+  switch (ev.type) {
+    case 'feature_open':
+      return { badge: 'open', tone: 'muted', body: ev.target ? (FEATURE_LABEL[ev.target] ?? ev.target) : 'feature' };
+    case 'segment_op':
+      return { badge: 'segment', tone: 'success', body: null };
+    case 'workspace_switch':
+      return { badge: 'workspace', tone: 'muted', body: ev.target };
+    case 'export':
+      return { badge: 'export', tone: 'muted', body: ev.target };
+    default:
+      return { badge: ev.type, tone: 'muted', body: ev.target };
+  }
+}
+
+function EventBadge({ tone, children }: { tone: EventTone; children: React.ReactNode }) {
   return (
-    <li style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '4px 0' }}>
-      <span
-        style={{
-          fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 'var(--radius-full)',
-          background: isQuery ? 'var(--info-soft)' : 'var(--muted-soft)',
-          color: isQuery ? 'var(--info-ink)' : 'var(--muted-ink)', whiteSpace: 'nowrap', flexShrink: 0,
-        }}
-      >
-        {isQuery ? 'query' : 'open'}
-      </span>
-      {isQuery ? (
-        ev.shape ? (
+    <span
+      style={{
+        fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 'var(--radius-full)',
+        background: TONE_BG[tone], color: TONE_INK[tone], whiteSpace: 'nowrap', flexShrink: 0,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+function EventRow({ ev }: { ev: SessionEvent }) {
+  if (ev.type === 'query_run') {
+    return (
+      <li style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '4px 0' }}>
+        <EventBadge tone="info">query</EventBadge>
+        {ev.shape ? (
           <QueryShapeInline shape={ev.shape} />
         ) : (
           <span style={{ fontSize: 11.5, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', color: 'var(--text-secondary)' }}>query</span>
-        )
-      ) : (
-        <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
-          {ev.target ? (FEATURE_LABEL[ev.target] ?? ev.target) : 'feature'}
-        </span>
-      )}
+        )}
+      </li>
+    );
+  }
+  const { badge, tone, body } = describeEvent(ev);
+  return (
+    <li style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '4px 0' }}>
+      <EventBadge tone={tone}>{badge}</EventBadge>
+      {body && <span style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>{body}</span>}
     </li>
   );
 }

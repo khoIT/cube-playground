@@ -14,18 +14,28 @@
  * never logged in) or no events yields an empty timeline — never a throw.
  */
 
+import type { ActivityEventType } from './activity-event-types.js';
 import { getDb } from '../db/sqlite.js';
 import { getAccess, normalizeEmail } from '../auth/access-store.js';
 import { ownerSubsForEmail } from '../auth/principal.js';
-import { queryActivity, parseQueryShape } from './activity-store.js';
+import { queryActivity, activityTimestamps, parseQueryShape } from './activity-store.js';
 
 /** Idle gap (minutes) that ends one session and starts the next. */
 const GAP_MIN = 60;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Sessionization window: only events from the last N days are considered. */
 const WINDOW_DAYS = 30;
-/** Hard cap on events scanned, to bound cost on a very busy actor. */
+/** Hard cap on events scanned for the per-session event DETAIL, to bound cost on
+ *  a very busy actor. The headline session count + sparkline are derived from a
+ *  separate full-window timestamp scan so they reflect the true 30-day window,
+ *  not just the newest `SCAN_LIMIT` events. */
 const SCAN_LIMIT = 1000;
+/** Event types kept OUT of the session timeline. `cube_outage` is backend
+ *  reachability telemetry, not a user action — a browser tab left open emits a
+ *  flap beacon every time the gateway/Cube blips, which would otherwise fabricate
+ *  phantom 0-minute "sessions" and bury real activity. Outage stats live on the
+ *  org observability surface instead. */
+const TIMELINE_EXCLUDE: ActivityEventType[] = ['cube_outage'];
 
 export interface SessionEvent {
   ts: number;
@@ -86,20 +96,42 @@ export function buildUserSessions(emailRaw: string, opts: SessionsOpts = {}): Us
   if (subs.length === 0) return emptyResult();
 
   const since = now - WINDOW_DAYS * DAY_MS;
-  // queryActivity returns newest-first; sessionization needs chronological order.
-  const rows = queryActivity(getDb(), { actorSubs: subs, since, until: now, limit: SCAN_LIMIT })
-    .slice()
-    .sort((a, b) => a.ts - b.ts);
 
-  if (rows.length === 0) return emptyResult();
+  // True 30-day signal: every activity timestamp in the window (outage flaps
+  // excluded), ascending. One narrow column, no row cap — so the headline count
+  // + sparkline reflect the whole window, not just the newest SCAN_LIMIT events.
+  const allTs = activityTimestamps(getDb(), {
+    actorSubs: subs,
+    since,
+    until: now,
+    excludeEventTypes: TIMELINE_EXCLUDE,
+  });
+  if (allTs.length === 0) return emptyResult();
 
   // Daily event-count sparkline: index 0 = oldest day, last = today.
   const sparkline = new Array(WINDOW_DAYS).fill(0);
-  for (const r of rows) {
-    const dayAgo = Math.floor((now - r.ts) / DAY_MS);
+  for (const ts of allTs) {
+    const dayAgo = Math.floor((now - ts) / DAY_MS);
     const idx = WINDOW_DAYS - 1 - dayAgo;
     if (idx >= 0 && idx < WINDOW_DAYS) sparkline[idx] += 1;
   }
+
+  // Headline count + mean duration: gap-sessionize the full-window timestamps.
+  const { count: sessions30, totalDurationMs } = sessionizeTimestamps(allTs, gapMs);
+  const avgDurationMs = sessions30 === 0 ? 0 : Math.round(totalDurationMs / sessions30);
+
+  // Per-session event DETAIL for the newest `limit` sessions: capped full-row
+  // scan (newest-first → chronological). The recent end is identical to the
+  // full-window pass, so the newest sessions shown line up with the headline.
+  const rows = queryActivity(getDb(), {
+    actorSubs: subs,
+    since,
+    until: now,
+    excludeEventTypes: TIMELINE_EXCLUDE,
+    limit: SCAN_LIMIT,
+  })
+    .slice()
+    .sort((a, b) => a.ts - b.ts);
 
   // Sessionize: a gap strictly greater than gapMs starts a new session.
   const sessions: UserSession[] = [];
@@ -124,11 +156,31 @@ export function buildUserSessions(emailRaw: string, opts: SessionsOpts = {}): Us
   }
   flush();
 
-  const sessions30 = sessions.length;
-  const avgDurationMs =
-    sessions30 === 0 ? 0 : Math.round(sessions.reduce((s, x) => s + x.durationMs, 0) / sessions30);
-
   // Newest first, capped.
   sessions.reverse();
   return { sessions: sessions.slice(0, limit), sessions30, avgDurationMs, sparkline };
+}
+
+/**
+ * Gap-sessionize an ascending timestamp list: returns the session count and the
+ * summed duration (last−first ts per session). Same idle-gap rule as the
+ * detailed pass, but over timestamps only — used for the true 30-day headline.
+ */
+function sessionizeTimestamps(tsAsc: number[], gapMs: number): { count: number; totalDurationMs: number } {
+  if (tsAsc.length === 0) return { count: 0, totalDurationMs: 0 };
+  let count = 1;
+  let totalDurationMs = 0;
+  let start = tsAsc[0];
+  let prev = tsAsc[0];
+  for (let i = 1; i < tsAsc.length; i += 1) {
+    const ts = tsAsc[i];
+    if (ts - prev > gapMs) {
+      totalDurationMs += prev - start;
+      count += 1;
+      start = ts;
+    }
+    prev = ts;
+  }
+  totalDurationMs += prev - start;
+  return { count, totalDurationMs };
 }
