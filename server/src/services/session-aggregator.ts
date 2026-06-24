@@ -102,6 +102,7 @@ export function buildUserSessions(emailRaw: string, opts: SessionsOpts = {}): Us
   // + sparkline reflect the whole window, not just the newest SCAN_LIMIT events.
   const allTs = activityTimestamps(getDb(), {
     actorSubs: subs,
+    actorEmail: email,
     since,
     until: now,
     excludeEventTypes: TIMELINE_EXCLUDE,
@@ -125,6 +126,7 @@ export function buildUserSessions(emailRaw: string, opts: SessionsOpts = {}): Us
   // full-window pass, so the newest sessions shown line up with the headline.
   const rows = queryActivity(getDb(), {
     actorSubs: subs,
+    actorEmail: email,
     since,
     until: now,
     excludeEventTypes: TIMELINE_EXCLUDE,

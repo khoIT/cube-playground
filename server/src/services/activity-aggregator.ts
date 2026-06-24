@@ -179,19 +179,26 @@ export async function buildUserActivity(
           .get(...subs) as { n: number }).n
       : 0;
 
-  const recentFeatures =
-    subs.length > 0
-      ? queryActivity(db, { actorSubs: subs, eventType: 'feature_open', limit: 10 })
-          .map((r) => r.targetId)
-          .filter((t): t is string => !!t)
-      : [];
+  // Match by sub OR denormalised email: a person's events can be keyed under
+  // several subs (dev sub, pre/post auth-migration UUIDs), and the single frozen
+  // user_access.kc_sub a sub-only read resolves to misses the rest.
+  const recentFeatures = queryActivity(db, {
+    actorSubs: subs,
+    actorEmail: email,
+    eventType: 'feature_open',
+    limit: 10,
+  })
+    .map((r) => r.targetId)
+    .filter((t): t is string => !!t);
 
-  const recentQueryShapes =
-    subs.length > 0
-      ? queryActivity(db, { actorSubs: subs, eventType: 'query_run', limit: 10 })
-          .map((r) => parseQueryShape(r.detailJson))
-          .filter((s): s is ReturnType<typeof projectQueryShape> => s !== null)
-      : [];
+  const recentQueryShapes = queryActivity(db, {
+    actorSubs: subs,
+    actorEmail: email,
+    eventType: 'query_run',
+    limit: 10,
+  })
+    .map((r) => parseQueryShape(r.detailJson))
+    .filter((s): s is ReturnType<typeof projectQueryShape> => s !== null);
 
   // Chat stats across both owner-keys; unknown → null (not a silent zero).
   const chat = subs.length > 0 ? await fetchStats(subs, { fromMs: now - 30 * DAY_MS, toMs: now }) : null;

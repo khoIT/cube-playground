@@ -45,6 +45,18 @@ function feature(sub: string, target: string, ts: number) {
   insertActivity(getDb(), principal(sub), { eventType: 'feature_open', targetId: target, ts });
 }
 
+/** Insert a row with an explicit actor_sub + actor_email — used to simulate a
+ *  person whose events are keyed under a sub that no longer matches their frozen
+ *  user_access.kc_sub (e.g. after an IdP realm/client change). */
+function insertRaw(sub: string, email: string | null, target: string, ts: number) {
+  getDb()
+    .prepare(
+      `INSERT INTO activity_events (actor_sub, actor_email, event_type, target_id, ts)
+       VALUES (?, ?, 'feature_open', ?, ?)`,
+    )
+    .run(sub, email, target, ts);
+}
+
 describe('session-aggregator', () => {
   beforeEach(() => {
     setDb(makeMemDb());
@@ -140,6 +152,27 @@ describe('session-aggregator', () => {
     expect(r.sessions30).toBe(3);             // total across window
     expect(r.sessions).toHaveLength(2);       // capped
     expect(r.sessions[0].start).toBeGreaterThan(r.sessions[1].start); // newest first
+  });
+
+  it('recovers events keyed under a foreign sub via the denormalised email (frozen kc_sub)', () => {
+    // alice's user_access.kc_sub is 'alice-sub' (set in beforeEach), but her
+    // recent events are keyed under a NEW sub minted by an auth migration — with
+    // actor_email still carrying her email. A sub-only read would miss them.
+    insertRaw('alice-new-uuid', 'alice@corp.com', 'segments', NOW - 20 * MIN_MS);
+    insertRaw('alice-new-uuid', 'alice@corp.com', 'dashboards', NOW - 18 * MIN_MS);
+    const r = buildUserSessions('alice@corp.com', { now: NOW });
+    expect(r.sessions30).toBe(1);
+    expect(r.sessions[0].events).toHaveLength(2);
+    expect(r.sparkline[29]).toBe(2);
+  });
+
+  it('email match is case-insensitive and does not leak another user’s events', () => {
+    insertRaw('some-uuid', 'Alice@Corp.com', 'segments', NOW - 15 * MIN_MS); // mixed case
+    insertRaw('bob-uuid', 'bob@corp.com', 'admin', NOW - 14 * MIN_MS);       // different user
+    const r = buildUserSessions('alice@corp.com', { now: NOW });
+    expect(r.sessions30).toBe(1);
+    expect(r.sessions[0].events).toHaveLength(1);
+    expect(r.sessions[0].events[0].target).toBe('segments'); // bob's 'admin' excluded
   });
 
   it('cube_outage health flaps are excluded from the timeline, counts, and sparkline', () => {

@@ -215,6 +215,12 @@ export interface QueryActivityOpts {
    *  UUID in real-auth and the email in dev mode. Combined with `actorSub` via
    *  AND if both are given (callers normally set one or the other). */
   actorSubs?: string[];
+  /** Match the denormalised `actor_email` column (case-folded), OR-ed with the
+   *  actor_sub terms. A person's events can be keyed under several subs over
+   *  their lifetime (dev sub, pre/post auth-migration UUIDs); actor_email is the
+   *  stable key the admin views by, so OR-ing it recovers events under any sub
+   *  that the single frozen user_access.kc_sub would miss. */
+  actorEmail?: string;
   eventType?: ActivityEventType;
   /** Event types to exclude (event_type NOT IN (...)). Used to keep
    *  infrastructure-health telemetry (`cube_outage`) out of the user-activity
@@ -229,14 +235,21 @@ export interface QueryActivityOpts {
 export function queryActivity(db: Database.Database, opts: QueryActivityOpts = {}): ActivityRow[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
+  // Actor identity is an OR group: match by sub OR by denormalised email.
+  const actorOr: string[] = [];
   if (opts.actorSub) {
-    clauses.push('actor_sub = ?');
+    actorOr.push('actor_sub = ?');
     params.push(opts.actorSub);
   }
   if (opts.actorSubs && opts.actorSubs.length > 0) {
-    clauses.push(`actor_sub IN (${opts.actorSubs.map(() => '?').join(', ')})`);
+    actorOr.push(`actor_sub IN (${opts.actorSubs.map(() => '?').join(', ')})`);
     params.push(...opts.actorSubs);
   }
+  if (opts.actorEmail) {
+    actorOr.push('LOWER(actor_email) = ?');
+    params.push(opts.actorEmail.toLowerCase());
+  }
+  if (actorOr.length > 0) clauses.push(`(${actorOr.join(' OR ')})`);
   if (opts.eventType) {
     clauses.push('event_type = ?');
     params.push(opts.eventType);
@@ -272,6 +285,9 @@ export function queryActivity(db: Database.Database, opts: QueryActivityOpts = {
 
 export interface ActivityTimestampsOpts {
   actorSubs: string[];
+  /** Case-folded `actor_email` match, OR-ed with `actorSubs` — recovers events
+   *  keyed under a sub the frozen user_access.kc_sub no longer points at. */
+  actorEmail?: string;
   since: number;
   until: number;
   /** Event types to exclude (e.g. `cube_outage` health flaps). */
@@ -287,9 +303,19 @@ export interface ActivityTimestampsOpts {
  * by the window + the (actor_sub, ts) index; this is an admin-only surface.
  */
 export function activityTimestamps(db: Database.Database, opts: ActivityTimestampsOpts): number[] {
-  if (opts.actorSubs.length === 0) return [];
-  const params: unknown[] = [...opts.actorSubs];
-  let where = `actor_sub IN (${opts.actorSubs.map(() => '?').join(', ')}) AND ts >= ? AND ts <= ?`;
+  // Actor identity is an OR group: sub set OR denormalised email.
+  const actorOr: string[] = [];
+  const params: unknown[] = [];
+  if (opts.actorSubs.length > 0) {
+    actorOr.push(`actor_sub IN (${opts.actorSubs.map(() => '?').join(', ')})`);
+    params.push(...opts.actorSubs);
+  }
+  if (opts.actorEmail) {
+    actorOr.push('LOWER(actor_email) = ?');
+    params.push(opts.actorEmail.toLowerCase());
+  }
+  if (actorOr.length === 0) return [];
+  let where = `(${actorOr.join(' OR ')}) AND ts >= ? AND ts <= ?`;
   params.push(opts.since, opts.until);
   if (opts.excludeEventTypes && opts.excludeEventTypes.length > 0) {
     where += ` AND event_type NOT IN (${opts.excludeEventTypes.map(() => '?').join(', ')})`;
