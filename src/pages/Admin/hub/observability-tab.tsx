@@ -155,7 +155,7 @@ function InactiveList({ users, onDisabled }: { users: InactiveUser[]; onDisabled
             >
               <div style={{ minWidth: 0, flex: 1 }}>
                 <Link
-                  to={`/admin/observability/${encodeURIComponent(u.email)}`}
+                  to={`/admin/observability/users/${encodeURIComponent(u.email)}`}
                   style={{
                     fontSize: 13, color: 'var(--text-primary)', textDecoration: 'none',
                     display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',

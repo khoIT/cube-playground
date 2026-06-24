@@ -1,0 +1,362 @@
+<meta charset="utf-8" />
+<title>Observability v2 — interactive proposal</title>
+<style>
+  /* ---- tokens lifted verbatim from src/theme/tokens.css (light) ---- */
+  :root {
+    --neutral-50:#f3e9dd; --neutral-100:#ecdfce; --neutral-200:#e1d4c2; --neutral-300:#d2c2ab;
+    --neutral-500:#737373; --neutral-700:#404040; --neutral-900:#171717;
+    --brand:#f05a22; --brand-hover:#f54a00; --brand-soft:#fff7ed; --brand-ink:#9a3412;
+    --bg-app:#f8efe5; --bg-card:#f8efe5; --bg-muted:#efe3d4;
+    --border-card:var(--neutral-200); --border-strong:var(--neutral-300);
+    --text-primary:var(--neutral-900); --text-secondary:var(--neutral-700); --text-muted:var(--neutral-500);
+    --text-on-brand:#fff;
+    --surface-inset:#f3e9dd;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --muted-soft:#efe3d4; --muted-ink:#525252;
+    --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-full:9999px;
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg-app); font-family:var(--font-sans); color:var(--text-primary); }
+  .page { padding:24px 32px; max-width:1400px; margin:0 auto; }
+
+  /* eyebrow + page title */
+  .eyebrow { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:4px; }
+  .h1 { display:flex; align-items:center; gap:10px; }
+  .h1 h1 { margin:0; font-size:20px; font-weight:700; }
+  .h1 .ic { width:20px;height:20px;color:var(--brand); }
+  .sub { margin:4px 0 0; font-size:13px; color:var(--text-muted); }
+
+  /* ---- persistent tab header (point 1) ---- */
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border-card); margin:16px 0 0; }
+  .tab { padding:9px 14px; font-size:13px; font-weight:600; color:var(--text-muted); cursor:pointer;
+         border:none; background:none; border-bottom:2px solid transparent; font-family:inherit; position:relative; }
+  .tab.active { color:var(--text-primary); border-bottom-color:var(--brand); }
+  .tab .badge { margin-left:7px; font-size:10px; font-weight:700; background:var(--warning-soft); color:var(--warning-ink);
+                padding:1px 6px; border-radius:var(--radius-full); }
+
+  /* sub-tabs: segmented control, subordinate to the main underline tab bar */
+  .subtabs { display:inline-flex; gap:2px; padding:3px; margin:16px 0; border-radius:var(--radius-md);
+             background:var(--bg-muted); border:1px solid var(--border-card); }
+  .subtab { padding:6px 16px; font-size:12.5px; font-weight:600; cursor:pointer; border:none; border-radius:var(--radius-sm);
+            background:none; color:var(--text-muted); font-family:inherit; }
+  .subtab.on { background:var(--bg-card); color:var(--text-primary); box-shadow:0 1px 2px rgba(0,0,0,.06); }
+
+  /* sections */
+  .section { margin-top:4px; }
+  .section-head { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
+  .section-head h2 { margin:0; font-size:15px; font-weight:700; }
+  .section-head .note { font-size:12px; color:var(--text-muted); }
+
+  .card { border:1px solid var(--border-card); border-radius:var(--radius-lg); background:var(--bg-card); padding:14px 16px; }
+  .klabel { font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; color:var(--text-muted); }
+  .kval { font-size:26px; font-weight:700; line-height:1.2; margin-top:4px; }
+  .knote { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+
+  /* collapsible (point 3 — bigger chevrons) */
+  .coll { border:1px solid var(--border-card); border-radius:var(--radius-lg); background:var(--bg-card); margin-top:12px; }
+  .coll-head { display:flex; align-items:center; gap:12px; padding:14px 16px; cursor:pointer; user-select:none; }
+  .chev { width:28px; height:28px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+          border:1px solid var(--border-strong); border-radius:var(--radius-md); background:var(--bg-muted);
+          transition:transform .15s ease; }
+  .chev svg { width:16px; height:16px; color:var(--text-secondary); }
+  .coll.open .chev { transform:rotate(90deg); }
+  .coll-title { font-size:14px; font-weight:700; }
+  .coll-desc { font-size:12px; color:var(--text-muted); }
+  .coll-right { margin-left:auto; font-size:12px; color:var(--text-muted); }
+  .coll-body { padding:0 16px 16px; border-top:1px solid var(--border-card); display:none; }
+  .coll.open .coll-body { display:block; padding-top:14px; }
+  .stub { font-size:12.5px; color:var(--text-muted); padding:10px 0; }
+
+  /* users table (point 2 — separate section, real table not a rail) */
+  .search { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border-strong);
+            border-radius:var(--radius-md); padding:7px 11px; max-width:320px; margin-bottom:10px; }
+  .search input { border:none; background:none; outline:none; font-family:inherit; font-size:13px; flex:1; color:var(--text-primary); }
+  table { width:100%; border-collapse:collapse; border:1px solid var(--border-card); border-radius:var(--radius-lg); overflow:hidden; }
+  thead th { text-align:left; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+             color:var(--text-muted); padding:9px 14px; background:var(--bg-muted); border-bottom:1px solid var(--border-card); }
+  tbody td { padding:10px 14px; font-size:13px; border-bottom:1px solid var(--border-card); }
+  tbody tr { cursor:pointer; }
+  tbody tr:hover { background:var(--surface-inset); }
+  tbody tr:last-child td { border-bottom:none; }
+  .who { display:flex; align-items:center; gap:10px; }
+  .avatar { width:28px;height:28px;border-radius:var(--radius-full); background:var(--bg-muted); color:var(--text-secondary);
+            display:flex; align-items:center; justify-content:center; font-size:10.5px; font-weight:700; flex-shrink:0; }
+  .dot { width:7px;height:7px;border-radius:var(--radius-full); display:inline-block; }
+  .pill { font-size:11px; font-weight:600; padding:2px 8px; border-radius:var(--radius-full); }
+  .pill.active { background:var(--success-soft); color:var(--success-ink); }
+  .pill.pending { background:var(--warning-soft); color:var(--warning-ink); }
+  .pill.disabled { background:var(--muted-soft); color:var(--muted-ink); }
+
+  /* per-user header + switcher (point 1 — switch dropdown) */
+  .uhead { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:18px; }
+  .uhead .avatar { width:42px;height:42px;font-size:14px; background:var(--brand-soft); color:var(--brand-ink); }
+  .uname { font-size:16px; font-weight:700; }
+  .umeta { font-size:12px; color:var(--text-muted); margin-top:2px; display:flex; gap:8px; align-items:center; }
+  .spacer { flex:1; }
+  .backlink { font-size:13px; font-weight:600; color:var(--text-secondary); text-decoration:none; display:inline-flex; align-items:center; gap:6px;
+              border:1px solid var(--border-card); border-radius:var(--radius-md); padding:7px 12px; background:var(--bg-card); cursor:pointer; }
+  .backlink:hover { background:var(--surface-inset); }
+
+  .switch { position:relative; }
+  .switch-btn { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--border-strong); border-radius:var(--radius-md);
+                background:var(--bg-card); padding:7px 12px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; color:var(--text-primary); }
+  .switch-menu { position:absolute; top:calc(100% + 6px); right:0; width:280px; background:var(--bg-card); border:1px solid var(--border-strong);
+                 border-radius:var(--radius-md); box-shadow:var(--shadow-sm); padding:8px; z-index:20; display:none; }
+  .switch.open .switch-menu { display:block; }
+  .switch-menu .search { max-width:none; margin-bottom:8px; }
+  .switch-row { display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:var(--radius-md); cursor:pointer; }
+  .switch-row:hover { background:var(--surface-inset); }
+  .switch-row.sel { box-shadow:inset 3px 0 0 var(--brand); background:var(--surface-inset); }
+  .switch-row .nm { font-size:12.5px; font-weight:600; }
+  .switch-row .mt { font-size:10.5px; color:var(--text-muted); }
+
+  /* activity/access toggle */
+  .toggle { display:inline-flex; gap:2px; padding:3px; border-radius:var(--radius-md); background:var(--bg-muted); border:1px solid var(--border-card); margin:16px 0; }
+  .toggle button { padding:6px 14px; font-size:12.5px; font-weight:600; cursor:pointer; border:none; border-radius:var(--radius-sm);
+                   background:none; color:var(--text-muted); font-family:inherit; }
+  .toggle button.on { background:var(--bg-card); color:var(--text-primary); box-shadow:0 1px 2px rgba(0,0,0,.06); }
+
+  .grid2 { display:grid; grid-template-columns:1.4fr 1fr; gap:12px; }
+  .bar { height:8px; background:var(--bg-muted); border-radius:var(--radius-full); overflow:hidden; flex:1; }
+  .bar > span { display:block; height:100%; background:var(--brand); }
+  .feat { display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--text-secondary); margin:8px 0; }
+  .feat .nm { width:120px; flex-shrink:0; }
+  .hidden { display:none; }
+
+  /* per-user master-detail: rail + profile (point: keep the rail) */
+  .udetail { display:grid; grid-template-columns:minmax(240px,288px) 1fr; border:1px solid var(--border-card);
+             border-radius:var(--radius-lg); overflow:hidden; background:var(--bg-card); margin-top:16px; }
+  .rail { border-right:1px solid var(--border-card); background:var(--surface-inset); display:flex; flex-direction:column; }
+  .rail-head { padding:11px 12px; border-bottom:1px solid var(--border-card); }
+  .rail-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--text-muted); margin-bottom:8px; }
+  .rail-list { padding:6px; overflow-y:auto; }
+  .rail-row { display:flex; align-items:center; gap:9px; padding:8px 9px; border-radius:var(--radius-md); cursor:pointer; }
+  .rail-row:hover { background:var(--bg-card); }
+  .rail-row.sel { background:var(--bg-card); box-shadow:inset 3px 0 0 var(--brand); outline:1px solid var(--border-card); }
+  .rail-row .nm { font-size:12.5px; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rail-row .mt { font-size:10.5px; color:var(--text-muted); }
+  .profile { padding:16px 18px; min-width:0; }
+
+  .callout { font-size:12px; color:var(--text-muted); background:var(--bg-muted); border:1px dashed var(--border-strong);
+             border-radius:var(--radius-md); padding:9px 12px; margin-bottom:14px; }
+  .callout b { color:var(--text-secondary); }
+</style>
+
+<div class="page">
+  <div class="eyebrow">Administration</div>
+  <div class="h1">
+    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <h1>Sys-admin hub</h1>
+  </div>
+  <p class="sub">Manage access, fine-grained per-user controls, observability, and dev tooling.</p>
+
+  <!-- POINT 1: tab header is always present; it IS the navigation. No breadcrumb under it. -->
+  <div class="tabs">
+    <button class="tab">Users &amp; Access</button>
+    <button class="tab active">Observability <span class="badge">2 pending</span></button>
+    <button class="tab">Dev / Chat-Audit</button>
+    <button class="tab">Pre-agg Runs</button>
+    <button class="tab">Query Performance</button>
+  </div>
+
+  <!-- SUB-TABS: split org rollup vs per-user for clarity (segmented = subordinate to main tabs) -->
+  <div class="subtabs">
+    <button id="st-org" class="subtab on" onclick="showSub('org')">Org overview</button>
+    <button id="st-users" class="subtab" onclick="showSub('users')">Users</button>
+  </div>
+
+  <div class="callout">
+    Interactive mock — the <b>Org overview</b> and <b>Users</b> sub-tabs split the two domains. Under <b>Users</b>, click a row
+    to drill in; the <b>rail</b> switches users and <b>All users</b> returns to the roster. Click a section's <b>chevron</b> to expand.
+  </div>
+
+  <!-- ============ ORG SUB-TAB: rollup only ============ -->
+  <div id="view-org">
+    <div class="section">
+      <div class="section-head"><h2>Org overview</h2><span class="note">org-wide rollup · last 30d</span></div>
+      <div class="kpis">
+        <div class="card"><div class="klabel">Active</div><div class="kval">14</div><div class="knote">users</div></div>
+        <div class="card"><div class="klabel">Pending</div><div class="kval">2</div><div class="knote">invited</div></div>
+        <div class="card"><div class="klabel">Disabled</div><div class="kval">3</div><div class="knote">users</div></div>
+        <div class="card"><div class="klabel">Active · 7d</div><div class="kval">9</div><div class="knote">had activity</div></div>
+        <div class="card"><div class="klabel">Active · 30d</div><div class="kval">12</div><div class="knote">had activity</div></div>
+        <div class="card"><div class="klabel">Chat turns</div><div class="kval">1,284</div><div class="knote">last 30d</div></div>
+      </div>
+
+      <!-- POINT 3: bigger chevron control (28px boxed) -->
+      <div class="coll" data-coll>
+        <div class="coll-head" onclick="toggleColl(this)">
+          <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></span>
+          <div><div class="coll-title">LLM credential lane</div><div class="coll-desc">Gateway keys vs subscription OAuth · model routing</div></div>
+          <span class="coll-right">subscription · sonnet</span>
+        </div>
+        <div class="coll-body"><div class="stub">— LLM auth mode control + model selector render here —</div></div>
+      </div>
+
+      <div class="coll" data-coll>
+        <div class="coll-head" onclick="toggleColl(this)">
+          <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 6l6 6-6 6"/></svg></span>
+          <div><div class="coll-title">Cost</div><div class="coll-desc">LLM spend across the whole app</div></div>
+          <span class="coll-right">All time ▾</span>
+        </div>
+        <div class="coll-body"><div class="stub">— total + by user / session / game / workspace render here —</div></div>
+      </div>
+
+      <!-- pending queue + inactive + top features stay in org overview -->
+      <div class="grid2" style="margin-top:12px; align-items:start;">
+        <div class="card" style="padding:0;">
+          <div style="padding:12px 14px;border-bottom:1px solid var(--border-card);font-weight:700;font-size:14px;">Inactive <span style="font-weight:400;color:var(--text-muted);font-size:11.5px;margin-left:6px;">no login 30+ days</span></div>
+          <div style="padding:14px;font-size:13px;color:var(--text-muted);">3 users — duong.le, minh.tran, anh.pham · quick-disable inline</div>
+        </div>
+        <div class="card" style="padding:0;">
+          <div style="padding:12px 14px;border-bottom:1px solid var(--border-card);font-weight:700;font-size:14px;">Top features <span style="font-weight:400;color:var(--text-muted);font-size:11.5px;margin-left:6px;">last 30d</span></div>
+          <div style="padding:10px 14px;">
+            <div class="feat"><span class="nm">Chat</span><span class="bar"><span style="width:100%"></span></span><span>412</span></div>
+            <div class="feat"><span class="nm">Query builder</span><span class="bar"><span style="width:64%"></span></span><span>264</span></div>
+            <div class="feat"><span class="nm">Segments</span><span class="bar"><span style="width:38%"></span></span><span>158</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /#view-org -->
+
+  <!-- ============ USERS SUB-TAB · roster table ============ -->
+  <div id="view-users" class="hidden">
+    <div class="section">
+      <div class="section-head"><h2>Users</h2><span class="note">19 · click a row to view activity &amp; access</span></div>
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input placeholder="Search users…" oninput="filterTable(this.value)" />
+      </div>
+      <table>
+        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Workspaces</th><th>Last login</th></tr></thead>
+        <tbody id="utable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============ USERS SUB-TAB · per-user (rail + profile) ============ -->
+  <div id="view-user" class="hidden">
+    <div class="udetail">
+      <!-- left: persistent searchable roster rail (the switcher) -->
+      <aside class="rail">
+        <div class="rail-head">
+          <div class="rail-title">Users · 6</div>
+          <div class="search" style="max-width:none;margin:0;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+            <input placeholder="Search users…" oninput="filterRail(this.value)" />
+          </div>
+        </div>
+        <div class="rail-list">
+          <div class="rail-row" onclick="showSub('users')">
+            <span class="dot" style="background:var(--info-ink)"></span>
+            <span class="avatar" style="width:24px;height:24px;font-size:9px;">≡</span>
+            <div><div class="nm">All users</div><div class="mt">back to roster</div></div>
+          </div>
+          <div style="height:1px;background:var(--border-card);margin:6px 4px;"></div>
+          <div id="rail-list"></div>
+        </div>
+      </aside>
+
+      <!-- right: the user's profile -->
+      <div class="profile">
+        <div class="uhead">
+          <span class="avatar" id="u-avatar">KH</span>
+          <div>
+            <div class="uname" id="u-name">khoitn@vng.com.vn</div>
+            <div class="umeta">
+              <span class="pill active">Admin</span><span class="pill active">Active</span>
+              <span>· last login today</span>
+            </div>
+          </div>
+          <span class="spacer"></span>
+          <!-- back to the roster table (rail also carries an "All users" row) -->
+          <button class="backlink" onclick="showSub('users')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            All users
+          </button>
+        </div>
+
+        <div class="toggle">
+          <button class="on">Activity</button>
+          <button>Access</button>
+        </div>
+
+        <div class="kpis">
+          <div class="card"><div class="klabel">Chat turns</div><div class="kval">265</div><div class="knote">last 30d</div></div>
+          <div class="card"><div class="klabel">Status</div><div class="kval" style="font-size:20px;">Active</div><div class="knote" style="color:var(--success-ink)">within 30d</div></div>
+          <div class="card"><div class="klabel">Segments</div><div class="kval">33</div><div class="knote">owned</div></div>
+        </div>
+        <div class="card" style="margin-top:12px;">
+          <div class="klabel">Session timeline</div>
+          <div class="stub">— sparkline + sessionized event rows (query / open / segment / workspace) render here —</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const USERS = [
+    { in:'KH', name:'khoitn@vng.com.vn',   role:'admin',  status:'active',   last:'today',     ws:3 },
+    { in:'DU', name:'duongnt5@vng.com.vn', role:'editor', status:'active',   last:'2h ago',    ws:2 },
+    { in:'LT', name:'lan.tran@vng.com.vn', role:'editor', status:'active',   last:'yesterday', ws:1 },
+    { in:'MP', name:'minh.pham@vng.com.vn',role:'viewer', status:'pending',  last:'never',     ws:0 },
+    { in:'AN', name:'anh.ng@vng.com.vn',   role:'viewer', status:'active',   last:'3d ago',    ws:1 },
+    { in:'DL', name:'duong.le@vng.com.vn', role:'viewer', status:'disabled', last:'46d ago',   ws:2 },
+  ];
+  const DOT = { active:'var(--success-ink)', pending:'var(--warning-ink)', disabled:'var(--text-muted)' };
+
+  // roster table — columns match the real AdminUser shape (no fabricated counts)
+  function rowHtml(u){
+    return `<tr onclick="showUser('${u.name}','${u.in}')">
+      <td><div class="who"><span class="dot" style="background:${DOT[u.status]}"></span><span class="avatar">${u.in}</span>${u.name}</div></td>
+      <td>${u.role}</td>
+      <td><span class="pill ${u.status}">${u.status}</span></td>
+      <td>${u.ws || '—'}</td>
+      <td style="color:var(--text-muted)">${u.last}</td></tr>`;
+  }
+  function renderTable(list){ document.getElementById('utable').innerHTML = list.map(rowHtml).join(''); }
+  function filterTable(q){ q=q.toLowerCase(); renderTable(USERS.filter(u=>u.name.toLowerCase().includes(q))); }
+
+  let curName = 'khoitn@vng.com.vn';
+  function railRowHtml(u){
+    const sel = u.name === curName ? ' sel' : '';
+    return `<div class="rail-row${sel}" onclick="showUser('${u.name}','${u.in}')">
+      <span class="dot" style="background:${DOT[u.status]}"></span>
+      <span class="avatar" style="width:24px;height:24px;font-size:9px;">${u.in}</span>
+      <div><div class="nm">${u.name}</div><div class="mt">${u.status} · login ${u.last}</div></div></div>`;
+  }
+  function renderRail(list){ document.getElementById('rail-list').innerHTML = list.map(railRowHtml).join(''); }
+  function filterRail(q){ q=q.toLowerCase(); renderRail(USERS.filter(u=>u.name.toLowerCase().includes(q))); }
+
+  const VIEWS = ['view-org','view-users','view-user'];
+  function show(id){ VIEWS.forEach(v => document.getElementById(v).classList.toggle('hidden', v !== id)); window.scrollTo(0,0); }
+  function setSubTab(which){
+    document.getElementById('st-org').classList.toggle('on', which === 'org');
+    document.getElementById('st-users').classList.toggle('on', which === 'users');
+  }
+  function showSub(which){
+    setSubTab(which);
+    show(which === 'org' ? 'view-org' : 'view-users');
+  }
+  function showUser(name, init){
+    curName = name;
+    setSubTab('users');                       // per-user lives under the Users sub-tab
+    document.getElementById('u-name').textContent = name;
+    document.getElementById('u-avatar').textContent = init;
+    renderRail(USERS);
+    show('view-user');
+  }
+  function toggleColl(head){ head.parentElement.classList.toggle('open'); }
+
+  renderTable(USERS); renderRail(USERS);
+  if (location.hash === '#users') showSub('users');
+  else if (location.hash === '#user') showUser('khoitn@vng.com.vn','KH');
+</script>

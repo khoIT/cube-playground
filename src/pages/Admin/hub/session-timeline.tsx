@@ -9,6 +9,7 @@
  */
 
 import React, { useState } from 'react';
+import { ChevronRight } from 'lucide-react';
 import { eyebrow, card } from './per-user-shared';
 import { FEATURE_LABEL, relativeTime, type QueryShape } from './per-user-panel-helpers';
 import { QueryShapeInline } from './query-shape-detail';
@@ -146,7 +147,20 @@ function SessionCard({ session, index }: { session: UserSession; index: number }
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
           {formatDuration(session.durationMs)} · {session.events.length} event(s)
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-muted)' }}>{open ? '▾' : '▸'}</span>
+        {/* Decorative boxed chevron (the whole row is the toggle button) — a
+            real 24px target, not the old ~10px glyph. */}
+        <span
+          aria-hidden
+          style={{
+            marginLeft: 'auto', width: 24, height: 24, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid var(--border-strong)', borderRadius: 'var(--radius-sm)',
+            background: 'var(--bg-card)', color: 'var(--text-secondary)',
+            transition: 'transform 0.15s ease', transform: open ? 'rotate(90deg)' : 'none',
+          }}
+        >
+          <ChevronRight size={14} strokeWidth={2.5} />
+        </span>
       </button>
       {open && (
         <ul style={{ listStyle: 'none', margin: 0, padding: '6px 12px 10px' }}>

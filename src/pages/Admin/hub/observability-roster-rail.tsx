@@ -4,15 +4,15 @@
  * switching subjects = clicking a row and "back to the list" is never a
  * dead-end (the old flow bounced through the org rollup or the Access tab).
  *
- * The top "Org overview" row routes to /admin/observability (no :email) → the
- * right pane shows the org rollup; every other row routes to the per-user
- * profile. Selection is driven by the URL, not local state, so deep-links and
- * the browser back-button keep working. tokens.css only.
+ * The top "All users" row routes to /admin/observability/users (the roster
+ * table); every other row routes to that user's profile. Selection is driven by
+ * the URL, not local state, so deep-links and the browser back-button keep
+ * working. tokens.css only.
  */
 
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, BarChart3 } from 'lucide-react';
+import { Search, List } from 'lucide-react';
 import type { AdminUser, AdminStatus } from '../access/use-admin-access';
 import { relativeTime } from './per-user-panel-helpers';
 
@@ -102,14 +102,14 @@ export function ObservabilityRosterRail({
       </div>
 
       <div style={{ overflowY: 'auto', padding: 6, flex: 1, maxHeight: 'calc(100vh - 260px)' }}>
-        {/* Org overview pseudo-row — the "no user selected" destination. */}
+        {/* "All users" pseudo-row — back to the roster table (no user selected). */}
         <Row
-          to="/admin/observability"
+          to="/admin/observability/users"
           selected={selectedEmail === null}
           dot="var(--info-ink)"
-          avatar={<BarChart3 size={13} />}
-          title="Org overview"
-          meta="KPIs · cost · audit"
+          avatar={<List size={13} />}
+          title="All users"
+          meta="back to roster"
         />
         <div style={{ height: 1, background: 'var(--border-card)', margin: '6px 4px' }} />
         {filtered.length === 0 ? (
@@ -118,7 +118,7 @@ export function ObservabilityRosterRail({
           filtered.map((u) => (
             <Row
               key={u.email}
-              to={`/admin/observability/${encodeURIComponent(u.email)}`}
+              to={`/admin/observability/users/${encodeURIComponent(u.email)}`}
               selected={selectedEmail?.toLowerCase() === u.email.toLowerCase()}
               dot={DOT_TONE[u.status] ?? 'var(--text-muted)'}
               avatar={initials(u.email)}

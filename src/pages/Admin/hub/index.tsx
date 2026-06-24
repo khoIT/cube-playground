@@ -133,15 +133,12 @@ export function AdminHub() {
             </div>
           </Route>
 
-          {/* Master-detail shell: the roster rail is always present; the right
-              pane is the org rollup (exact path) or a per-user profile (:email).
-              Both routes render the shell so switching users is a rail click and
-              deep-links/back-button keep working. resolveTab keeps the
-              Observability tab highlighted via its segment-boundary prefix. */}
-          <Route exact path="/admin/observability">
-            <ObservabilityShell />
-          </Route>
-          <Route path="/admin/observability/:email">
+          {/* Observability owns its own sub-tabs (Org overview / Users) and the
+              per-user drill-in, so it takes the whole /admin/observability/*
+              subtree. The shell redirects the bare path to the Org sub-tab.
+              resolveTab keeps the main Observability tab highlighted via its
+              segment-boundary prefix. */}
+          <Route path="/admin/observability">
             <ObservabilityShell />
           </Route>
 

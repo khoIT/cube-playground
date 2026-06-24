@@ -65,7 +65,7 @@ function IdentityHeader({ user }: { user: AdminUser }) {
           </div>
         </div>
         <Link
-          to={`/admin/observability/${encodeURIComponent(user.email)}`}
+          to={`/admin/observability/users/${encodeURIComponent(user.email)}`}
           style={{
             fontSize: 12, fontWeight: 600, color: 'var(--brand)', textDecoration: 'none',
             whiteSpace: 'nowrap', flexShrink: 0,

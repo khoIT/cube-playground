@@ -1,13 +1,14 @@
 /**
- * UserActivityProfile — the Observability per-user drill-in (/admin/observability/:email).
+ * UserActivityProfile — the Observability per-user drill-in
+ * (/admin/observability/users/:email).
  *
  * One subject, two lenses under a single identity header + segmented toggle:
  *   Activity → ActivityProfile (vitals + derived session timeline + query shapes)
  *   Access   → AccessControls  (the same govern controls as the Access tab)
  *
- * Rendered as the right pane of ObservabilityShell, which owns the URL param,
- * the roster rail (user switching), and the breadcrumb (back navigation) — so
- * this component takes the subject `email` as a prop and renders only the
+ * Rendered as the right pane of the Users sub-tab in ObservabilityShell, which
+ * owns the URL param and the roster rail (user switching + "All users" back).
+ * This component takes the subject `email` as a prop and renders only the
  * identity header + Activity/Access lens. tokens.css only.
  */
 
@@ -69,8 +70,9 @@ export function UserActivityProfile({ email }: { email: string }) {
 
   return (
     <div>
-      {/* Lens toggle — switching subjects + back nav live in the shell's rail
-          and breadcrumb, so this row carries only the Activity/Access lens. */}
+      {/* Header row carries only the Activity/Access lens. Returning to the
+          roster is the rail's "All users" row + the Users sub-tab; switching
+          subjects is the rail. */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14 }}>
         <Toggle lens={lens} onChange={setLens} />
       </div>

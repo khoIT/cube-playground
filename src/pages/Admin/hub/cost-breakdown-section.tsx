@@ -11,6 +11,7 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { CollapseChevron } from './collapse-chevron';
 import {
   useCostSummary,
   COST_RANGE_LABEL,
@@ -85,17 +86,14 @@ export function CostBreakdownSection() {
     <section style={{ ...card, marginTop: 12, overflow: 'hidden' }}>
       {/* Header: title + range picker */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: open ? '1px solid var(--border-card)' : 'none' }}>
-        <button
-          type="button"
+        <CollapseChevron open={open} onToggle={() => setOpen((o) => !o)} label="Toggle cost breakdown" />
+        <span
           onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label="Toggle cost breakdown"
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: 0, width: 12, flexShrink: 0, fontFamily: 'var(--font-sans)' }}
+          style={{ display: 'flex', alignItems: 'baseline', gap: 8, cursor: 'pointer' }}
         >
-          {open ? '▾' : '▸'}
-        </button>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Cost</span>
-        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>LLM spend across the whole app</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Cost</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>LLM spend across the whole app</span>
+        </span>
         <select
           value={range}
           onChange={(e) => setRange(e.target.value as CostRangeKey)}
@@ -178,7 +176,7 @@ function userCell(row: { email: string | null; owner_label: string | null; owner
   if (row.email) {
     return (
       <Link
-        to={`/admin/observability/${encodeURIComponent(row.email)}`}
+        to={`/admin/observability/users/${encodeURIComponent(row.email)}`}
         style={{ color: 'var(--text-primary)', textDecoration: 'none' }}
         title="View activity"
       >

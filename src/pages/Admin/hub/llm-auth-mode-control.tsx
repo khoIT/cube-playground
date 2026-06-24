@@ -16,6 +16,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '../../../api/api-client';
+import { CollapseChevron } from './collapse-chevron';
 
 type LlmAuthMode = 'auto' | 'gateway' | 'subscription' | 'subscription-vy' | 'subscription-thi';
 
@@ -106,18 +107,15 @@ export function LlmAuthModeControl() {
   return (
     <section style={{ ...card, marginTop: 12, overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: open ? '1px solid var(--border-card)' : 'none', flexWrap: 'wrap' }}>
-        <button
-          type="button"
+        <CollapseChevron open={open} onToggle={() => setOpen((o) => !o)} label="Toggle LLM key & model" />
+        <span
           onClick={() => setOpen((o) => !o)}
-          aria-expanded={open}
-          aria-label="Toggle LLM key & model"
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: 0, width: 12, flexShrink: 0, fontFamily: 'var(--font-sans)' }}
+          style={{ display: 'flex', alignItems: 'baseline', gap: 8, cursor: 'pointer', flexWrap: 'wrap' }}
         >
-          {open ? '▾' : '▸'}
-        </button>
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>LLM key &amp; model</span>
-        <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-          credential + model for all chat turns · applies on the next turn
+          <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>LLM key &amp; model</span>
+          <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
+            credential + model for all chat turns · applies on the next turn
+          </span>
         </span>
         {status && (
           <span

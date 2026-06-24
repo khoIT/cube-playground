@@ -1,77 +1,117 @@
 /**
- * ObservabilityShell — the master-detail surface for /admin/observability.
+ * ObservabilityShell — owns the /admin/observability/* subtree and splits it
+ * into two sub-tabs for clarity:
  *
- * Left: a persistent searchable user roster (ObservabilityRosterRail).
- * Right: the org rollup (ObservabilityTab) when no user is selected, or the
- * per-user profile (UserActivityProfile) when the URL carries an :email.
+ *   Org overview → /admin/observability/org    — the org-wide rollup
+ *                  (KPIs, LLM lane, Cost, inactive, top features, audit).
+ *   Users        → /admin/observability/users       — the searchable roster.
+ *                  /admin/observability/users/:email — one user's profile, with
+ *                  a persistent rail on the left for fast lateral switching.
  *
- * Both /admin/observability and /admin/observability/:email render this shell;
- * the right pane is chosen from the route param, so deep-links + back-button
- * keep working and switching users is just a rail click. A breadcrumb names
- * BOTH escape hatches explicitly — "Users & Access" (the roster/govern tab) and
- * "Observability" (the org rollup) — since they're genuinely different places.
+ * The bare path redirects to the Org sub-tab. The sub-tab control is a
+ * segmented pill group — visually subordinate to the main underline tab bar
+ * (which AdminHub renders and which stays the only nav header; no breadcrumb).
  * tokens.css only.
  */
 
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
+import { Link, Route, Switch, Redirect, useLocation, useParams } from 'react-router-dom';
 import { useAdminUsers } from '../access/use-admin-access';
 import { ObservabilityRosterRail } from './observability-roster-rail';
 import { ObservabilityTab } from './observability-tab';
+import { ObservabilityUsersTable } from './observability-users-table';
 import { UserActivityProfile } from './user-activity-profile';
 
-const crumbLink: React.CSSProperties = {
-  color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600,
-};
+const ORG_PATH = '/admin/observability/org';
+const USERS_PATH = '/admin/observability/users';
 
-function Breadcrumb({ email }: { email: string | null }) {
+// ── Sub-tab control (segmented pill group) ───────────────────────────────────
+
+function SubTab({ to, active, children }: { to: string; active: boolean; children: React.ReactNode }) {
   return (
-    <nav
-      aria-label="Breadcrumb"
-      style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--text-muted)', margin: '16px 0 12px', flexWrap: 'wrap' }}
+    <Link
+      to={to}
+      style={{
+        padding: '6px 16px', fontSize: 12.5, fontWeight: 600, textDecoration: 'none',
+        borderRadius: 'var(--radius-sm)', fontFamily: 'var(--font-sans)',
+        background: active ? 'var(--bg-card)' : 'transparent',
+        color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+        boxShadow: active ? '0 1px 2px rgba(0,0,0,0.06)' : 'none',
+      }}
+      aria-current={active ? 'page' : undefined}
     >
-      <Link to="/admin/access" style={crumbLink}>Users &amp; Access</Link>
-      <ChevronRight size={13} style={{ color: 'var(--border-strong)' }} aria-hidden />
-      {email ? (
-        <>
-          <Link to="/admin/observability" style={crumbLink}>Observability</Link>
-          <ChevronRight size={13} style={{ color: 'var(--border-strong)' }} aria-hidden />
-          <span style={{ color: 'var(--text-primary)', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40ch' }}>
-            {email}
-          </span>
-        </>
-      ) : (
-        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>Observability</span>
-      )}
-    </nav>
+      {children}
+    </Link>
   );
 }
 
-export function ObservabilityShell() {
+function ObservabilitySubTabs() {
+  const { pathname } = useLocation();
+  const onUsers = pathname.startsWith(USERS_PATH);
+  return (
+    <div
+      role="tablist"
+      aria-label="Observability views"
+      style={{
+        display: 'inline-flex', gap: 2, padding: 3, margin: '16px 0',
+        borderRadius: 'var(--radius-md)', background: 'var(--bg-muted)',
+        border: '1px solid var(--border-card)',
+      }}
+    >
+      <SubTab to={ORG_PATH} active={!onUsers}>Org overview</SubTab>
+      <SubTab to={USERS_PATH} active={onUsers}>Users</SubTab>
+    </div>
+  );
+}
+
+// ── Users sub-tab: roster table, or rail + profile when a user is selected ────
+
+function UsersView() {
   const params = useParams<{ email?: string }>();
   const email = params.email ? decodeURIComponent(params.email) : null;
   const { users } = useAdminUsers();
 
+  if (!email) return <ObservabilityUsersTable users={users} />;
+
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'minmax(240px, 288px) 1fr',
+        border: '1px solid var(--border-card)',
+        borderRadius: 'var(--radius-lg)',
+        overflow: 'hidden',
+        background: 'var(--bg-card)',
+      }}
+    >
+      <ObservabilityRosterRail users={users} selectedEmail={email} />
+      <div style={{ padding: '16px 18px', minWidth: 0 }}>
+        <UserActivityProfile email={email} />
+      </div>
+    </div>
+  );
+}
+
+// ── Shell ─────────────────────────────────────────────────────────────────────
+
+export function ObservabilityShell() {
   return (
     <div role="tabpanel" id="hub-tab-panel-observability" aria-labelledby="hub-tab-observability">
-      <Breadcrumb email={email} />
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(240px, 288px) 1fr',
-          border: '1px solid var(--border-card)',
-          borderRadius: 'var(--radius-lg)',
-          overflow: 'hidden',
-          background: 'var(--bg-card)',
-        }}
-      >
-        <ObservabilityRosterRail users={users} selectedEmail={email} />
-        <div style={{ padding: '16px 18px', minWidth: 0 }}>
-          {email ? <UserActivityProfile email={email} /> : <ObservabilityTab />}
-        </div>
-      </div>
+      <ObservabilitySubTabs />
+      <Switch>
+        <Route path={ORG_PATH}>
+          <ObservabilityTab />
+        </Route>
+        <Route path={`${USERS_PATH}/:email`}>
+          <UsersView />
+        </Route>
+        <Route path={USERS_PATH}>
+          <UsersView />
+        </Route>
+        <Route>
+          <Redirect to={ORG_PATH} />
+        </Route>
+      </Switch>
     </div>
   );
 }
