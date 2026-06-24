@@ -5,11 +5,13 @@
  *
  *   1. Run keycloak-js. /api/auth/keycloak/config hands the FE the raw realm
  *      coords ({ url, realm, clientId, idpHint }). keycloak-js then owns the
- *      OIDC + PKCE handshake: `init({ onLoad: 'check-sso', pkceMethod: 'S256' })`
- *      silently probes the realm session, and `login({ idpHint })` routes the
- *      user straight to the brokered SAML IdP. The OAuth redirect lands back on
- *      the site root (responseMode 'query'); keycloak-js parses + strips the
- *      `?code=` params before our HashRouter renders.
+ *      OIDC + PKCE handshake: `init({ pkceMethod: 'S256' })` parses any login
+ *      redirect already in the URL, and `login({ idpHint })` routes the user
+ *      straight to the brokered SAML IdP via a full-page redirect. The OAuth
+ *      response lands back on the site root (responseMode 'query'); keycloak-js
+ *      parses + strips the `?code=` params before our HashRouter renders. We do
+ *      NOT use silent check-sso: the realm forbids iframe embedding, so the
+ *      probe would hang (see initKeycloakOnce).
  *
  *   2. Trade the KC id_token for our app JWT. Once keycloak-js is authenticated,
  *      we POST `keycloak.idToken` to /api/auth/keycloak/session; the server
@@ -112,13 +114,20 @@ function getKeycloak(config: KeycloakConfig): Keycloak {
 
 function initKeycloakOnce(kc: Keycloak): Promise<boolean> {
   if (!kcInitPromise) {
+    // No `onLoad: 'check-sso'`: the corporate realm forbids being framed
+    // (X-Frame-Options: SAMEORIGIN, CSP frame-ancestors 'self'), so the silent
+    // check-sso iframe can never redirect back and `init()` would hang forever.
+    // Without onLoad, init() still parses a login redirect already present in
+    // the URL (the `?code=` from a just-completed full-page login) and resolves
+    // `false` immediately for a fresh visit — landing on the login screen. The
+    // persisted app JWT (bootstrap path 2) already restores sessions on reload;
+    // we only lose cross-tab silent re-login, which the framed probe blocked
+    // here anyway.
     kcInitPromise = kc.init({
-      onLoad: 'check-sso',
       pkceMethod: 'S256',
       // Keep OAuth params in the query string, not the hash — HashRouter owns
       // the hash and would otherwise collide with the auth response.
       responseMode: 'query',
-      silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
       // We rely on the app JWT for session lifetime, not KC's login iframe.
       checkLoginIframe: false,
     });
