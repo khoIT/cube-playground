@@ -23,8 +23,7 @@ import { TabShell, type TabDef } from '../../../shell/tab-shell';
 import { useAdminUsers } from '../access/use-admin-access';
 import { UsersAndAccessTab } from './users-and-access-tab';
 import { DevHubPanel } from './dev-hub-panel';
-import { ObservabilityTab } from './observability-tab';
-import { UserActivityProfile } from './user-activity-profile';
+import { ObservabilityShell } from './observability-shell';
 import { PreaggRunsTab } from './preagg-runs-tab';
 import { QueryPerfTab } from './query-perf-tab';
 import { SegmentRefreshOpsTab } from './segment-refresh-ops-tab';
@@ -134,14 +133,16 @@ export function AdminHub() {
             </div>
           </Route>
 
+          {/* Master-detail shell: the roster rail is always present; the right
+              pane is the org rollup (exact path) or a per-user profile (:email).
+              Both routes render the shell so switching users is a rail click and
+              deep-links/back-button keep working. resolveTab keeps the
+              Observability tab highlighted via its segment-boundary prefix. */}
           <Route exact path="/admin/observability">
-            <ObservabilityTab />
+            <ObservabilityShell />
           </Route>
-
-          {/* Per-user drill-in — shareable sub-route; resolveTab keeps the
-              Observability tab highlighted via its segment-boundary prefix match. */}
           <Route path="/admin/observability/:email">
-            <UserActivityProfile />
+            <ObservabilityShell />
           </Route>
 
           <Route exact path="/admin/preagg-runs">

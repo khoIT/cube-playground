@@ -73,6 +73,9 @@ export function LlmAuthModeControl() {
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // Secondary block on the org overview — collapsed by default so the page
+  // leads with triage (KPIs / pending / inactive), not credential controls.
+  const [open, setOpen] = useState(false);
 
   const refetch = useCallback(() => {
     apiFetch<LlmAuthResponse>('/api/admin/llm-auth')
@@ -102,7 +105,16 @@ export function LlmAuthModeControl() {
 
   return (
     <section style={{ ...card, marginTop: 12, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border-card)', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: open ? '1px solid var(--border-card)' : 'none', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label="Toggle LLM key & model"
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: 0, width: 12, flexShrink: 0, fontFamily: 'var(--font-sans)' }}
+        >
+          {open ? '▾' : '▸'}
+        </button>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>LLM key &amp; model</span>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
           credential + model for all chat turns · applies on the next turn
@@ -121,7 +133,7 @@ export function LlmAuthModeControl() {
         )}
       </div>
 
-      {!loaded ? (
+      {open && (!loaded ? (
         <div style={{ padding: 14, fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
       ) : !status ? (
         <div style={{ padding: 14, fontSize: 13, color: 'var(--text-muted)' }}>
@@ -203,7 +215,7 @@ export function LlmAuthModeControl() {
             </div>
           )}
         </div>
-      )}
+      ))}
     </section>
   );
 }

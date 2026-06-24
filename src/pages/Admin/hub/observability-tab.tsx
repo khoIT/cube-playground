@@ -59,28 +59,23 @@ export function ObservabilityTab() {
 
   if (error) {
     return (
-      <div
-        role="tabpanel"
-        id="hub-tab-panel-observability"
-        aria-labelledby="hub-tab-observability"
-        style={{ ...card, marginTop: 16, color: 'var(--destructive-ink)', background: 'var(--destructive-soft)' }}
-      >
+      <div style={{ ...card, color: 'var(--destructive-ink)', background: 'var(--destructive-soft)' }}>
         Couldn't load observability data: {error}
       </div>
     );
   }
 
   return (
-    <div role="tabpanel" id="hub-tab-panel-observability" aria-labelledby="hub-tab-observability">
+    <div>
       {loading && !summary ? (
-        <div style={{ ...card, marginTop: 16, color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
+        <div style={{ ...card, color: 'var(--text-muted)', fontSize: 13 }}>Loading…</div>
       ) : (
         <>
           {/* KPI cards */}
           <div
             style={{
               display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-              gap: 12, marginTop: 16,
+              gap: 12,
             }}
           >
             <KpiCard label="Active" value={summary?.usersByStatus.active ?? 0} note="users" />

@@ -74,6 +74,9 @@ const AUTH_LANE_LABEL: Record<string, string> = {
 export function CostBreakdownSection() {
   const [range, setRange] = useState<CostRangeKey>('all');
   const [dimension, setDimension] = useState<Dimension>('users');
+  // Secondary block on the org overview — collapsed by default so cost detail
+  // doesn't dominate the triage view; expand on demand.
+  const [open, setOpen] = useState(false);
   const { summary, loading, error } = useCostSummary(range);
 
   const breakdown = summary?.breakdown ?? null;
@@ -81,7 +84,16 @@ export function CostBreakdownSection() {
   return (
     <section style={{ ...card, marginTop: 12, overflow: 'hidden' }}>
       {/* Header: title + range picker */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border-card)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: open ? '1px solid var(--border-card)' : 'none' }}>
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          aria-label="Toggle cost breakdown"
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, padding: 0, width: 12, flexShrink: 0, fontFamily: 'var(--font-sans)' }}
+        >
+          {open ? '▾' : '▸'}
+        </button>
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>Cost</span>
         <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>LLM spend across the whole app</span>
         <select
@@ -100,7 +112,7 @@ export function CostBreakdownSection() {
         </select>
       </div>
 
-      {error ? (
+      {open && (error ? (
         <div style={{ padding: '12px 14px', fontSize: 12.5, color: 'var(--destructive-ink)', background: 'var(--destructive-soft)' }}>
           Couldn't load cost data: {error}
         </div>
@@ -148,7 +160,7 @@ export function CostBreakdownSection() {
 
           <BreakdownTable dimension={dimension} breakdown={breakdown} />
         </>
-      )}
+      ))}
     </section>
   );
 }

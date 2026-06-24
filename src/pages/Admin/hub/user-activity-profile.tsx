@@ -5,14 +5,13 @@
  *   Activity → ActivityProfile (vitals + derived session timeline + query shapes)
  *   Access   → AccessControls  (the same govern controls as the Access tab)
  *
- * Reached from the Access tab's "View full activity →" link and from the
- * Observability overview rows. A sub-route (not in-tab state) so the URL is
- * shareable and the browser back-button returns to the overview. tokens.css only.
+ * Rendered as the right pane of ObservabilityShell, which owns the URL param,
+ * the roster rail (user switching), and the breadcrumb (back navigation) — so
+ * this component takes the subject `email` as a prop and renders only the
+ * identity header + Activity/Access lens. tokens.css only.
  */
 
 import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
 import {
   useAdminRegistry,
   fetchAdminUser,
@@ -52,9 +51,7 @@ function Toggle({ lens, onChange }: { lens: Lens; onChange: (l: Lens) => void })
   );
 }
 
-export function UserActivityProfile() {
-  const params = useParams<{ email: string }>();
-  const email = decodeURIComponent(params.email);
+export function UserActivityProfile({ email }: { email: string }) {
   const [lens, setLens] = useState<Lens>('activity');
   const { registry } = useAdminRegistry();
   const [user, setUser] = useState<AdminUser | null>(null);
@@ -71,15 +68,10 @@ export function UserActivityProfile() {
   useEffect(() => loadUser(), [loadUser]);
 
   return (
-    <div role="tabpanel" id="hub-tab-panel-observability" aria-labelledby="hub-tab-observability" style={{ marginTop: 16 }}>
-      {/* Back-link + lens toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, gap: 12, flexWrap: 'wrap' }}>
-        <Link
-          to="/admin/observability"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'none' }}
-        >
-          <ArrowLeft size={14} /> All users
-        </Link>
+    <div>
+      {/* Lens toggle — switching subjects + back nav live in the shell's rail
+          and breadcrumb, so this row carries only the Activity/Access lens. */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', marginBottom: 14 }}>
         <Toggle lens={lens} onChange={setLens} />
       </div>
 

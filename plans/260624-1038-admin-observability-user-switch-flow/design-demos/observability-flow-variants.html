@@ -1,0 +1,329 @@
+<meta charset="utf-8" />
+<title>Observability · user-switch flow proposals</title>
+<style>
+  :root{
+    --bg-app:#f8efe5; --bg-card:#f8efe5; --bg-muted:#efe3d4;
+    --surface-inset:#f3e9dd; --surface-inset-strong:#ecdfce; --surface-sidebar:#f1e6da;
+    --border-card:#e1d4c2; --border-strong:#d2c2ab;
+    --text-primary:#171717; --text-secondary:#404040; --text-muted:#737373;
+    --brand:#f05a22; --brand-soft:#fff7ed; --brand-ink:#d44501;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8; --muted-soft:#efe3d4; --muted-ink:#525252;
+    --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9ddcd;font-family:var(--font);color:var(--text-primary);padding:32px 28px 64px}
+  .intro{max-width:1180px;margin:0 auto 26px}
+  .intro h1{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0 0 6px}
+  .intro p{margin:0 0 4px;color:var(--text-secondary);font-size:13.5px;max-width:92ch;line-height:1.55}
+  .probs{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .prob{font-size:12px;background:var(--bg-card);border:1px solid var(--border-card);border-radius:var(--radius-md);padding:7px 11px;color:var(--text-secondary)}
+  .prob b{color:var(--text-primary)}
+
+  .variant{max-width:1180px;margin:0 auto 30px}
+  .vhead{display:flex;align-items:center;gap:11px;margin:0 0 4px}
+  .vtag{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--brand);padding:3px 9px;border-radius:var(--radius-sm)}
+  .vtag.alt{background:var(--text-secondary)}
+  .vhead h2{font-size:16.5px;font-weight:700;margin:0}
+  .pick{font-size:11px;font-weight:700;color:var(--success-ink);background:var(--success-soft);border:1px solid #a7f3d0;padding:2px 9px;border-radius:var(--radius-full)}
+  .vwhy{color:var(--text-secondary);font-size:12.5px;margin:0 0 12px;max-width:96ch;line-height:1.5}
+  .vwhy b{color:var(--text-primary)}
+
+  /* App frame */
+  .frame{background:var(--bg-app);border:1px solid var(--border-strong);border-radius:14px;box-shadow:var(--shadow-lg);overflow:hidden}
+  .pagepad{padding:22px 26px}
+  .eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:4px}
+  .h1row{display:flex;align-items:center;gap:10px}
+  .h1row svg{color:var(--brand)}
+  .h1row h1{margin:0;font-size:20px;font-weight:700}
+  .subtitle{margin:4px 0 0;font-size:13px;color:var(--text-muted)}
+
+  /* Tab strip */
+  .tabs{display:flex;gap:2px;border-top:1px solid var(--border-card);border-bottom:1px solid var(--border-card);margin:16px -26px 0;padding:0 26px;background:var(--surface-inset)}
+  .tab{padding:10px 14px;font-size:13px;font-weight:500;color:var(--text-muted);border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap}
+  .tab.on{color:var(--text-primary);font-weight:600;border-bottom-color:var(--brand)}
+  .tab .badge{font-size:10px;font-weight:700;background:var(--surface-inverse,#171717);color:#fafafa;border-radius:var(--radius-full);padding:1px 6px;margin-left:5px}
+  .tab .tagsoft{font-size:10px;font-weight:600;background:var(--warning-soft);color:var(--warning-ink);border-radius:var(--radius-full);padding:1px 6px;margin-left:5px}
+
+  /* Breadcrumb */
+  .crumb{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--text-muted);margin:16px 0 14px}
+  .crumb a{color:var(--text-secondary);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+  .crumb a:hover{color:var(--brand)}
+  .crumb .sep{color:var(--border-strong)}
+  .crumb .cur{color:var(--text-primary);font-weight:700}
+
+  /* Switcher combobox */
+  .switchwrap{position:relative;display:inline-block}
+  .switcher{display:inline-flex;align-items:center;gap:9px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:6px 10px;cursor:pointer;box-shadow:var(--shadow-sm)}
+  .switcher .av{width:24px;height:24px;border-radius:var(--radius-full);background:var(--brand-soft);color:var(--brand-ink);font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid #f6cdb3}
+  .switcher .nm{font-size:13px;font-weight:700}
+  .switcher .chev{color:var(--text-muted);font-size:11px;margin-left:2px}
+  .stepbtn{width:30px;height:30px;border:1px solid var(--border-strong);background:var(--bg-card);border-radius:var(--radius-md);color:var(--text-secondary);cursor:pointer;font-size:14px;display:inline-flex;align-items:center;justify-content:center}
+  .stepbtn:hover{border-color:var(--brand);color:var(--brand)}
+
+  .dropdown{position:absolute;top:calc(100% + 6px);left:0;width:320px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);z-index:5;overflow:hidden}
+  .ddsearch{display:flex;align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid var(--border-card)}
+  .ddsearch input{flex:1;border:none;background:transparent;font-family:var(--font);font-size:13px;color:var(--text-primary);outline:none}
+  .ddsearch input::placeholder{color:var(--text-muted)}
+  .ddsearch .mag{color:var(--text-muted);font-size:13px}
+  .ddlist{max-height:230px;overflow:auto;padding:5px}
+  .ddrow{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:var(--radius-md);cursor:pointer}
+  .ddrow:hover{background:var(--surface-inset)}
+  .ddrow.sel{background:var(--brand-soft);outline:1px solid #f6cdb3}
+  .ddrow .av{width:26px;height:26px;border-radius:var(--radius-full);background:var(--bg-muted);color:var(--text-secondary);font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .ddrow.sel .av{background:var(--brand-soft);color:var(--brand-ink)}
+  .ddrow .em{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ddrow .meta{font-size:11px;color:var(--text-muted)}
+  .ddrow .grow{min-width:0;flex:1}
+  .chip{font-size:10px;font-weight:700;border-radius:var(--radius-full);padding:1px 7px;white-space:nowrap}
+  .chip.active{background:var(--success-soft);color:var(--success-ink)}
+  .chip.pending{background:var(--warning-soft);color:var(--warning-ink)}
+  .chip.disabled{background:var(--muted-soft);color:var(--muted-ink)}
+  .chip.admin{background:var(--info-soft);color:var(--info-ink)}
+
+  /* segmented toggle */
+  .seg{display:inline-flex;gap:2px;padding:3px;border-radius:var(--radius-md);background:var(--bg-muted);border:1px solid var(--border-card)}
+  .seg button{padding:6px 14px;font-size:12.5px;font-weight:600;border:none;border-radius:var(--radius-sm);background:transparent;color:var(--text-muted);cursor:pointer;font-family:var(--font)}
+  .seg button.on{background:var(--bg-card);color:var(--text-primary);box-shadow:var(--shadow-sm)}
+
+  .headerbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:14px}
+  .switchgroup{display:flex;align-items:center;gap:8px}
+
+  /* cards / profile */
+  .card{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--bg-card);padding:14px 16px}
+  .profhead{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+  .profhead .bigav{width:46px;height:46px;border-radius:var(--radius-full);background:var(--brand-soft);color:var(--brand-ink);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1px solid #f6cdb3}
+  .profhead .em{font-size:15px;font-weight:700}
+  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .stat{border:1px solid var(--border-card);border-radius:var(--radius-md);padding:10px 12px;background:var(--surface-inset)}
+  .stat .l{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}
+  .stat .v{font-size:20px;font-weight:700;margin-top:3px}
+  .stat .n{font-size:11px;color:var(--text-muted);margin-top:1px}
+  .sechead{font-size:13px;font-weight:700;margin:0 0 9px}
+
+  /* collapsible */
+  .collap{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--bg-card);margin-top:12px;overflow:hidden}
+  .collap > .ch{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer;background:var(--surface-inset)}
+  .collap > .ch .ico{color:var(--text-muted);font-size:12px;width:14px}
+  .collap > .ch .t{font-size:13.5px;font-weight:700}
+  .collap > .ch .sub{font-size:11.5px;color:var(--text-muted)}
+  .collap > .ch .right{margin-left:auto;font-size:11.5px;color:var(--text-muted)}
+  .collap .body{padding:14px 15px;border-top:1px solid var(--border-card);color:var(--text-muted);font-size:12.5px}
+  .collap.closed .body{display:none}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px}
+  .kpi{border:1px solid var(--border-card);border-radius:var(--radius-lg);background:var(--bg-card);padding:12px 14px}
+  .kpi .l{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text-muted)}
+  .kpi .v{font-size:24px;font-weight:700;margin-top:3px}
+  .kpi .n{font-size:11px;color:var(--text-muted)}
+
+  /* master-detail rail */
+  .md{display:grid;grid-template-columns:288px 1fr;gap:0;border:1px solid var(--border-card);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg-card)}
+  .rail{border-right:1px solid var(--border-card);background:var(--surface-inset);display:flex;flex-direction:column;min-height:520px}
+  .railhead{padding:11px 12px;border-bottom:1px solid var(--border-card)}
+  .railhead .t{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-bottom:8px}
+  .railsearch{display:flex;align-items:center;gap:7px;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:6px 9px}
+  .railsearch input{flex:1;border:none;background:transparent;font-family:var(--font);font-size:12.5px;outline:none;color:var(--text-primary)}
+  .railsearch .mag{color:var(--text-muted);font-size:12px}
+  .railscroll{overflow:auto;padding:6px;flex:1}
+  .railrow{display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:var(--radius-md);cursor:pointer}
+  .railrow:hover{background:var(--surface-inset-strong)}
+  .railrow.sel{background:var(--bg-card);box-shadow:inset 3px 0 0 var(--brand);outline:1px solid var(--border-card)}
+  .railrow .av{width:26px;height:26px;border-radius:var(--radius-full);background:var(--bg-muted);color:var(--text-secondary);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .railrow.sel .av{background:var(--brand-soft);color:var(--brand-ink)}
+  .railrow .em{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .railrow .meta{font-size:10.5px;color:var(--text-muted)}
+  .railrow .grow{min-width:0;flex:1}
+  .dot{width:7px;height:7px;border-radius:var(--radius-full);flex-shrink:0}
+  .dot.active{background:var(--success-ink)} .dot.pending{background:var(--warning-ink)} .dot.disabled{background:var(--text-muted)}
+  .detail{padding:16px 18px;min-width:0}
+  .ovwbtn{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:6px 11px;cursor:pointer}
+  .note{font-size:11.5px;color:var(--text-muted);margin-top:10px;font-style:italic}
+</style>
+
+<div class="intro">
+  <h1>Observability · easier user switching + a real way back</h1>
+  <p>Two flow proposals for <code>/admin/observability</code> and the per-user drill-in. Same warm-cream design system, tokens, and header pattern as the rest of the hub — only the navigation IA changes.</p>
+  <div class="probs">
+    <span class="prob"><b>P1</b> · Per-user page has no way to switch to another user</span>
+    <span class="prob"><b>P2a</b> · "All users" lands on the org rollup (LLM keys + Cost dominate) — not a user list</span>
+    <span class="prob"><b>P2b</b> · No path back to the roster except re-clicking the Users &amp; Access tab</span>
+  </div>
+</div>
+
+<!-- ============ VARIANT A ============ -->
+<div class="variant">
+  <div class="vhead">
+    <span class="vtag">Variant A</span>
+    <h2>Inline switcher + breadcrumb</h2>
+    <span class="pick">Recommended — lowest-risk</span>
+  </div>
+  <p class="vwhy">Keeps today's page structure. Adds a <b>searchable user switcher</b> + <b>prev/next steppers</b> to the per-user header, a <b>breadcrumb</b> that always points back to the real roster (Users &amp; Access), and makes the heavy <b>LLM-auth + Cost</b> blocks <b>collapsible</b> (collapsed by default) on the org overview. Solves all three with no layout rewrite.</p>
+
+  <div class="frame">
+    <div class="pagepad">
+      <div class="eyebrow">Administration</div>
+      <div class="h1row">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h1>Sys-admin hub</h1>
+      </div>
+      <p class="subtitle">Manage access, fine-grained per-user controls, observability, and dev tooling.</p>
+
+      <div class="tabs">
+        <div class="tab">Users &amp; Access</div>
+        <div class="tab on">Observability<span class="badge">2 pending</span></div>
+        <div class="tab">Dev / Chat-Audit<span class="tagsoft">relocated</span></div>
+        <div class="tab">Pre-agg Runs</div>
+        <div class="tab">Query Performance</div>
+      </div>
+
+      <!-- breadcrumb: real path back to roster -->
+      <div class="crumb">
+        <a href="#"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Users &amp; Access</a>
+        <span class="sep">/</span>
+        <a href="#">Observability</a>
+        <span class="sep">/</span>
+        <span class="cur">khoitn@vng.com.vn</span>
+      </div>
+
+      <!-- per-user header: switcher + steppers + lens toggle -->
+      <div class="headerbar">
+        <div class="switchgroup">
+          <div class="switchwrap">
+            <div class="switcher">
+              <span class="av">KT</span><span class="nm">khoitn@vng.com.vn</span><span class="chev">▾</span>
+            </div>
+            <!-- shown OPEN for the mock -->
+            <div class="dropdown">
+              <div class="ddsearch"><span class="mag">⌕</span><input placeholder="Search users…" value="" /></div>
+              <div class="ddlist">
+                <div class="ddrow sel"><span class="av">KT</span><span class="grow"><div class="em">khoitn@vng.com.vn</div><div class="meta">active today</div></span><span class="chip admin">admin</span></div>
+                <div class="ddrow"><span class="av">DN</span><span class="grow"><div class="em">duongnt5@vng.com.vn</div><div class="meta">active · 2d ago</div></span><span class="chip active">active</span></div>
+                <div class="ddrow"><span class="av">LP</span><span class="grow"><div class="em">lanpt@vng.com.vn</div><div class="meta">active · 6d ago</div></span><span class="chip active">active</span></div>
+                <div class="ddrow"><span class="av">HT</span><span class="grow"><div class="em">huyentt@vng.com.vn</div><div class="meta">invited · never</div></span><span class="chip pending">pending</span></div>
+                <div class="ddrow"><span class="av">QV</span><span class="grow"><div class="em">quangvm@vng.com.vn</div><div class="meta">last login 41d ago</div></span><span class="chip disabled">disabled</span></div>
+              </div>
+            </div>
+          </div>
+          <button class="stepbtn" title="Previous user">‹</button>
+          <button class="stepbtn" title="Next user">›</button>
+        </div>
+        <div class="seg"><button class="on">Activity</button><button>Access</button></div>
+      </div>
+
+      <!-- profile (abbreviated) -->
+      <div class="card">
+        <div class="profhead">
+          <span class="bigav">KT</span>
+          <div>
+            <div class="em">khoitn@vng.com.vn</div>
+            <div style="margin-top:5px;display:flex;gap:6px;align-items:center">
+              <span class="chip admin">admin</span><span class="chip active">active</span>
+              <span style="font-size:11.5px;color:var(--text-muted)">· last login today</span>
+            </div>
+          </div>
+        </div>
+        <div class="statgrid">
+          <div class="stat"><div class="l">Chat turns</div><div class="v">128</div><div class="n">last 30d</div></div>
+          <div class="stat"><div class="l">Status</div><div class="v" style="font-size:16px;padding-top:4px">Active</div><div class="n">within 30d</div></div>
+          <div class="stat"><div class="l">Segments</div><div class="v">14</div><div class="n">owned</div></div>
+        </div>
+      </div>
+
+      <div class="note">Below: session history + query shapes (unchanged). ↑ The org overview's secondary blocks become collapsible →</div>
+
+      <!-- collapsible LLM + cost (org overview context) -->
+      <div class="collap closed">
+        <div class="ch"><span class="ico">▸</span><span class="t">LLM credential lane &amp; model</span><span class="sub">gateway key · claude-sonnet</span><span class="right">collapsed</span></div>
+        <div class="body">Auth-mode toggle + model controls live here, tucked away until needed.</div>
+      </div>
+      <div class="collap closed">
+        <div class="ch"><span class="ico">▸</span><span class="t">LLM cost breakdown</span><span class="sub">$42.18 · last 30d</span><span class="right">collapsed</span></div>
+        <div class="body">By user / session / game / workspace.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ VARIANT B ============ -->
+<div class="variant">
+  <div class="vhead">
+    <span class="vtag alt">Variant B</span>
+    <h2>Master–detail roster rail</h2>
+  </div>
+  <p class="vwhy">Observability becomes a <b>two-pane</b> surface: a persistent <b>searchable user roster</b> on the left, the selected user's profile on the right. Switching = click a row; the list is <b>always present</b> so "back to list" is never a dead-end. With no user selected, the right pane shows the org overview (KPIs + collapsible LLM/Cost). Best if you switch users often — bigger structural change.</p>
+
+  <div class="frame">
+    <div class="pagepad">
+      <div class="eyebrow">Administration</div>
+      <div class="h1row">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <h1>Sys-admin hub</h1>
+      </div>
+      <p class="subtitle">Manage access, fine-grained per-user controls, observability, and dev tooling.</p>
+
+      <div class="tabs">
+        <div class="tab">Users &amp; Access</div>
+        <div class="tab on">Observability<span class="badge">2 pending</span></div>
+        <div class="tab">Dev / Chat-Audit<span class="tagsoft">relocated</span></div>
+        <div class="tab">Pre-agg Runs</div>
+        <div class="tab">Query Performance</div>
+      </div>
+
+      <div style="height:16px"></div>
+
+      <div class="md">
+        <!-- rail -->
+        <div class="rail">
+          <div class="railhead">
+            <div class="t">Users · 23</div>
+            <div class="railsearch"><span class="mag">⌕</span><input placeholder="Search users…" /></div>
+          </div>
+          <div class="railscroll">
+            <div class="railrow"><span class="dot active"></span><span class="av">— </span><span class="grow"><div class="em" style="color:var(--text-muted);font-weight:700">Org overview</div><div class="meta">KPIs · cost · audit</div></span></div>
+            <div class="railrow sel"><span class="dot active"></span><span class="av">KT</span><span class="grow"><div class="em">khoitn@vng.com.vn</div><div class="meta">active today · admin</div></span></div>
+            <div class="railrow"><span class="dot active"></span><span class="av">DN</span><span class="grow"><div class="em">duongnt5@vng.com.vn</div><div class="meta">active · 2d ago</div></span></div>
+            <div class="railrow"><span class="dot active"></span><span class="av">LP</span><span class="grow"><div class="em">lanpt@vng.com.vn</div><div class="meta">active · 6d ago</div></span></div>
+            <div class="railrow"><span class="dot pending"></span><span class="av">HT</span><span class="grow"><div class="em">huyentt@vng.com.vn</div><div class="meta">invited · never</div></span></div>
+            <div class="railrow"><span class="dot active"></span><span class="av">NM</span><span class="grow"><div class="em">namnm@vng.com.vn</div><div class="meta">active · 1d ago</div></span></div>
+            <div class="railrow"><span class="dot disabled"></span><span class="av">QV</span><span class="grow"><div class="em">quangvm@vng.com.vn</div><div class="meta">disabled · 41d</div></span></div>
+            <div class="railrow"><span class="dot active"></span><span class="av">TT</span><span class="grow"><div class="em">trangtt@vng.com.vn</div><div class="meta">active · 3d ago</div></span></div>
+          </div>
+        </div>
+
+        <!-- detail -->
+        <div class="detail">
+          <div class="headerbar" style="margin-bottom:14px">
+            <div style="font-size:15px;font-weight:700">khoitn@vng.com.vn</div>
+            <div class="seg"><button class="on">Activity</button><button>Access</button></div>
+          </div>
+          <div class="card" style="margin-bottom:12px">
+            <div class="profhead" style="margin-bottom:0">
+              <span class="bigav">KT</span>
+              <div>
+                <div class="em">khoitn@vng.com.vn</div>
+                <div style="margin-top:5px;display:flex;gap:6px;align-items:center">
+                  <span class="chip admin">admin</span><span class="chip active">active</span>
+                  <span style="font-size:11.5px;color:var(--text-muted)">· last login today</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="statgrid">
+            <div class="stat"><div class="l">Chat turns</div><div class="v">128</div><div class="n">last 30d</div></div>
+            <div class="stat"><div class="l">Status</div><div class="v" style="font-size:16px;padding-top:4px">Active</div><div class="n">within 30d</div></div>
+            <div class="stat"><div class="l">Segments</div><div class="v">14</div><div class="n">owned</div></div>
+          </div>
+          <div class="note">Select “Org overview” at the top of the rail → right pane shows KPI cards + collapsible LLM-auth / Cost / audit, exactly as the org rollup does today.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</content>
