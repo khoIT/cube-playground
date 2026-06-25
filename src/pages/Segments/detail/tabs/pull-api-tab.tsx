@@ -13,13 +13,15 @@
 
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { message } from 'antd';
-import { Copy, AlertTriangle, KeyRound, Shield, Terminal } from 'lucide-react';
+import { Copy, AlertTriangle, KeyRound, Shield, Terminal, Lock, BookOpen, ArrowUpRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
+import { CollapseChevron } from '../../../Admin/hub/collapse-chevron';
 import {
   segmentsClient,
   type SegmentMemberRow,
   type SegmentMembersPage,
+  type SegmentPullCredentials,
 } from '../../../../api/segments-client';
 import type { Segment } from '../../../../types/segment-api';
 
@@ -48,6 +50,12 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // The Trino SQL and Full-cohort pull cards are advanced/secondary surfaces —
+  // collapsed by default so the tab leads with the snapshot + the documented
+  // downstream API path, and the heavier recipes are one click away.
+  const [sqlOpen, setSqlOpen] = useState(false);
+  const [credsOpen, setCredsOpen] = useState(false);
+
   // Trino SQL is generated on demand — it triggers a Cube /sql compile that can
   // be slow on a cold warehouse, so we don't fetch it until the user asks.
   const [trinoSql, setTrinoSql] = useState<{
@@ -57,6 +65,28 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
     schema?: string | null;
     error: string | null;
   }>({ loading: false, sql: null, error: null });
+
+  // Authenticated full-cohort pull credentials — admin only, fetched on demand
+  // (mints a token + reveals the warehouse connection, so never auto-loaded).
+  const [creds, setCreds] = useState<{
+    loading: boolean;
+    data: SegmentPullCredentials | null;
+    error: string | null;
+  }>({ loading: false, data: null, error: null });
+
+  const revealCredentials = useCallback(async () => {
+    setCreds({ loading: true, data: null, error: null });
+    try {
+      const data = await segmentsClient.pullCredentials(segment.id);
+      setCreds({ loading: false, data, error: null });
+    } catch (e) {
+      setCreds({
+        loading: false,
+        data: null,
+        error: e instanceof Error ? e.message : 'Failed to load credentials',
+      });
+    }
+  }, [segment.id]);
 
   // Fetch the first page on mount / segment change — gives counts + truncation
   // + the initial member preview in one call.
@@ -106,6 +136,12 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const membersUrl = `${origin}/api/segments/${segment.id}/members?limit=1000`;
+  // Documented downstream surface. The canonical base is the prod host (the
+  // OpenAPI `servers` value + what the consumer guide uses); /docs is linked
+  // same-origin so it resolves in prod AND in dev via the vite proxy.
+  const publicApiBase = 'https://playground.gds.vng.vn';
+  const publicMembersUrl = `${publicApiBase}/api/public/v1/segments/${segment.id}/members`;
+  const docsUrl = `${origin}/docs`;
   const copy = (text: string) => {
     navigator.clipboard?.writeText(text);
     message.success(t('common.copied', { defaultValue: 'Copied' }));
@@ -305,7 +341,139 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
         </div>
       </div>
 
-      {/* Trino SQL — run the membership query directly against the warehouse */}
+      {/* Downstream API integration — the documented, versioned public surface.
+          The seamless path: this card hands a downstream tech team the segment
+          id + the exact endpoint and one click into the interactive API docs to
+          build a real integration against THIS segment. */}
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-card)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '18px 20px',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+            <BookOpen size={13} aria-hidden />{' '}
+            {t('segments.detail.pullApi.integrate', { defaultValue: 'Build a downstream integration' })}
+          </h3>
+          <a
+            href={docsUrl}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: 'var(--text-on-brand)',
+              background: 'var(--brand)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              padding: '7px 14px',
+              textDecoration: 'none',
+            }}
+          >
+            {t('segments.detail.pullApi.openDocs', { defaultValue: 'Open API docs' })}
+            <ArrowUpRight size={13} aria-hidden />
+          </a>
+        </div>
+        <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
+          {t('segments.detail.pullApi.integrateHint', {
+            defaultValue:
+              'The versioned, API-key-secured public endpoint streams the FULL cohort (NDJSON/CSV, resumable). The interactive docs show auth, the completion contract, and copy-paste consumer code. Use this segment id below.',
+          })}
+        </p>
+
+        {/* Segment id — the capability a downstream app pulls against. */}
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
+          {t('segments.detail.pullApi.segmentId', { defaultValue: 'Segment ID' })}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: 'var(--bg-muted)',
+            borderRadius: 'var(--radius-md)',
+            padding: '8px 12px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11.5,
+            color: 'var(--text-secondary)',
+            marginBottom: 12,
+          }}
+        >
+          <code style={{ wordBreak: 'break-all' }}>{segment.id}</code>
+          <button
+            type="button"
+            onClick={() => copy(segment.id)}
+            style={{
+              marginLeft: 'auto',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+              fontSize: 11,
+              fontWeight: 600,
+              color: 'var(--brand)',
+              background: 'transparent',
+              border: '1px solid var(--border-strong)',
+              borderRadius: 'var(--radius-md)',
+              padding: '3px 9px',
+              cursor: 'pointer',
+              flex: 'none',
+            }}
+          >
+            <Copy size={10} aria-hidden /> {t('common.copy', { defaultValue: 'Copy' })}
+          </button>
+        </div>
+
+        {/* The public streaming endpoint for this segment. */}
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 6 }}>
+          {t('segments.detail.pullApi.publicEndpoint', { defaultValue: 'Full-cohort endpoint' })}
+        </div>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            background: 'var(--surface-inverse)',
+            borderRadius: 'var(--radius-md)',
+            padding: '10px 12px',
+            fontFamily: 'var(--font-mono)',
+            fontSize: 11.5,
+            color: 'var(--text-on-brand)',
+            overflow: 'auto',
+          }}
+        >
+          <code style={{ whiteSpace: 'nowrap' }}>{publicMembersUrl}</code>
+          <button
+            type="button"
+            onClick={() => copy(publicMembersUrl)}
+            style={{
+              marginLeft: 'auto',
+              background: 'rgba(255,255,255,0.1)',
+              border: 'none',
+              color: 'var(--text-on-brand)',
+              fontSize: 10.5,
+              padding: '4px 9px',
+              borderRadius: 5,
+              cursor: 'pointer',
+              flex: 'none',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <Copy size={11} aria-hidden /> {t('common.copy', { defaultValue: 'Copy' })}
+          </button>
+        </div>
+      </div>
+
+      {/* Trino SQL — run the membership query directly against the warehouse.
+          Collapsed by default (advanced path). */}
       {canGenerateSql && (
         <div
           style={{
@@ -316,11 +484,12 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
             marginBottom: 16,
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: sqlOpen ? 4 : 0 }}>
             <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
               <Terminal size={13} aria-hidden /> {t('segments.detail.pullApi.trinoSql', { defaultValue: 'Trino SQL' })}
             </h3>
-            {trinoSql.sql && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {sqlOpen && trinoSql.sql && (
               <button
                 type="button"
                 onClick={() => copy(trinoSql.sql ?? '')}
@@ -341,7 +510,15 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
                 <Copy size={11} aria-hidden /> {t('common.copy', { defaultValue: 'Copy' })}
               </button>
             )}
+              <CollapseChevron
+                open={sqlOpen}
+                onToggle={() => setSqlOpen((o) => !o)}
+                label={t('segments.detail.pullApi.toggleSql', { defaultValue: 'Toggle Trino SQL' })}
+              />
+            </div>
           </div>
+          {sqlOpen && (
+          <>
           <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
             {t('segments.detail.pullApi.trinoSqlHint', {
               defaultValue:
@@ -417,8 +594,186 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
               </pre>
             </>
           )}
+          </>
+          )}
         </div>
       )}
+
+      {/* Authenticated full-cohort pull — admin-only credentials + runnable
+          recipes for the FULL cohort (the tokenless endpoint above is capped).
+          Collapsed by default (reveals the warehouse connection on expand). */}
+      <div
+        style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-card)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '18px 20px',
+          marginBottom: 16,
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: credsOpen ? 4 : 0 }}>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+            <Lock size={13} aria-hidden /> {t('segments.detail.pullApi.fullPull', { defaultValue: 'Full-cohort pull (authenticated)' })}
+          </h3>
+          <CollapseChevron
+            open={credsOpen}
+            onToggle={() => setCredsOpen((o) => !o)}
+            label={t('segments.detail.pullApi.toggleFullPull', { defaultValue: 'Toggle full-cohort pull' })}
+          />
+        </div>
+        {credsOpen && (
+        <>
+        <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
+          {t('segments.detail.pullApi.fullPullHint', {
+            defaultValue:
+              'The endpoint above is a capped ranked sample. To pull the full cohort, a service account runs the membership query against Trino. Reveal credentials below to get a ready-to-run recipe.',
+          })}
+        </p>
+
+        {!creds.data && (
+          <button
+            type="button"
+            onClick={revealCredentials}
+            disabled={creds.loading}
+            style={{
+              fontFamily: 'inherit',
+              fontSize: 12.5,
+              fontWeight: 600,
+              color: 'var(--text-on-brand)',
+              background: 'var(--brand)',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              padding: '8px 16px',
+              cursor: creds.loading ? 'default' : 'pointer',
+              opacity: creds.loading ? 0.7 : 1,
+            }}
+          >
+            {creds.loading
+              ? t('common.loading', { defaultValue: 'Loading…' })
+              : t('segments.detail.pullApi.revealCreds', { defaultValue: 'Reveal pull credentials (admin)' })}
+          </button>
+        )}
+
+        {creds.error && (
+          <div style={{ color: 'var(--destructive-ink)', fontSize: 12.5 }}>
+            {creds.error}{' '}
+            <button
+              type="button"
+              onClick={revealCredentials}
+              style={{ background: 'none', border: 'none', color: 'var(--brand)', cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: 0 }}
+            >
+              {t('common.retry', { defaultValue: 'Retry' })}
+            </button>
+          </div>
+        )}
+
+        {creds.data &&
+          (() => {
+            const d = creds.data;
+            const ws = d.workspace ?? 'prod';
+            const sqlUrl = `${origin}/api/segments/${segment.id}/membership-sql`;
+            // Recipe 1: pull the runnable SELECT through our guarded API (token inlined).
+            const apiRecipe =
+              `# 1) fetch the runnable SELECT (full cohort, row cap stripped)\n` +
+              `curl -s "${sqlUrl}" \\\n` +
+              `  -H "Authorization: Bearer ${d.appJwt}" \\\n` +
+              `  -H "x-cube-workspace: ${ws}" | jq -r .sql > cohort.sql`;
+            // Recipe 2: run it directly in Trino (coords prepopulated; password from env).
+            const trinoRecipe = d.trino
+              ? `# 2) run it against Trino — TRINO_PASS from your own env, not shown here\n` +
+                `trino --server ${d.trino.ssl ? 'https' : 'http'}://${d.trino.host}:${d.trino.port} \\\n` +
+                `  --user ${d.trino.user} --password \\\n` +
+                `  --catalog ${d.trino.catalog} --schema ${d.trino.schema ?? '<game-schema>'} \\\n` +
+                `  -f cohort.sql`
+              : '# Trino coordinates are not configured on this instance (CUBEJS_DB_* unset).';
+            // Recipe 3: prod's gentlest path — read the pre-materialized daily table.
+            const lakehouseRecipe =
+              `SELECT uid FROM ${d.lakehouse.catalog}."${d.lakehouse.schema}".${d.lakehouse.table}\n` +
+              `WHERE snapshot_date = current_date AND segment_id = '${segment.id}'\n` +
+              `ORDER BY uid;`;
+            const block = (label: string, body: string) => (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-secondary)' }}>{label}</span>
+                  <button
+                    type="button"
+                    onClick={() => copy(body)}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: 'var(--brand)',
+                      background: 'transparent',
+                      border: '1px solid var(--border-strong)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '3px 9px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Copy size={10} aria-hidden /> {t('common.copy', { defaultValue: 'Copy' })}
+                  </button>
+                </div>
+                <pre
+                  style={{
+                    margin: 0,
+                    background: 'var(--surface-inverse)',
+                    color: 'var(--text-on-brand)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 14px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                    lineHeight: 1.55,
+                    maxHeight: 240,
+                    overflow: 'auto',
+                    whiteSpace: 'pre',
+                  }}
+                >
+                  <code>{body}</code>
+                </pre>
+              </div>
+            );
+            return (
+              <>
+                <div style={{ fontSize: 11.5, color: 'var(--text-muted)', marginBottom: 4 }}>
+                  {t('segments.detail.pullApi.credsMinted', {
+                    defaultValue:
+                      'Minted for {{email}} ({{role}}) · expires in {{mins}} min · workspace {{ws}}',
+                    email: d.user.email ?? '—',
+                    role: d.user.role,
+                    mins: d.expiresInMinutes,
+                    ws,
+                  })}
+                </div>
+                {block(
+                  t('segments.detail.pullApi.recipeApi', { defaultValue: 'Via our API — fetch the SELECT' }),
+                  apiRecipe,
+                )}
+                {block(
+                  t('segments.detail.pullApi.recipeTrino', { defaultValue: 'Then run it directly in Trino' }),
+                  trinoRecipe,
+                )}
+                {block(
+                  t('segments.detail.pullApi.recipeLakehouse', {
+                    defaultValue: 'Prod — read the daily snapshot table (gentlest)',
+                  }),
+                  lakehouseRecipe,
+                )}
+                {!d.lakehouse.snapshotEnabled && (
+                  <div style={{ fontSize: 11.5, color: 'var(--warning-ink)', marginTop: 8 }}>
+                    {t('segments.detail.pullApi.snapshotOff', {
+                      defaultValue:
+                        'This instance is not landing daily partitions (SEGMENT_SNAPSHOT_ENABLED is off) — the snapshot-table recipe is the prod path. Use the Trino recipe above here.',
+                    })}
+                  </div>
+                )}
+              </>
+            );
+          })()}
+        </>
+        )}
+      </div>
 
       {/* Live member preview */}
       <div

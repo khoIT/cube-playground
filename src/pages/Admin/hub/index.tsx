@@ -28,6 +28,7 @@ import { PreaggRunsTab } from './preagg-runs-tab';
 import { QueryPerfTab } from './query-perf-tab';
 import { SegmentRefreshOpsTab } from './segment-refresh-ops-tab';
 import { CarePrecomputePanel } from './care-precompute-panel';
+import { ApiKeysTab } from './api-keys-tab';
 import { useSegmentRefreshAlertCount } from './segment-refresh-ops-data';
 
 // ---------------------------------------------------------------------------
@@ -56,6 +57,7 @@ function buildAdminTabs(pendingCount: number, refreshAlertCount: number): TabDef
       tag: refreshAlertCount > 0 ? `${refreshAlertCount} alert` : undefined,
     },
     { key: 'care-precompute', label: 'Care Precompute', path: '/admin/care-precompute' },
+    { key: 'api-keys', label: 'API Keys', path: '/admin/api-keys' },
   ];
 }
 
@@ -156,6 +158,10 @@ export function AdminHub() {
 
           <Route exact path="/admin/care-precompute">
             <CarePrecomputePanel />
+          </Route>
+
+          <Route exact path="/admin/api-keys">
+            <ApiKeysTab />
           </Route>
 
           <Route path="/admin/dev">

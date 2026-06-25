@@ -78,6 +78,9 @@ import lifecycleFlowRoutes from './routes/lifecycle-flow.js';
 import monetizationDeepdiveRoutes from './routes/monetization-deepdive.js';
 import alertRulesRoutes from './routes/alert-rules.js';
 import digestSubscriptionsRoutes from './routes/digest-subscriptions.js';
+import publicExportRoutes from './routes/public-export.js';
+import apiKeyAdminRoutes from './routes/api-key-admin-routes.js';
+import { registerSwagger, registerDocs } from './docs/register-openapi-docs.js';
 import { getDb } from './db/sqlite.js';
 import { seedBootstrapAdmins } from './auth/bootstrap-admins.js';
 import { backfillLegacyDevOwner } from './auth/dev-owner-backfill.js';
@@ -118,6 +121,9 @@ export async function buildApp() {
   await app.register(authenticate);
   await app.register(enforceWriteRoles);
   await app.register(workspaceHeader);
+
+  // OpenAPI spec collection must be registered BEFORE the routes it documents.
+  await registerSwagger(app);
 
   await app.register(authRoutes);
   await app.register(adminAccessRoutes);
@@ -189,6 +195,11 @@ export async function buildApp() {
   await app.register(monetizationDeepdiveRoutes);
   await app.register(alertRulesRoutes);
   await app.register(digestSubscriptionsRoutes);
+  await app.register(apiKeyAdminRoutes);
+  await app.register(publicExportRoutes);
+
+  // Scalar interactive reference at /docs + raw spec at /openapi.json (public).
+  await registerDocs(app);
 
   // Bootstrap-admin seed (cutover safety): ensure AUTH_BOOTSTRAP_ADMINS resolve
   // as active admins so DB-authoritative authz never locks every operator out.

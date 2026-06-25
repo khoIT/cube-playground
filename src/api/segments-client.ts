@@ -106,6 +106,18 @@ export interface SegmentMembersPage {
   next_cursor: string | null;
 }
 
+/** Admin-only pull credentials (`GET /:id/pull-credentials`): a minted app JWT
+ *  for the caller + the non-secret Trino connection coordinates. The Trino
+ *  password is never returned — runnable blocks reference it as $TRINO_PASS. */
+export interface SegmentPullCredentials {
+  appJwt: string;
+  expiresInMinutes: number;
+  workspace: string | null;
+  user: { email: string | null; role: string };
+  trino: { host: string; port: number; user: string; catalog: string; ssl: boolean; schema: string | null } | null;
+  lakehouse: { catalog: string; schema: string; table: string; snapshotEnabled: boolean };
+}
+
 export const segmentsClient = {
   list(params: ListSegmentsParams = {}): Promise<Segment[]> {
     return apiFetch<Segment[]>('/api/segments', { query: params as Record<string, string | undefined> });
@@ -201,6 +213,15 @@ export const segmentsClient = {
     schema: string | null;
   }> {
     return apiFetch(`/api/segments/${encodeURIComponent(id)}/membership-sql`);
+  },
+
+  // Admin-only: mint an app JWT for the caller + reveal the Trino connection
+  // coordinates (no password), so a downstream operator can pull the full cohort
+  // via the guarded API or directly from the warehouse.
+  pullCredentials(id: string): Promise<SegmentPullCredentials> {
+    return apiFetch<SegmentPullCredentials>(
+      `/api/segments/${encodeURIComponent(id)}/pull-credentials`,
+    );
   },
 
   // Bare member-ID pull: keyset-paginated identity values for a downstream app.

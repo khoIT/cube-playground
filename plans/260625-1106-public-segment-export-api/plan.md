@@ -41,12 +41,22 @@ the capped SQLite snapshot. `runQuery` buffers — a new async-generator
 ## Phases
 | # | Phase | Status | Depends |
 |---|-------|--------|---------|
-| 01 | [API-key auth + store](phase-01-api-key-auth.md) | pending | — |
-| 02 | [Trino streamQuery generator](phase-02-trino-stream-query.md) | pending | — |
-| 03 | [Streaming members export endpoint](phase-03-streaming-export-endpoint.md) | pending | 01,02 |
-| 04 | [Public metadata endpoints](phase-04-public-metadata-endpoints.md) | pending | 01 |
-| 05 | [OpenAPI + Scalar /docs](phase-05-openapi-scalar-docs.md) | pending | 03,04 |
-| 06 | [Admin key mgmt + rate-limit + audit + tests](phase-06-admin-ratelimit-audit.md) | pending | 01,03 |
+| 01 | [API-key auth + store](phase-01-api-key-auth.md) | done | — |
+| 02 | [Trino streamQuery generator](phase-02-trino-stream-query.md) | done | — |
+| 03 | [Streaming members export endpoint](phase-03-streaming-export-endpoint.md) | done | 01,02 |
+| 04 | [Public metadata endpoints](phase-04-public-metadata-endpoints.md) | done | 01 |
+| 05 | [OpenAPI + Scalar /docs](phase-05-openapi-scalar-docs.md) | done | 03,04 |
+| 06 | [Admin key mgmt + rate-limit + audit + tests](phase-06-admin-ratelimit-audit.md) | done | 01,03 |
+| 07 | Activation-tab UX (added) — `/docs` link + collapsible Trino-SQL/Full-pull cards | done | 05 |
+
+## Build outcome (done)
+- All 6 phases shipped + an added activation-tab UX pass. New files:
+  migration 074, `api-key-store/scope/auth`, `public-pull-audit`, `segment-export-stream`,
+  `api-key-rate-limiter`, `public-segment-dto`, `public-export.ts`, `api-key-admin-routes.ts`,
+  `docs/register-openapi-docs.ts`; FE `api-keys-client.ts` + `Admin/hub/api-keys-tab.tsx`;
+  `pull-api-tab.tsx` integration card + collapsibles; vite `/docs` proxy.
+- Tests: 6 new server suites (33 cases) green; full server suite 2345 pass / 0 fail; tsc + theme-lint clean.
+- Code review (APPROVE_WITH_CONCERNS): fixed H1 (sparse-allowlist list pagination under-return → allowlist pushed into SQL + regression test), M1 (unbounded negative cache → cache positives only), L1 (audit badge `complete` mapping), L2 (guard `last_used_at` write).
 
 ## Key dependencies
 - Trino reachable from the server (CUBEJS_DB_* — already wired).

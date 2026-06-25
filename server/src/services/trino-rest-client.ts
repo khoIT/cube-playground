@@ -141,3 +141,93 @@ export async function runQuery(
     clearTimeout(timer);
   }
 }
+
+export interface StreamQueryOptions {
+  /** Per-hop idle timeout (ms). A stalled `nextUri` long-poll aborts the hop,
+   *  not just the whole statement. Defaults to the profiler cap. */
+  timeoutMs?: number;
+  /** External cancel (e.g. the client socket closed). Aborts the in-flight hop
+   *  and triggers a best-effort server-side DELETE. */
+  signal?: AbortSignal;
+}
+
+/**
+ * Stream a single SQL statement as an async generator of batches, following
+ * `nextUri` WITHOUT accumulating — unlike `runQuery`, which buffers every row.
+ * Each yielded batch is one Trino hop's `data` (with `columns` carried from the
+ * first batch that declares them), so the caller can flush a page to a slow
+ * client and let backpressure pace the next hop. Memory stays flat regardless of
+ * result size.
+ *
+ * Cancellation: the external `signal` OR a per-hop idle timeout aborts the hop;
+ * either way the last `nextUri` is DELETEd once (best-effort) so the query is
+ * cancelled server-side rather than orphaned. Keyset pagination across pages is
+ * the caller's job — one `streamQuery` call drains one statement.
+ */
+export async function* streamQuery(
+  c: Connector,
+  schema: string,
+  sql: string,
+  opts: StreamQueryOptions = {},
+): AsyncGenerator<TrinoResult, void, undefined> {
+  const idleMs = opts.timeoutMs ?? PROFILER_CAPS.statementTimeoutMs;
+  const ctl = new AbortController();
+  const onExternalAbort = () => ctl.abort();
+  if (opts.signal) {
+    if (opts.signal.aborted) ctl.abort();
+    else opts.signal.addEventListener('abort', onExternalAbort, { once: true });
+  }
+
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const armTimer = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => ctl.abort(), idleMs);
+  };
+
+  let columns: TrinoColumn[] = [];
+  let lastNextUri: string | null = null;
+  let cancelled = false;
+  const cancelUpstream = () => {
+    if (cancelled || !lastNextUri) return;
+    cancelled = true;
+    void fetch(lastNextUri, { method: 'DELETE', headers: authHeader(c) }).catch(() => undefined);
+  };
+
+  try {
+    armTimer();
+    let resp = await trinoFetch(
+      `${baseUrl(c)}/v1/statement`,
+      { method: 'POST', body: sql, headers: { 'Content-Type': 'text/plain' } },
+      c,
+      schema,
+      ctl.signal,
+    );
+
+    for (;;) {
+      if (resp.error) {
+        throw new Error(redact(`Trino query error: ${resp.error.message ?? resp.error.errorName ?? 'unknown'}`, c));
+      }
+      if (resp.columns && columns.length === 0) columns = resp.columns;
+      lastNextUri = resp.nextUri ?? null;
+      if (resp.data && resp.data.length > 0) yield { columns, rows: resp.data };
+      if (!resp.nextUri) break;
+      armTimer();
+      resp = await trinoFetch(resp.nextUri, { method: 'GET' }, c, schema, ctl.signal);
+    }
+  } catch (err) {
+    cancelUpstream();
+    if (err instanceof Error && err.name === 'AbortError') {
+      // External cancel surfaces as an AbortError to the caller; a timeout (no
+      // external abort) surfaces as a typed timeout message.
+      if (opts.signal?.aborted) throw err;
+      throw new Error(`Trino statement timed out after ${idleMs / 1000}s`);
+    }
+    throw err instanceof Error ? new Error(redact(err.message, c)) : err;
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (opts.signal) opts.signal.removeEventListener('abort', onExternalAbort);
+    // If the consumer abandoned us mid-stream (early break) after an external
+    // abort, still cancel the orphaned query server-side.
+    if (ctl.signal.aborted) cancelUpstream();
+  }
+}

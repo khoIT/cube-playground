@@ -14,6 +14,13 @@ import { getDb } from '../db/sqlite.js';
 import { treeToCubeFilters } from '../services/translator.js';
 import { parseCubeSegments, withCubeSegments } from '../services/cube-query-segments.js';
 import { buildSegmentMembershipSql } from '../lakehouse/segment-snapshot-writer.js';
+import {
+  lakehouseConnectorFromEnv,
+  lakehouseSchemaForGame,
+  LAKEHOUSE_CATALOG,
+  LAKEHOUSE_SCHEMA,
+} from '../lakehouse/lakehouse-trino-connector.js';
+import { signAppJwt } from '../services/app-jwt.js';
 import { schemaForGame } from '../services/trino-profiler-config.js';
 import { predicateToSql } from '../services/predicate-to-sql.js';
 import {
@@ -1461,6 +1468,71 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
         error: { code: 'SQL_COMPILE_ERROR', message: (err as Error).message },
       });
     }
+  });
+
+  // GET /api/segments/:id/pull-credentials — admin-only. Hands a downstream
+  // operator the two things they need to pull the FULL cohort themselves:
+  //   1. A freshly-minted app JWT for the calling admin (same HS256/JWT_SECRET
+  //      token the browser already holds) so they can curl the guarded
+  //      membership-sql endpoint from a service/script.
+  //   2. The Trino coordinates (host/port/user/catalog/schema) + the lakehouse
+  //      snapshot-table identity, so they can run the cohort directly in Trino.
+  // The Trino PASSWORD is deliberately NOT returned — it never lands in the
+  // browser. The runnable block references it as $TRINO_PASS from the operator's
+  // own environment. Admin-only because it both mints a token and reveals the
+  // warehouse connection surface.
+  app.get('/api/segments/:id/pull-credentials', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const row = guardSegment(req, reply, id, 'read');
+    if (!row) return reply;
+    if (req.principal.role !== 'admin') {
+      return reply
+        .status(403)
+        .send({ error: { code: 'FORBIDDEN', message: 'Admin only — pull credentials reveal the warehouse connection.' } });
+    }
+
+    // Mint a token for the caller's own identity (not a shared service account).
+    // Authorization is still resolved server-side per request from the access
+    // store, so this token grants exactly what the caller already has.
+    const user = req.user;
+    const appJwt = await signAppJwt({
+      sub: req.principal.sub,
+      username: user?.username ?? req.principal.email ?? req.principal.sub,
+      email: req.principal.email ?? undefined,
+      role: req.principal.role,
+    });
+    const expiresInMinutes = Number(process.env.JWT_EXPIRES_MINUTES ?? 720);
+
+    // Non-secret Trino coordinates from the same env the lakehouse writer uses.
+    // Password intentionally omitted (see route comment).
+    let trino: { host: string; port: number; user: string; catalog: string; ssl: boolean } | null = null;
+    try {
+      const c = lakehouseConnectorFromEnv();
+      trino = { host: c.host, port: c.port, user: c.user, catalog: c.catalog, ssl: c.ssl };
+    } catch {
+      trino = null; // CUBEJS_DB_* not configured on this instance
+    }
+
+    return {
+      appJwt,
+      expiresInMinutes,
+      workspace: (row.workspace as string) ?? null,
+      user: { email: req.principal.email, role: req.principal.role },
+      // Session catalog/schema for running the membership-sql SELECT (bare table
+      // refs resolve against these). Schema is per-game.
+      trino: trino
+        ? { ...trino, schema: schemaForGame(row.game_id as string) }
+        : null,
+      // The pre-materialized daily snapshot table — the gentlest full-cohort
+      // path in prod. `snapshotEnabled` tells the UI whether this instance is
+      // actually landing partitions (false locally by default).
+      lakehouse: {
+        catalog: LAKEHOUSE_CATALOG,
+        schema: LAKEHOUSE_SCHEMA,
+        table: 'segment_membership_daily',
+        snapshotEnabled: (process.env.SEGMENT_SNAPSHOT_ENABLED ?? 'false').toLowerCase() === 'true',
+      },
+    };
   });
 
   // POST /api/segments/:id/refresh — enqueue manual refresh; cron worker drains.
