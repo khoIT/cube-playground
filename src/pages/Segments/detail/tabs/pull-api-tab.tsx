@@ -17,6 +17,8 @@ import { Copy, KeyRound, Shield, Terminal, Lock, BookOpen, ArrowUpRight } from '
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { CollapseChevron } from '../../../Admin/hub/collapse-chevron';
+import { describePredicate } from '../../slice-scope/describe-predicate';
+import { parseCubeSegmentsFromQueryJson } from '../../slice-scope/parse-cube-segments';
 import {
   segmentsClient,
   type SegmentMemberRow,
@@ -27,7 +29,8 @@ import type { Segment } from '../../../../types/segment-api';
 
 interface Props {
   segment: Segment;
-  /** Resolved identity dimension (from the segment's preset), shown as the join key. */
+  /** Resolved identity dimension (from the segment's preset). Retained on the
+   *  contract for callers; the snapshot card no longer surfaces it. */
   identityDim: string | null;
 }
 
@@ -42,7 +45,7 @@ function freshness(value: string | null): string {
   }
 }
 
-export function PullApiTab({ segment, identityDim }: Props): ReactElement {
+export function PullApiTab({ segment }: Props): ReactElement {
   const { t } = useTranslation();
   const [page, setPage] = useState<SegmentMembersPage | null>(null);
   const [preview, setPreview] = useState<SegmentMemberRow[]>([]);
@@ -154,6 +157,14 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   // (predicate) segments have a generating query; manual lists are frozen.
   const canGenerateSql = segment.type === 'predicate';
 
+  // The cohort definition, in plain language — so a puller knows WHAT they're
+  // pulling. Cube-level segments (named SQL slices) lead, then predicate chips.
+  const cubeSegmentChips = parseCubeSegmentsFromQueryJson(segment.cube_query_json).map((s) => {
+    const dot = s.indexOf('.');
+    return `segment: ${dot >= 0 ? s.slice(dot + 1) : s}`;
+  });
+  const filterChips = [...cubeSegmentChips, ...describePredicate(segment.predicate_tree)];
+
   return (
     <section style={{ paddingTop: 0 }}>
       <header style={{ marginBottom: 20 }}>
@@ -205,7 +216,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
+            gridTemplateColumns: 'repeat(3, 1fr)',
             gap: 1,
             background: 'var(--border-card)',
           }}
@@ -213,8 +224,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
           {[
             { k: t('segments.detail.pullApi.computed', { defaultValue: 'Computed' }), v: freshness(segment.last_refreshed_at) },
             { k: t('segments.detail.pullApi.members', { defaultValue: 'Members' }), v: (page?.total_count ?? segment.uid_count).toLocaleString() },
-            { k: t('segments.detail.pullApi.identity', { defaultValue: 'Identity' }), v: identityDim ?? `${segment.cube ?? '—'}.user_id` },
-            { k: t('segments.detail.pullApi.scope', { defaultValue: 'Scope' }), v: segment.game_id },
+            { k: t('segments.detail.pullApi.scope', { defaultValue: 'Game' }), v: segment.game_id },
           ].map((cell) => (
             <div key={cell.k} style={{ background: 'var(--bg-card)', padding: '14px 16px' }}>
               <div
@@ -234,7 +244,6 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
                   fontSize: 14,
                   fontWeight: 700,
                   color: 'var(--text-primary)',
-                  fontFamily: cell.k.toString().includes('dentity') ? 'var(--font-mono)' : 'var(--font-sans)',
                   wordBreak: 'break-all',
                 }}
               >
@@ -242,6 +251,54 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Filters — the cohort definition in plain language, so a puller knows
+            WHAT this segment returns (live predicate / named cube slices). */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-card)' }}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+              color: 'var(--text-muted)',
+              marginBottom: 8,
+            }}
+          >
+            {t('segments.detail.pullApi.filters', { defaultValue: 'Filters' })}
+          </div>
+          {filterChips.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {filterChips.map((chip, i) => (
+                <span
+                  key={`${chip}-${i}`}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11.5,
+                    fontWeight: 500,
+                    color: 'var(--text-secondary)',
+                    background: 'var(--bg-muted)',
+                    border: '1px solid var(--border-card)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '3px 9px',
+                  }}
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+              {segment.type === 'manual'
+                ? t('segments.detail.pullApi.filtersManual', {
+                    defaultValue: 'Manual list — a fixed set of members with no live filter.',
+                  })
+                : t('segments.detail.pullApi.filtersNone', {
+                    defaultValue: 'No filters — this segment pulls the full game population.',
+                  })}
+            </div>
+          )}
         </div>
       </div>
 
