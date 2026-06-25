@@ -261,7 +261,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
             <span>
               {t('segments.detail.pullApi.truncated', {
                 defaultValue:
-                  'Snapshot is truncated — the true cohort is {{total}} members but the stored list is a capped sample. A pull will receive a partial cohort.',
+                  'The stored ranked snapshot is a capped sample — the member preview below shows a subset of the true {{total}}-member cohort. This does NOT affect the public export API: it streams the full cohort live from the warehouse, not this snapshot.',
                 total: (page?.total_count ?? 0).toLocaleString(),
               })}
             </span>
