@@ -135,7 +135,6 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   }, [segment.id]);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const membersUrl = `${origin}/api/segments/${segment.id}/members?limit=1000`;
   // Documented downstream surface. The canonical base is the prod host (the
   // OpenAPI `servers` value + what the consumer guide uses); /docs is linked
   // same-origin so it resolves in prod AND in dev via the vite proxy.
@@ -268,77 +267,6 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
             </span>
           </div>
         )}
-      </div>
-
-      {/* Pull endpoint */}
-      <div
-        style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-card)',
-          borderRadius: 'var(--radius-xl)',
-          padding: '18px 20px',
-          marginBottom: 16,
-        }}
-      >
-        <h3 style={{ margin: '0 0 12px', fontSize: 13, fontWeight: 600 }}>
-          {t('segments.detail.pullApi.endpoint', { defaultValue: 'Pull endpoint' })}
-        </h3>
-        <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 7, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 10,
-              fontWeight: 600,
-              padding: '2px 7px',
-              borderRadius: 4,
-              background: 'var(--success-soft)',
-              color: 'var(--success-ink)',
-            }}
-          >
-            GET
-          </span>
-          <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11.5 }}>
-            {t('segments.detail.pullApi.endpointHint', {
-              defaultValue: 'tokenless · ranked by the segment metric — follow next_cursor until null',
-            })}
-          </span>
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            background: 'var(--surface-inverse)',
-            borderRadius: 'var(--radius-md)',
-            padding: '10px 12px',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11.5,
-            color: 'var(--text-on-brand)',
-            overflow: 'auto',
-          }}
-        >
-          <code style={{ whiteSpace: 'nowrap' }}>{membersUrl}</code>
-          <button
-            type="button"
-            onClick={() => copy(membersUrl)}
-            style={{
-              marginLeft: 'auto',
-              background: 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'var(--text-on-brand)',
-              fontSize: 10.5,
-              padding: '4px 9px',
-              borderRadius: 5,
-              cursor: 'pointer',
-              flex: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <Copy size={11} aria-hidden /> {t('common.copy', { defaultValue: 'Copy' })}
-          </button>
-        </div>
       </div>
 
       {/* Downstream API integration — the documented, versioned public surface.
@@ -522,7 +450,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
           <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
             {t('segments.detail.pullApi.trinoSqlHint', {
               defaultValue:
-                'Run this cohort directly against Trino instead of pulling. Reproduces membership from the segment predicate; params inlined, full cohort (no row cap).',
+                'An alternative way to pull the cohort: run it directly against Trino instead of streaming from the API above. Reproduces membership from the segment predicate; params inlined, full cohort (no row cap).',
             })}
           </p>
 
@@ -599,8 +527,9 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
         </div>
       )}
 
-      {/* Authenticated full-cohort pull — admin-only credentials + runnable
-          recipes for the FULL cohort (the tokenless endpoint above is capped).
+      {/* Authenticated full-cohort pull — an alternative to the public streaming
+          API: admin-only credentials + runnable recipes that read the FULL
+          cohort straight from the warehouse (raw SQL / Trino / daily snapshot).
           Collapsed by default (reveals the warehouse connection on expand). */}
       <div
         style={{
@@ -626,7 +555,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
         <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
           {t('segments.detail.pullApi.fullPullHint', {
             defaultValue:
-              'The endpoint above is a capped ranked sample. To pull the full cohort, a service account runs the membership query against Trino. Reveal credentials below to get a ready-to-run recipe.',
+              'An alternative to the public API: a service account reads the full cohort straight from the warehouse. Reveal credentials below to get a ready-to-run recipe (raw SQL / Trino / daily snapshot).',
           })}
         </p>
 
@@ -876,7 +805,7 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
         <span>
           {t('segments.detail.pullApi.piiNote', {
             defaultValue:
-              'Pulling member IDs and profiles is a PII surface. The pull endpoint is tokenless — the segment URL itself is the credential, so share it only with teams who may see this cohort.',
+              'Pulling member IDs and profiles is a PII surface. The public API is secured with a service API key — mint and share keys only with teams who may see this cohort, and revoke them when an integration is retired.',
           })}
         </span>
       </div>
