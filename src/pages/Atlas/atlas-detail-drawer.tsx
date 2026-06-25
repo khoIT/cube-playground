@@ -4,6 +4,7 @@
  * · links. Dep rows click-to-focus the target feature (the page relaxes filters).
  */
 import { useEffect, type ReactElement } from 'react';
+import { createPortal } from 'react-dom';
 import { HEALTH_TOKENS } from './atlas-encoding';
 import { DrawbackCount, EffortTag, HealthPill, StatusPill } from './atlas-badges';
 import type { AtlasFeature, AtlasModel } from './atlas-types';
@@ -50,7 +51,10 @@ export function AtlasDetailDrawer({ feature, model, onClose, onFocusFeature }: D
   const accent = HEALTH_TOKENS[feature.health].ink;
   const hasLinks = feature.links.code.length || feature.links.plans.length || feature.links.memory.length;
 
-  return (
+  // Portal to <body> so the fixed-position scrim+drawer resolve against the
+  // viewport. The admin shell has a transformed ancestor, which would otherwise
+  // become the containing block and push `right: 0` off the screen edge.
+  return createPortal(
     <>
       <div className="atlas-scrim" onClick={onClose} />
       <aside className="atlas-drawer" role="dialog" aria-label={`${feature.label} detail`}>
@@ -128,6 +132,7 @@ export function AtlasDetailDrawer({ feature, model, onClose, onFocusFeature }: D
           ) : null}
         </div>
       </aside>
-    </>
+    </>,
+    document.body,
   );
 }
