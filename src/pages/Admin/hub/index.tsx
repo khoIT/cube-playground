@@ -9,10 +9,11 @@
  * Tabs (via the generic TabShell):
  *   Users & Access → /admin/access
  *   Observability  → /admin/observability  [Soon]
- *   Dev / Chat-Audit → /admin/dev          [relocated]
+ *   Audit          → /admin/dev   (Chat-Audit / Advisor-Audit / Data coverage)
+ *   Feature Atlas  → /admin/atlas (first-class; old /admin/dev/atlas redirects)
  *
  * resolveTab in TabShell ensures /admin/access deep-links land on the
- * correct tab. The CrossUserAuditPanel mounts inside the Dev tab so
+ * correct tab. The CrossUserAuditPanel mounts inside the Audit tab so
  * admins can inspect any user's sessions (cross-user read scope).
  */
 
@@ -30,6 +31,7 @@ import { SegmentRefreshOpsTab } from './segment-refresh-ops-tab';
 import { CarePrecomputePanel } from './care-precompute-panel';
 import { ApiKeysTab } from './api-keys-tab';
 import { useSegmentRefreshAlertCount } from './segment-refresh-ops-data';
+import { AtlasPage } from '../../Atlas/atlas-page';
 
 // ---------------------------------------------------------------------------
 // Tab definitions — Observability carries a live "N pending" badge so the
@@ -45,7 +47,8 @@ function buildAdminTabs(pendingCount: number, refreshAlertCount: number): TabDef
       path: '/admin/observability',
       tag: pendingCount > 0 ? `${pendingCount} pending` : undefined,
     },
-    { key: 'dev', label: 'Dev / Chat-Audit', path: '/admin/dev', tag: 'relocated' },
+    { key: 'dev', label: 'Audit', path: '/admin/dev' },
+    { key: 'atlas', label: 'Feature Atlas', path: '/admin/atlas' },
     { key: 'preagg-runs', label: 'Pre-agg Runs', path: '/admin/preagg-runs' },
     { key: 'query-perf', label: 'Query Performance', path: '/admin/query-perf' },
     {
@@ -162,6 +165,23 @@ export function AdminHub() {
 
           <Route exact path="/admin/api-keys">
             <ApiKeysTab />
+          </Route>
+
+          {/* Feature Atlas — first-class admin surface (promoted out of the Dev
+              tab). The old /admin/dev/atlas deep-link redirects here; this route
+              must precede the non-exact /admin/dev route so the redirect wins. */}
+          <Route exact path="/admin/dev/atlas">
+            <Redirect to="/admin/atlas" />
+          </Route>
+
+          <Route path="/admin/atlas">
+            <div
+              role="tabpanel"
+              id="hub-tab-panel-atlas"
+              aria-labelledby="hub-tab-atlas"
+            >
+              <AtlasPage />
+            </div>
           </Route>
 
           <Route path="/admin/dev">
