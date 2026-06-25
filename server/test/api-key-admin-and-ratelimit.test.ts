@@ -110,4 +110,30 @@ describe('admin api-key routes authz', () => {
     const after = await app.inject({ method: 'GET', url: '/api/admin/api-keys' });
     expect(after.json().keys.find((k: { id: string }) => k.id === id).status).toBe('revoked');
   });
+
+  it('reveals the plaintext on demand and extends an expired key', async () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    const created = await app.inject({
+      method: 'POST',
+      url: '/api/admin/api-keys',
+      payload: { label: 'reveal-me', workspace: 'prod', expiresAt: past },
+    });
+    const { key, plaintext } = created.json();
+
+    // Reveal returns the same secret.
+    const revealed = await app.inject({ method: 'GET', url: `/api/admin/api-keys/${key.id}/reveal` });
+    expect(revealed.statusCode).toBe(200);
+    expect(revealed.json().plaintext).toBe(plaintext);
+
+    // Extend the (expired) key into the future.
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/admin/api-keys/${key.id}`,
+      payload: { expiresAt: future },
+    });
+    expect(patched.statusCode).toBe(200);
+    const list = await app.inject({ method: 'GET', url: '/api/admin/api-keys' });
+    expect(list.json().keys.find((k: { id: string }) => k.id === key.id).status).toBe('active');
+  });
 });

@@ -15,6 +15,7 @@
 
 import { randomBytes, createHash } from 'node:crypto';
 import { getDb } from '../db/sqlite.js';
+import { isVaultConfigured, sealSecret, openSecret, type SealedSecret } from '../services/connector-secret-vault.js';
 
 export interface ApiKeyScope {
   id: string;
@@ -40,6 +41,10 @@ export interface ApiKeyRow {
   revoked_at: string | null;
   expires_at: string | null;
   last_used_at: string | null;
+  /** Recoverable secret: AES-sealed JSON (sealed=1) or raw plaintext (sealed=0).
+   *  NULL for keys minted before retrieval was enabled. */
+  key_secret: string | null;
+  key_secret_sealed: number;
 }
 
 /** Public-safe view of a key (never includes the hash or plaintext). */
@@ -57,6 +62,10 @@ export interface ApiKeyListItem {
   expiresAt: string | null;
   lastUsedAt: string | null;
   status: 'active' | 'revoked' | 'expired';
+  /** Active but within the expiring-soon window (so the UI can flag a renewal). */
+  expiringSoon: boolean;
+  /** Whether the plaintext can be revealed later (false for pre-retrieval keys). */
+  recoverable: boolean;
 }
 
 const KEY_PREFIX = 'sk_live_';
@@ -159,12 +168,17 @@ export function createKey(input: CreateKeyInput): CreatedKey {
   const keyPrefix = `${KEY_PREFIX}${secret.slice(0, 4)}`;
   const createdAt = new Date().toISOString();
 
+  // Persist the secret in recoverable form so it can be re-revealed later.
+  // Sealed (AES-GCM) when a vault key is configured; raw otherwise (dev).
+  const sealed = isVaultConfigured();
+  const keySecret = sealed ? JSON.stringify(sealSecret(plaintext)) : plaintext;
+
   getDb()
     .prepare(
       `INSERT INTO api_keys
          (id, key_prefix, key_sha256, label, workspace, segment_ids_json, game_ids_json,
-          role, created_by, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'export-reader', ?, ?, ?)`,
+          role, created_by, created_at, expires_at, key_secret, key_secret_sealed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'export-reader', ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -177,6 +191,8 @@ export function createKey(input: CreateKeyInput): CreatedKey {
       input.createdBy,
       createdAt,
       input.expiresAt ?? null,
+      keySecret,
+      sealed ? 1 : 0,
     );
   invalidate();
   const row = getDb().prepare('SELECT * FROM api_keys WHERE id = ?').get(id) as ApiKeyRow;
@@ -216,6 +232,20 @@ function isExpired(expiresAt: string | null): boolean {
   return Number.isFinite(t) && t <= Date.now();
 }
 
+/** Days-before-expiry the UI should flag a key as "expiring soon". */
+function expiringSoonWindowMs(): number {
+  const days = Number(process.env.API_KEY_EXPIRING_SOON_DAYS ?? 7);
+  return (Number.isFinite(days) && days > 0 ? days : 7) * 86_400_000;
+}
+
+function isExpiringSoon(expiresAt: string | null): boolean {
+  if (!expiresAt) return false;
+  const t = Date.parse(expiresAt);
+  if (!Number.isFinite(t)) return false;
+  const now = Date.now();
+  return t > now && t - now <= expiringSoonWindowMs();
+}
+
 // ---- Admin listing / revoke ------------------------------------------------
 
 function toListItem(row: ApiKeyRow): ApiKeyListItem {
@@ -238,6 +268,8 @@ function toListItem(row: ApiKeyRow): ApiKeyListItem {
     expiresAt: row.expires_at,
     lastUsedAt: row.last_used_at,
     status,
+    expiringSoon: status === 'active' && isExpiringSoon(row.expires_at),
+    recoverable: row.key_secret != null,
   };
 }
 
@@ -247,6 +279,39 @@ export function listKeys(): ApiKeyListItem[] {
     .prepare('SELECT * FROM api_keys ORDER BY created_at DESC')
     .all() as ApiKeyRow[];
   return rows.map(toListItem);
+}
+
+/** Reason a reveal can't return the plaintext. */
+export type RevealResult =
+  | { ok: true; plaintext: string }
+  | { ok: false; reason: 'not_found' | 'not_recoverable' };
+
+/**
+ * Recover a key's plaintext on demand. Returns it for any key whose secret was
+ * stored recoverably (all keys minted after migration 075); pre-075 keys have
+ * no stored secret → `not_recoverable` (re-mint to get a copy).
+ */
+export function revealKey(id: string): RevealResult {
+  const row = getDb().prepare('SELECT * FROM api_keys WHERE id = ?').get(id) as ApiKeyRow | undefined;
+  if (!row) return { ok: false, reason: 'not_found' };
+  if (row.key_secret == null) return { ok: false, reason: 'not_recoverable' };
+  const plaintext = row.key_secret_sealed
+    ? openSecret(JSON.parse(row.key_secret) as SealedSecret)
+    : row.key_secret;
+  return { ok: true, plaintext };
+}
+
+/**
+ * Extend / renew (or clear) a key's expiry. `expiresAt` = future ISO to extend,
+ * or null to make it non-expiring. Re-validates an already-expired key (the same
+ * secret keeps working). Returns false if the id is unknown or revoked.
+ */
+export function updateKeyExpiry(id: string, expiresAt: string | null): boolean {
+  const res = getDb()
+    .prepare('UPDATE api_keys SET expires_at = ? WHERE id = ? AND revoked_at IS NULL')
+    .run(expiresAt, id);
+  invalidate();
+  return res.changes > 0;
 }
 
 /** Revoke a key (idempotent). Returns false if the id is unknown. */

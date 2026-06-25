@@ -37,6 +37,10 @@ export interface ApiKeyListItem {
   lastUsedAt: string | null;
   /** Derived lifecycle state from the server. */
   status: 'active' | 'revoked' | 'expired';
+  /** Active but within the expiring-soon window — UI should flag a renewal. */
+  expiringSoon: boolean;
+  /** Whether the plaintext can be re-revealed (false for pre-retrieval keys). */
+  recoverable: boolean;
 }
 
 /** One row from the pull-audit log (`GET /api/admin/api-keys/audit`). */
@@ -77,13 +81,26 @@ export const apiKeysClient = {
   },
 
   /**
-   * Create a new API key. The `plaintext` field in the response is the only
-   * time the raw secret is readable — the server stores only a hash afterwards.
+   * Create a new API key. `plaintext` is the raw secret; it can also be
+   * re-revealed later via `reveal()` (the secret is stored recoverably).
    */
   create(input: CreateApiKeyInput): Promise<{ key: ApiKeyListItem; plaintext: string }> {
     return apiFetch<{ key: ApiKeyListItem; plaintext: string }>('/api/admin/api-keys', {
       method: 'POST',
       body: input,
+    });
+  },
+
+  /** Reveal a key's plaintext on demand (recoverable storage). */
+  reveal(id: string): Promise<{ plaintext: string }> {
+    return apiFetch<{ plaintext: string }>(`/api/admin/api-keys/${encodeURIComponent(id)}/reveal`);
+  },
+
+  /** Extend / renew (or clear) a key's expiry. `expiresAt` null = non-expiring. */
+  updateExpiry(id: string, expiresAt: string | null): Promise<{ updated: true }> {
+    return apiFetch<{ updated: true }>(`/api/admin/api-keys/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body: { expiresAt },
     });
   },
 

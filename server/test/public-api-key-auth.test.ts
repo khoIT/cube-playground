@@ -16,6 +16,8 @@ import {
   createKey,
   verifyKey,
   revokeKey,
+  revealKey,
+  updateKeyExpiry,
   listKeys,
   __resetApiKeyCaches,
 } from '../src/auth/api-key-store.js';
@@ -90,6 +92,52 @@ describe('api-key store', () => {
       expiresAt: past,
     });
     expect(verifyKey(plaintext)).toBeNull();
+  });
+
+  it('reveals the plaintext on demand (raw storage, no vault key)', () => {
+    delete process.env.CONNECTOR_SECRET_KEY; // force raw (unsealed) storage path
+    const { plaintext, item } = createKey({ label: 'r', workspace: 'prod', createdBy: 'a@b.c' });
+    expect(item.recoverable).toBe(true);
+    const r = revealKey(item.id);
+    expect(r.ok && r.plaintext).toBe(plaintext);
+  });
+
+  it('reveals the plaintext when sealed with a vault key', () => {
+    // 32-byte key (base64) so the vault seals/opens the secret.
+    process.env.CONNECTOR_SECRET_KEY = Buffer.alloc(32, 7).toString('base64');
+    try {
+      const { plaintext, item } = createKey({ label: 'sealed', workspace: 'prod', createdBy: 'a@b.c' });
+      const r = revealKey(item.id);
+      expect(r.ok && r.plaintext).toBe(plaintext);
+    } finally {
+      delete process.env.CONNECTOR_SECRET_KEY;
+    }
+  });
+
+  it('reveal reports not_found for an unknown id', () => {
+    expect(revealKey('key_nope')).toEqual({ ok: false, reason: 'not_found' });
+  });
+
+  it('extending expiry re-validates an expired key (same secret)', () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    const { plaintext, item } = createKey({
+      label: 'exp', workspace: 'prod', createdBy: 'a@b.c', expiresAt: past,
+    });
+    expect(verifyKey(plaintext)).toBeNull(); // expired
+    __resetApiKeyCaches();
+    const future = new Date(Date.now() + 86_400_000).toISOString();
+    expect(updateKeyExpiry(item.id, future)).toBe(true);
+    expect(verifyKey(plaintext)).not.toBeNull(); // valid again
+  });
+
+  it('flags expiringSoon within the window but not far-future', () => {
+    const soon = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    const far = new Date(Date.now() + 60 * 86_400_000).toISOString();
+    createKey({ label: 'soon', workspace: 'prod', createdBy: 'a@b.c', expiresAt: soon });
+    createKey({ label: 'far', workspace: 'prod', createdBy: 'a@b.c', expiresAt: far });
+    const byLabel = Object.fromEntries(listKeys().map((k) => [k.label, k.expiringSoon]));
+    expect(byLabel.soon).toBe(true);
+    expect(byLabel.far).toBe(false);
   });
 
   it('round-trips an explicit segment + game allowlist scope', () => {

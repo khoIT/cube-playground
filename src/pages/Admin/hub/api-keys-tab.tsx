@@ -92,6 +92,22 @@ const btnDanger: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+// Small neutral action (Reveal / Extend) — same footprint as btnDanger.
+const btnGhost: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  height: 26,
+  padding: '0 10px',
+  fontSize: 11.5,
+  fontWeight: 600,
+  fontFamily: 'var(--font-sans)',
+  color: 'var(--brand)',
+  background: 'var(--brand-soft)',
+  border: '1px solid var(--brand)',
+  borderRadius: 'var(--radius-sm)',
+  cursor: 'pointer',
+};
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
   height: 32,
@@ -240,7 +256,7 @@ function PlaintextReveal({ plaintext, onClose }: { plaintext: string; onClose: (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <AlertTriangle size={16} style={{ color: 'var(--warning-ink)', flexShrink: 0 }} />
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--warning-ink)' }}>
-          Copy this key now — it will never be shown again
+          Treat this key like a password — you can re-reveal it anytime from the table below
         </span>
       </div>
       <div
@@ -286,7 +302,7 @@ function PlaintextReveal({ plaintext, onClose }: { plaintext: string; onClose: (
       </div>
       <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
         <button type="button" onClick={onClose} style={btnSecondary}>
-          Done, I copied it
+          Dismiss
         </button>
       </div>
     </div>
@@ -640,10 +656,13 @@ function AuditStatusBadge({ status }: { status: string }) {
 interface KeysTableProps {
   keys: ApiKeyListItem[];
   revoking: Set<string>;
+  busyId: string | null;
   onRevoke: (id: string) => void;
+  onReveal: (id: string) => void;
+  onExtend: (key: ApiKeyListItem) => void;
 }
 
-function KeysTable({ keys, revoking, onRevoke }: KeysTableProps) {
+function KeysTable({ keys, revoking, busyId, onRevoke, onReveal, onExtend }: KeysTableProps) {
   if (keys.length === 0) {
     return (
       <div style={{ padding: '20px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
@@ -662,6 +681,7 @@ function KeysTable({ keys, revoking, onRevoke }: KeysTableProps) {
             <th style={th}>Workspace</th>
             <th style={th}>Scope</th>
             <th style={th}>Status</th>
+            <th style={th}>Expires</th>
             <th style={th}>Last used</th>
             <th style={th}>Created by</th>
             <th style={th}>Created</th>
@@ -677,11 +697,6 @@ function KeysTable({ keys, revoking, onRevoke }: KeysTableProps) {
                   <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {key.label}
                   </div>
-                  {key.expiresAt && (
-                    <div style={{ fontSize: 10.5, color: 'var(--text-muted)', marginTop: 2 }}>
-                      expires {fmtDateTime(key.expiresAt)}
-                    </div>
-                  )}
                 </td>
                 <td style={{ ...td, fontFamily: 'var(--font-mono)', fontSize: 11.5, whiteSpace: 'nowrap' }}>
                   {key.keyPrefix}…
@@ -693,7 +708,44 @@ function KeysTable({ keys, revoking, onRevoke }: KeysTableProps) {
                   </div>
                 </td>
                 <td style={td}>
-                  <StatusPill status={key.status} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                    <StatusPill status={key.status} />
+                    {key.expiringSoon && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          height: 20,
+                          padding: '0 8px',
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          borderRadius: 'var(--radius-full)',
+                          background: 'var(--warning-soft)',
+                          color: 'var(--warning-ink)',
+                          border: '1px solid var(--warning-ink)',
+                        }}
+                        title="Expires soon — extend to keep it active"
+                      >
+                        soon
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td
+                  style={{
+                    ...td,
+                    whiteSpace: 'nowrap',
+                    color:
+                      key.status === 'expired'
+                        ? 'var(--destructive-ink)'
+                        : key.expiringSoon
+                          ? 'var(--warning-ink)'
+                          : 'var(--text-secondary)',
+                    fontWeight: key.expiringSoon || key.status === 'expired' ? 600 : 400,
+                  }}
+                  title={key.expiresAt ?? 'non-expiring'}
+                >
+                  {key.expiresAt ? fmtDateTime(key.expiresAt) : 'never'}
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtRelative(key.lastUsedAt)}</td>
                 <td style={{ ...td, maxWidth: 140 }}>
@@ -703,16 +755,38 @@ function KeysTable({ keys, revoking, onRevoke }: KeysTableProps) {
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap', fontSize: 11.5 }}>{fmtRelative(key.createdAt)}</td>
                 <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                  {key.status === 'active' && (
-                    <button
-                      type="button"
-                      disabled={isRevoking}
-                      onClick={() => onRevoke(key.id)}
-                      style={{ ...btnDanger, opacity: isRevoking ? 0.55 : 1, cursor: isRevoking ? 'not-allowed' : 'pointer' }}
-                    >
-                      {isRevoking ? 'Revoking…' : 'Revoke'}
-                    </button>
-                  )}
+                  <div style={{ display: 'inline-flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                    {key.recoverable && key.status !== 'revoked' && (
+                      <button
+                        type="button"
+                        disabled={busyId === key.id}
+                        onClick={() => onReveal(key.id)}
+                        style={{ ...btnGhost, opacity: busyId === key.id ? 0.55 : 1 }}
+                      >
+                        Reveal
+                      </button>
+                    )}
+                    {key.status !== 'revoked' && (
+                      <button
+                        type="button"
+                        disabled={busyId === key.id}
+                        onClick={() => onExtend(key)}
+                        style={{ ...btnGhost, opacity: busyId === key.id ? 0.55 : 1 }}
+                      >
+                        Extend
+                      </button>
+                    )}
+                    {key.status !== 'revoked' && (
+                      <button
+                        type="button"
+                        disabled={isRevoking}
+                        onClick={() => onRevoke(key.id)}
+                        style={{ ...btnDanger, opacity: isRevoking ? 0.55 : 1, cursor: isRevoking ? 'not-allowed' : 'pointer' }}
+                      >
+                        {isRevoking ? 'Revoking…' : 'Revoke'}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             );
@@ -764,6 +838,107 @@ function InlineNotice({ text, kind, onDismiss }: { text: string; kind: 'success'
 }
 
 // ---------------------------------------------------------------------------
+// Extend / renew expiry dialog
+// ---------------------------------------------------------------------------
+
+/** Local datetime-local value (YYYY-MM-DDTHH:mm) for `now + days`. */
+function localDateTimeIn(days: number): string {
+  const d = new Date(Date.now() + days * 86_400_000);
+  // Shift by the local tz offset so toISOString's slice reads as local wall time.
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+interface ExtendDialogProps {
+  keyItem: ApiKeyListItem;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (expiresAt: string | null) => void;
+}
+
+function ExtendKeyDialog({ keyItem, busy, onClose, onSave }: ExtendDialogProps) {
+  // Prefill with the current expiry (as local wall time) or now+30d.
+  const [value, setValue] = useState<string>(() => {
+    if (keyItem.expiresAt) {
+      const d = new Date(keyItem.expiresAt);
+      if (!Number.isNaN(d.getTime())) {
+        return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+      }
+    }
+    return localDateTimeIn(30);
+  });
+
+  const fieldLabel: React.CSSProperties = {
+    display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--text-muted)',
+    marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em',
+  };
+  const preset: React.CSSProperties = {
+    fontSize: 11.5, fontWeight: 600, padding: '4px 10px', cursor: 'pointer',
+    color: 'var(--brand)', background: 'var(--brand-soft)', border: '1px solid var(--brand)',
+    borderRadius: 'var(--radius-sm)',
+  };
+
+  const saveDateTime = () => {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return;
+    onSave(d.toISOString());
+  };
+
+  return createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+      onMouseDown={onClose}
+      role="presentation"
+    >
+      <div
+        style={{ width: 'min(440px, 100%)', background: 'var(--bg-card)', border: '1px solid var(--border-card)', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-lg)', overflow: 'hidden' }}
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Extend API key expiry"
+      >
+        <div style={{ padding: '16px 18px', borderBottom: '1px solid var(--border-card)', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <KeyRound size={18} style={{ color: 'var(--brand)', flexShrink: 0 }} />
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+            Extend expiry — {keyItem.label}
+          </span>
+        </div>
+        <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={fieldLabel} htmlFor="ak-extend">New expiry</label>
+            <input
+              id="ak-extend"
+              type="datetime-local"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              disabled={busy}
+              style={{ ...inputStyle, height: 34 }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" style={preset} disabled={busy} onClick={() => setValue(localDateTimeIn(30))}>+30 days</button>
+            <button type="button" style={preset} disabled={busy} onClick={() => setValue(localDateTimeIn(90))}>+90 days</button>
+            <button type="button" style={preset} disabled={busy} onClick={() => setValue(localDateTimeIn(365))}>+1 year</button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <button type="button" style={btnSecondary} disabled={busy} onClick={() => onSave(null)}>
+              Make non-expiring
+            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button type="button" style={btnSecondary} disabled={busy} onClick={onClose}>Cancel</button>
+              <button type="button" style={btnPrimary} disabled={busy} onClick={saveDateTime}>
+                {busy ? 'Saving…' : 'Save expiry'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ---------------------------------------------------------------------------
 // ApiKeysTab — main export
 // ---------------------------------------------------------------------------
 
@@ -778,6 +953,10 @@ export function ApiKeysTab() {
 
   const [revoking, setRevoking] = useState<Set<string>>(new Set());
   const [notice, setNotice] = useState<{ text: string; kind: 'success' | 'error' } | null>(null);
+  // id with a reveal/extend request in flight (disables that row's buttons).
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // The key being extended (opens the ExtendKeyDialog).
+  const [extending, setExtending] = useState<ApiKeyListItem | null>(null);
 
   const dismissNotice = useCallback(() => setNotice(null), []);
 
@@ -802,6 +981,40 @@ export function ApiKeysTab() {
     setKeys((prev) => [key, ...prev]);
     setNewKeyPlaintext(plaintext);
     setNotice({ text: `Key "${key.label}" created.`, kind: 'success' });
+  };
+
+  const handleReveal = async (id: string) => {
+    setBusyId(id);
+    try {
+      const { plaintext } = await apiKeysClient.reveal(id);
+      setNewKeyPlaintext(plaintext);
+    } catch (e) {
+      setNotice({ text: `Reveal failed: ${(e as Error).message}`, kind: 'error' });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleExtend = async (expiresAt: string | null) => {
+    const target = extending;
+    if (!target) return;
+    setBusyId(target.id);
+    try {
+      await apiKeysClient.updateExpiry(target.id, expiresAt);
+      setExtending(null);
+      // Re-list so derived status/expiringSoon reflect the new expiry.
+      await fetchKeys();
+      setNotice({
+        text: expiresAt
+          ? `Key "${target.label}" expiry updated.`
+          : `Key "${target.label}" is now non-expiring.`,
+        kind: 'success',
+      });
+    } catch (e) {
+      setNotice({ text: `Extend failed: ${(e as Error).message}`, kind: 'error' });
+    } finally {
+      setBusyId(null);
+    }
   };
 
   const handleRevoke = async (id: string) => {
@@ -853,7 +1066,7 @@ export function ApiKeysTab() {
         <p style={{ margin: '5px 0 0', fontSize: 12.5, color: 'var(--text-muted)', maxWidth: 640, lineHeight: 1.5 }}>
           Service keys for the public <code style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-secondary)' }}>/api/public/v1</code> segment-export surface.
           Each key carries a scoped workspace, optional segment/game restrictions, and an optional expiry.
-          The raw secret is shown exactly once at creation — treat it like a password.
+          The secret is stored recoverably — reveal or copy it anytime, and extend its expiry without re-minting.
         </p>
       </header>
 
@@ -896,9 +1109,25 @@ export function ApiKeysTab() {
         {loading ? (
           <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)' }}>Loading…</div>
         ) : (
-          <KeysTable keys={keys} revoking={revoking} onRevoke={(id) => void handleRevoke(id)} />
+          <KeysTable
+            keys={keys}
+            revoking={revoking}
+            busyId={busyId}
+            onRevoke={(id) => void handleRevoke(id)}
+            onReveal={(id) => void handleReveal(id)}
+            onExtend={(key) => setExtending(key)}
+          />
         )}
       </section>
+
+      {extending && (
+        <ExtendKeyDialog
+          keyItem={extending}
+          busy={busyId === extending.id}
+          onClose={() => setExtending(null)}
+          onSave={(expiresAt) => void handleExtend(expiresAt)}
+        />
+      )}
 
       {/* Collapsible pull-audit section */}
       <AuditSection />
