@@ -1,0 +1,691 @@
+# Feature Atlas — living triage & ideation map for cube-playground.
+#
+# Source of truth. Dual-use: human triage/ideation view (rendered at /admin/dev/atlas)
+# AND agent-readable context. Kept fresh on-demand via `/atlas reconcile` (NO automation).
+#
+# Model: Surface -> Feature -> Direction. Edit THIS file; the in-app page is a pure renderer.
+#   status:  idea | planned | in-flight | shipped | deprecated
+#   health:  healthy | partial | at-risk | stale
+#   directions: future bets, rendered as dashed leaf nodes (the ideation surface)
+#   drawbacks:  known limitations / open gaps (the triage surface)
+#   deps:       other feature ids this relies on
+#
+# Seeded 2026-06-25 from plans/ + plans/complete/ + MEMORY.md. Curate freely.
+version: 1
+reconciledAt: 2026-06-25
+
+surfaces:
+  # ───────────────────────────────────────────────────────────────────────────
+  - id: liveops
+    label: LiveOps
+    features:
+      - id: liveops-monitoring-center
+        label: Monitoring Command Center
+        status: shipped
+        health: partial
+        summary: Command center + diagnostics / monetization / alerts sub-hubs
+        drawbacks:
+          - Lifecycle & tier transitions render disclosed-empty — no history table upstream
+          - Alert-rule cron bridge applies only on next server boot, not live
+        directions:
+          - { label: Upstream lifecycle/tier history table to fill empty cards, effort: L }
+          - { label: Sankey drilldown on lifecycle transitions, effort: M }
+          - { label: Auto-create alert-rule from a detected anomaly, effort: S }
+        deps: [cs-ticket-join, mf-users-preagg-coverage]
+        links:
+          plans:  [plans/260624-0104-liveops-monitoring-center, plans/complete/260525-1540-liveops-feature-pack]
+          code:   [src/pages/Liveops]
+          memory: [liveops-monitoring-center-built]
+        lastTouched: 2026-06-24
+      - id: liveops-cohort-grid
+        label: Cohort retention grid
+        status: shipped
+        health: healthy
+        summary: LiveOps cohort grid — retention/engagement by cohort
+        directions:
+          - { label: Cohort compare overlay (A vs B), effort: M }
+        links:
+          code:   [src/pages/Liveops/cohort]
+        lastTouched: 2026-06-24
+      - id: apollo-liveops-enrichment
+        label: Apollo bucket enrichment
+        status: shipped
+        health: partial
+        summary: Apollo liveops bucket map onto mf_users (92% join, no bridge)
+        drawbacks:
+          - std_past_segment OOMs at scale — needs a pre-agg before broad use
+          - 3 game-code namespaces (slug / product_code / game_id) must be reconciled per game
+        directions:
+          - { label: Pre-aggregate past_segment to kill the OOM, effort: M }
+        deps: [preagg-readiness]
+        links:
+          memory: [apollo-liveops-bucket-enrichment]
+      - id: liveops-snapshot-autorun
+        label: Snapshot autorun + preagg autobuild
+        status: shipped
+        health: healthy
+        summary: TZ-aware snapshot autorun and triggered pre-agg autobuild
+        deps: [preagg-build-board]
+        links:
+          plans:  [plans/260616-1036-snapshot-tz-autorun-preagg-autobuild]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  - id: segments
+    label: Segments
+    features:
+      - id: segments-builder
+        label: Segment builder (first-class)
+        status: shipped
+        health: healthy
+        summary: First-class segment authoring/editing surface
+        directions:
+          - { label: Saved segment templates / presets gallery, effort: M }
+        links:
+          plans:  [plans/complete/260520-2346-segments-first-class-redesign]
+          code:   [src/pages/Segments]
+      - id: segment-predicate-engine
+        label: Predicate engine
+        status: shipped
+        health: partial
+        summary: Operator-uniform predicates; condition builder
+        drawbacks:
+          - No percentile or derived-date predicate in the builder (advisor Phase 0 gap)
+        directions:
+          - { label: Percentile predicate (top-N% by measure), effort: M }
+          - { label: Derived-date predicate (e.g. last_seen < today-30d), effort: M }
+        deps: [segments-builder]
+        links:
+          plans:  [plans/complete/260612-0540-segment-predicate-upgrade, plans/complete/260609-2232-condition-operator-uniformity]
+          memory: [optimization-advisor-plan]
+      - id: segment-paying-scope
+        label: Paying-scope toggle
+        status: shipped
+        health: partial
+        summary: ?scope=paying re-scopes KPIs / Insights / Monitor
+        drawbacks:
+          - Members + Care tabs not yet re-scoped — snapshot has no per-uid LTV
+        directions:
+          - { label: Add per-uid LTV to membership snapshot to finish Members+Care scoping, effort: L }
+        deps: [segment-membership-lakehouse]
+        links:
+          plans:  [plans/260622-2339-segment-paying-scope-toggle]
+          memory: [segment-paying-scope-toggle]
+      - id: segment-membership-lakehouse
+        label: Membership lakehouse snapshot
+        status: shipped
+        health: healthy
+        summary: Nightly full membership + delta to Trino Iceberg (stag_iceberg.khoitn)
+        directions:
+          - { label: Serve-layer rollup over membership snapshot (deferred), effort: L }
+        links:
+          plans:  [plans/complete/260610-1517-segment-membership-lakehouse-snapshot, plans/complete/260610-1709-schema-per-game-membership-rollup]
+          memory: [segment-membership-lakehouse-snapshot]
+      - id: segment-pull-api
+        label: Members pull / export API
+        status: in-flight
+        health: partial
+        summary: Tokenless ranked members pull + public segment export API
+        drawbacks:
+          - Public export API consumer contract still being finalized
+        directions:
+          - { label: Signed-URL bulk export for very large cohorts, effort: M }
+        deps: [segment-membership-lakehouse]
+        links:
+          plans:  [plans/260625-1106-public-segment-export-api, plans/complete/260604-2319-segment-snapshot-pull-api]
+          code:   [src/pages/Segments/detail/tabs/pull-api-tab.tsx]
+          memory: [segment-members-pull-api-tokenless-ranked]
+        lastTouched: 2026-06-25
+      - id: segment-care-tab
+        label: Segment Care tab
+        status: shipped
+        health: partial
+        summary: CS care history on segments (whale-care handoff)
+        drawbacks:
+          - CS ticket join only resolves ~8% of uids (split_part identity)
+        deps: [cs-ticket-join, segment-care-precompute]
+        links:
+          plans:  [plans/complete/260613-0033-whale-segment-cs-care-tab, plans/complete/260613-1509-cs-ticket-care-history-360]
+          memory: [cs-ticket-schema-join]
+      - id: segment-care-precompute
+        label: Care cache precompute
+        status: shipped
+        health: healthy
+        summary: Precompute care sweeps; live-count sweeps; pagination
+        links:
+          plans:  [plans/260615-0252-segment-care-cache-precompute, plans/complete/260609-1059-vip-care-sweep-snapshots-pagination]
+      - id: segment-snapshot-kpi
+        label: Daily KPI snapshots + movement
+        status: shipped
+        health: healthy
+        summary: Segment daily-state KPI snapshots; metric-movement lakehouse; monitor merge
+        links:
+          plans:  [plans/260618-1607-segment-daily-state-kpi-snapshots, plans/complete/260612-1554-segment-metric-movement-lakehouse, plans/260619-0950-merge-monitor-movement-and-snapshot-history]
+      - id: segment-refresh-ops
+        label: Refresh cadence + ops console
+        status: shipped
+        health: healthy
+        summary: Refresh cadence, run history, segment-refresh ops console
+        links:
+          plans:  [plans/complete/260605-1147-segment-card-runner-and-refresh-cadence, plans/complete/260610-1923-segment-refresh-ops-console, plans/complete/260613-0045-segment-refresh-run-history]
+      - id: segment-explore-first
+        label: Explore-first creation
+        status: shipped
+        health: healthy
+        summary: Explore-first segment creation; track-A exploration features
+        deps: [segments-builder]
+        links:
+          plans:  [plans/260622-1934-explore-first-segment-creation, plans/260621-0323-track-a-exploration-segment-features, plans/complete/260519-1610-query-results-to-segments]
+      - id: segment-multimeasure-size
+        label: Multi-measure sizing
+        status: shipped
+        health: healthy
+        summary: Segment size with multiple measures; live size edit
+        links:
+          plans:  [plans/260622-1833-segment-size-multimeasure-edit]
+      - id: segment-detail-redesign
+        label: Detail / header redesign
+        status: shipped
+        health: healthy
+        summary: Segment detail, header, and tabbar visual redesign
+        links:
+          plans:  [plans/260624-0118-segment-header-redesign, plans/260624-0207-segment-tabbar-background, plans/complete/260607-1331-segment-detail-ui-redesign]
+      - id: member360
+        label: Member 360 page
+        status: shipped
+        health: healthy
+        summary: Per-member 360 across all games; readable metrics section
+        deps: [cs-ticket-join]
+        links:
+          plans:  [plans/complete/260605-1200-per-member-360-page, plans/complete/260608-1824-member360-all-games-rollout, plans/complete/260607-1419-member360-readable-metrics-section-redesign]
+          memory: [cs-ticket-schema-join]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  - id: chat
+    label: Chat
+    features:
+      - id: chat-agent
+        label: Chat assistant (core)
+        status: shipped
+        health: healthy
+        summary: Tiered chat agent, data-as-truth; stream resume
+        directions:
+          - { label: Deeper multi-turn planning memory, effort: M }
+        links:
+          plans:  [plans/complete/260523-1643-cube-playground-chat-agent, plans/complete/260528-1144-tiered-chat-agent-data-as-truth, plans/complete/260524-2216-chat-stream-resume]
+          code:   [src/pages/Chat]
+      - id: chat-segment-creation
+        label: Segment creation from chat
+        status: shipped
+        health: partial
+        summary: Chat proposes; FE writes segments (measure / top-N / percentile)
+        drawbacks:
+          - Population-scoping trap — unscoped percentile predicates compute p75=0
+        deps: [chat-agent, segment-predicate-engine]
+        links:
+          plans:  [plans/260619-1341-chat-segment-creation-from-chat]
+          memory: [chat-segment-creation-plan]
+      - id: chat-diagnostic-rail
+        label: Diagnostic / prescriptive rail
+        status: shipped
+        health: partial
+        summary: Diagnose/advise doors + genre levers + trust guard
+        drawbacks:
+          - Write-actuation descoped — playground is data exploration, no direct player push
+        directions:
+          - { label: Wire levers to closed-loop experiment hand-off, effort: M }
+        deps: [chat-agent, closed-loop-experiment]
+        links:
+          plans:  [plans/260619-1651-chat-diagnostic-prescriptive-rail]
+          memory: [chat-diagnostic-prescriptive-rail]
+      - id: chat-charts
+        label: Chart rendering
+        status: shipped
+        health: healthy
+        summary: Chat chart rendering; dual-axis & combined artifacts; table-first picker
+        directions:
+          - { label: More chart families (funnel, heatmap), effort: M }
+        links:
+          plans:  [plans/complete/260524-0051-chat-chart-rendering, plans/260619-1716-chat-combined-dual-axis-artifact, plans/complete/260605-1154-chat-artifact-table-first-chart-picker]
+          memory: [ops-charts-reuse-chat-renderer]
+      - id: chat-empty-range-reanchor
+        label: Empty-range re-anchor
+        status: shipped
+        health: healthy
+        summary: Auto re-anchors empty RELATIVE date ranges to latest window with data
+        deps: [chat-agent]
+        links:
+          memory: [chat-empty-range-coverage-snap]
+      - id: chat-company-context
+        label: Company / platform context
+        status: shipped
+        health: partial
+        summary: get_company_context tool (VNGGames + GPP domains)
+        drawbacks:
+          - Seed is on-demand and hand-refreshed — drifts from Confluence source
+        directions:
+          - { label: Scheduled refresh from GPP Confluence, effort: M }
+        deps: [chat-agent]
+        links:
+          memory: [chat-company-platform-context-knowledge]
+      - id: chat-situational-answers
+        label: Situational answers
+        status: shipped
+        health: healthy
+        summary: Churn / reach situational answers; NL disambiguation; glossary VI
+        deps: [chat-agent, glossary-resolver]
+        links:
+          plans:  [plans/260617-1345-chat-situational-answers-churn-reach, plans/complete/260525-1042-nl-disambiguation-and-glossary-vi]
+      - id: chat-model-awareness
+        label: Model awareness + smart asking
+        status: shipped
+        health: healthy
+        summary: Agent aware of its model; asks smart clarifying questions
+        links:
+          plans:  [plans/260617-1057-agent-model-awareness-smart-asking]
+      - id: chat-choice-chips
+        label: Turn-ending choice chips
+        status: shipped
+        health: partial
+        summary: Choice chips persist + rehydrate across turns
+        drawbacks:
+          - Follow-up chips + refine row hidden in the right-side panel surface
+        deps: [chat-agent, chat-feature-parity]
+        links:
+          plans:  [plans/260617-0853-turn-ending-choice-chips, plans/260617-1012-persist-rehydrate-choice-chips]
+      - id: chat-feature-parity
+        label: Two-surface parity
+        status: shipped
+        health: partial
+        summary: Main /chat + right-side panel share one renderer
+        drawbacks:
+          - onFollowupPick gate hides follow-up chips + refine row in the panel
+        links:
+          memory: [chat-feature-parity-two-surfaces]
+      - id: chat-history-attachments
+        label: History + attachments + saved views
+        status: shipped
+        health: healthy
+        summary: Chat history, attachments, saved views; session isolation + publish
+        links:
+          plans:  [plans/260621-1253-chat-history-attachments-saved-views, plans/complete/260604-1524-chat-session-isolation-and-publish]
+      - id: chat-main-layout
+        label: Main layout redesign
+        status: shipped
+        health: healthy
+        summary: Chat main layout redesign; message spacing & chip redesign
+        links:
+          plans:  [plans/260622-1446-chat-main-layout-redesign, plans/260617-1816-chat-message-spacing-chip-redesign]
+      - id: chat-audit-console
+        label: Chat audit / observability
+        status: shipped
+        health: healthy
+        summary: Chat-audit tool (LLM observability, cache) ported into admin hub
+        deps: [chat-llm-failover]
+        links:
+          plans:  [plans/260624-1108-port-chat-audit-to-admin-hub, plans/complete/260525-1050-chat-llm-observability, plans/complete/260525-1410-chat-audit-v2-monitoring-cache]
+      - id: chat-llm-failover
+        label: LLM key failover
+        status: shipped
+        health: at-risk
+        summary: Auto-rotation primary -> stg -> backup -> subscription OAuth token
+        drawbacks:
+          - Gateway key 403s on non-sonnet models — needs per-feature env overrides
+          - All 3 keys share one drained upstream — failover can't help when pool is empty
+        directions:
+          - { label: Independent upstream pools per key tier, effort: L }
+        links:
+          memory: [anthropic-key-failover-chat-service, llm-gateway-key-sonnet-only]
+      - id: chat-service-decouple
+        label: Service decoupling
+        status: shipped
+        health: healthy
+        summary: Decoupled chat-service from advisor and care
+        links:
+          plans:  [plans/260620-1112-decouple-chat-service-from-advisor-and-care]
+      - id: answer-quality-eval
+        label: Answer-quality eval harness
+        status: shipped
+        health: partial
+        summary: Runner + scorer + bank (chat-service/test/eval)
+        drawbacks:
+          - Subscription session-cap forces paced/fail-fast/resumable runs; host-only lane
+        directions:
+          - { label: CI-gated regression scoring on each chat change, effort: M }
+        deps: [chat-agent]
+        links:
+          memory: [answer-quality-eval-harness]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  - id: catalog
+    label: Catalog / Data-Model
+    features:
+      - id: cube-join-graph
+        label: Cube join graph
+        status: shipped
+        health: healthy
+        summary: Cube join-graph default view (Catalog) — reused by Atlas viz
+        directions:
+          - { label: Highlight unused / orphan cubes, effort: S }
+        links:
+          plans:  [plans/complete/260612-1753-cube-join-graph-default-view]
+          code:   [src/pages/Catalog/cube-graph]
+      - id: concept-fabric
+        label: Unified concept fabric
+        status: shipped
+        health: partial
+        summary: Concept index + cartographer across metrics/cubes/glossary
+        drawbacks:
+          - Standalone 4-layer node-graph map page deferred
+        directions:
+          - { label: Build the deferred standalone concept-map page, effort: L }
+        links:
+          plans:  [plans/complete/260603-0324-unified-concept-fabric, plans/complete/260604-0058-unified-concept-fabric-map-page]
+          code:   [src/pages/Catalog/concept-detail]
+          memory: [concept-fabric-map-page-plan]
+      - id: metric-catalog
+        label: Metric catalog + wizard
+        status: shipped
+        health: healthy
+        summary: Metric catalog, define-metric wizard, multi-source/multi-input
+        directions:
+          - { label: Bulk metric import from spec, effort: M }
+        links:
+          plans:  [plans/complete/260516-1530-define-metric-wizard, plans/complete/260524-2112-metric-catalog-expansion, plans/complete/260517-1930-new-metric-multi-source-multi-input]
+      - id: metric-cube-coverage
+        label: Metric ↔ cube coverage
+        status: shipped
+        health: healthy
+        summary: Coverage monitor + draft-scaffolding + Settings tab
+        deps: [metric-catalog]
+        links:
+          plans:  [plans/complete/260527-1257-metric-cube-coverage-sync]
+          memory: [metric-cube-coverage-feature]
+      - id: metric-drift-center
+        label: Metric Drift Center
+        status: shipped
+        health: healthy
+        summary: /drift-center root-cause grouping + repoint-ref + mark-N/A
+        deps: [metric-catalog]
+        links:
+          plans:  [plans/complete/260530-1204-metric-drift-center]
+          code:   [src/pages/DriftCenter]
+          memory: [metric-drift-center-plan]
+      - id: metric-trust-audit
+        label: Metric-trust audit + certify
+        status: shipped
+        health: partial
+        summary: audit:metric-trust classifies/auto-certifies per game; trust is global
+        drawbacks:
+          - Cross-game gap worklist — most metrics most portable from cfm
+        deps: [metric-catalog]
+        links:
+          plans:  [plans/complete/260525-0012-metrics-trust-tier-cleanup, plans/complete/260525-0050-broken-metric-guard-and-certify-flow]
+          memory: [metric-trust-audit-playbook]
+      - id: glossary-resolver
+        label: Glossary resolver
+        status: shipped
+        health: partial
+        summary: Glossary↔metric ref integrity; resolver consolidation
+        drawbacks:
+          - Dangling primary refs create dead chat-chip links (3-layer fix)
+        links:
+          plans:  [plans/complete/260527-1306-glossary-resolver-consolidation]
+          memory: [glossary-metric-ref-integrity]
+      - id: cube-model-onboarding
+        label: Cube-model onboarding
+        status: planned
+        health: partial
+        summary: "DA onboarding wizard: introspect Trino -> infer -> stage draft cube models"
+        drawbacks:
+          - Blocked by drift-center; standard 33-table core + Node generator not yet built
+        directions:
+          - { label: Generator-as-truth Node scaffolder at cube-dev/scripts, effort: L }
+        deps: [metric-drift-center, cube-member-resolver]
+        links:
+          plans:  [plans/complete/260530-1406-cube-model-onboarding-agent, plans/260614-0153-standard-cube-model-onboarding-script]
+          memory: [cube-model-onboarding-agent-plan, standard-cube-model-onboarding-plan]
+      - id: cube-workspace-switching
+        label: Workspace switching
+        status: shipped
+        health: partial
+        summary: local↔prod cube-dev workspaces; default workspace = local
+        drawbacks:
+          - Prod prefix workspace gate is header-only (accepted single-trusted-admin trade-off until Keycloak RBAC)
+        directions:
+          - { label: Keycloak RBAC per-workspace grants, effort: L }
+        links:
+          plans:  [plans/complete/260527-1539-cube-workspace-switching]
+          memory: [cube-workspaces-switching-project, cube-default-workspace-is-local, prod-cross-tenant-reads-accepted]
+      - id: cube-member-resolver
+        label: Cube member resolver
+        status: shipped
+        health: partial
+        summary: Logical↔physical member translator (prefix vs game_id workspaces)
+        drawbacks:
+          - Member-translation still uses single-underscore on prod double-underscore names (deferred)
+        links:
+          memory: [cube-member-resolver-workspace-abstraction, prod-cube-double-underscore-prefix]
+      - id: connector-management
+        label: Connector management
+        status: shipped
+        health: healthy
+        summary: Cross-source modeling / connector management
+        links:
+          plans:  [plans/complete/260531-1016-connector-management-cross-source-modeling]
+      - id: jus-gold-behavior-cubes
+        label: jus gold behavior cubes
+        status: planned
+        health: partial
+        summary: jus_vn farming/MMO behavior + economy cubes (role-grain, garden/npc)
+        drawbacks:
+          - Per-game money_flow dict; not yet built
+        deps: [cube-model-onboarding]
+        links:
+          plans:  [plans/260621-0228-jus-gold-behavior-cubes-chat-aware]
+          memory: [jus-gold-behavior-cubes-plan]
+      - id: jus-ccu-cube
+        label: jus CCU concurrency cube
+        status: shipped
+        health: healthy
+        summary: jus ptg CCU / concurrency cube
+        links:
+          plans:  [plans/260617-1407-jus-ptg-ccu-concurrency-cube]
+      - id: cross-game-parity
+        label: Cross-game cube parity
+        status: shipped
+        health: partial
+        summary: Cross-game cube parity audit; per-game measure coverage
+        drawbacks:
+          - revenue_vnd_real measure is cfm-only — parity gaps across per-game YAMLs
+        deps: [metric-cube-coverage]
+        links:
+          plans:  [plans/260621-1333-cross-game-cube-parity-audit]
+          memory: [game-integration-raw-table-taxonomy]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  - id: advisor
+    label: Advisor / Optimization
+    features:
+      - id: optimization-advisor
+        label: Optimization Advisor
+        status: shipped
+        health: partial
+        summary: Decision rail upstream of command center; Explore↔Hand-off UX
+        drawbacks:
+          - Earlier 100% timeout fixed (lens dimension-as-measure, budget cap, game-scope) — watch for regressions
+        directions:
+          - { label: More genre-specific lever packs, effort: M }
+        deps: [chat-agent, segment-predicate-engine]
+        links:
+          plans:  [plans/260614-1813-optimization-advisor, plans/260615-1159-advisor-drive-continue-to-draft]
+          code:   [src/pages/Advisor]
+          memory: [optimization-advisor-plan, advisor-now-works-lens-and-budget]
+      - id: advisor-experiment-flow
+        label: Experiment flow + scorecard
+        status: shipped
+        health: partial
+        summary: Experiment registry + frozen deterministic split + billing_detail scorecard
+        drawbacks:
+          - Cold reads need loadWithContinueWait; forward window only; ?illustrative=1 for demo
+        deps: [optimization-advisor, closed-loop-experiment]
+        links:
+          plans:  [plans/260614-0018-experiment-command-center, plans/260615-1432-advisor-experiment-flow]
+          memory: [advisor-experiment-real-outcomes]
+      - id: advisor-audit-console
+        label: Advisor run audit console
+        status: shipped
+        health: healthy
+        summary: Advisor runs persisted + /admin/dev/advisor-audit console
+        deps: [optimization-advisor]
+        links:
+          plans:  [plans/260615-0154-advisor-run-audit-console]
+          code:   [src/pages/DevAudit]
+          memory: [advisor-run-audit-console]
+      - id: advisor-briefing-console
+        label: Cube Advisor briefing console
+        status: shipped
+        health: partial
+        summary: Sibling app (../cube-advisor) spawns claude -p CLI -> top-3 ideas/category
+        drawbacks:
+          - Separate sibling app; live prompt eval still pending
+        links:
+          plans:  [plans/complete/260603-1842-cube-advisor-architect-briefing-console]
+          memory: [cube-advisor-briefing-console-plan]
+      - id: preagg-build-board
+        label: Pre-agg build board
+        status: shipped
+        health: healthy
+        summary: Triggered pre-agg build history console + build mechanics harness
+        directions:
+          - { label: Auto-suggest rollups from slow-query telemetry, effort: M }
+        links:
+          plans:  [plans/260613-1653-triggered-preagg-build-history, plans/complete/260610-1838-preagg-run-history-console]
+          memory: [cube-preagg-build-mechanics-harness]
+      - id: preagg-readiness
+        label: Pre-agg readiness + probe
+        status: shipped
+        health: at-risk
+        summary: Readiness probe asserts usedPreAggregations; CubeStore introspection
+        drawbacks:
+          - Pre-aggs dormant locally — rollup defs exist but no partitions built
+          - DEV_MODE=false = no hot-reload; must restart cube_api for new rollups to route
+        deps: [preagg-build-board]
+        links:
+          plans:  [plans/complete/260605-1707-preagg-readiness-and-artifact-validation, plans/complete/260613-1429-cubestore-cache-visibility]
+          memory: [cubestore-preaggs-dormant-locally, cubestore-introspection-and-probe-hardening, cube-serving-instance-needs-restart-for-new-rollups]
+      - id: query-performance-hub
+        label: Query Performance Hub
+        status: planned
+        health: partial
+        summary: Live query telemetry + rollup-suggestion advisor
+        drawbacks:
+          - Per-user-dim Trino fallthrough causes proxy 504s; distinct from preagg board
+        directions:
+          - { label: Surface per-query rollup-hit/miss inline, effort: M }
+        deps: [preagg-readiness]
+        links:
+          plans:  [plans/260616-1125-query-performance-optimization-hub]
+          memory: [query-performance-optimization-hub-plan, cube-query-wait-timeouts]
+      - id: rollup-authoring
+        label: Rollup authoring rules
+        status: shipped
+        health: partial
+        summary: Rollup designer + authoring rules (time-dim match, additive-only)
+        drawbacks:
+          - Time-dim must match query (dteventtime vs log_date) or no route; verify by compiled SQL
+        deps: [preagg-build-board]
+        links:
+          memory: [cube-rollup-authoring-rules, cube-preagg-build-mechanics-harness]
+      - id: mf-users-preagg-coverage
+        label: mf_users pre-agg coverage
+        status: shipped
+        health: healthy
+        summary: Segment-sizing rollup coverage on all 8 games
+        deps: [preagg-readiness]
+        links:
+          plans:  [plans/260619-1544-mf-users-preagg-coverage-optimization, plans/complete/260608-1733-user-behavior-cube-preagg-rollout]
+          memory: [mf-users-composition-rollup-coverage]
+
+  # ───────────────────────────────────────────────────────────────────────────
+  - id: ops-cs
+    label: Ops & CS
+    features:
+      - id: ops-console
+        label: Ops console (/ops)
+        status: shipped
+        health: partial
+        summary: Ops command center for cfm_vn / jus_vn; trends reuse chat renderer
+        drawbacks:
+          - revenue_vnd_real is cfm-only — jus revenue measure gap
+          - Empty charts on Local = no billing data, not a bug
+        deps: [chat-charts, cross-game-parity]
+        links:
+          plans:  [plans/260614-1500-ops-console-placement, plans/260614-2010-ops-redesign-powerups-daterange-members]
+          code:   [src/pages/OpsConsole]
+          memory: [ops-console-and-jus-revenue-measure-gap, ops-charts-reuse-chat-renderer]
+      - id: vip-care-console
+        label: VIP Care playbook console
+        status: shipped
+        health: partial
+        summary: 21-playbook CS console (monitor + ledger + member360) for cfm_vn/jus_vn
+        drawbacks:
+          - Threshold calibration + availability-gating per game still expanding
+        deps: [cs-ticket-join, member360]
+        links:
+          plans:  [plans/complete/260608-2152-vip-care-playbook-console, plans/complete/260608-2128-vip-care-cs-console-flow]
+          memory: [vip-care-playbook-console-plan]
+      - id: care-coverage-expansion
+        label: Care coverage expansion
+        status: shipped
+        health: at-risk
+        summary: Playbook coverage expansion; jus_vn unlock; per-game data-yaml
+        drawbacks:
+          - CS-dashboard Tier-0 identity views invisible to availability check — uids silently stuck in queue
+        deps: [vip-care-console]
+        links:
+          plans:  [plans/complete/260609-1515-care-playbook-coverage-expansion, plans/complete/260610-0000-jus-vn-playbook-coverage-unlock, plans/complete/260610-1133-cfm-behavior-playbook-data-gaps]
+          memory: [game-onboarding-data-yaml-guide]
+      - id: cs-ticket-join
+        label: CS ticket schema + join
+        status: shipped
+        health: at-risk
+        summary: iceberg.cs_ticket; join via split_part(user_id,'@',1); cs_ticket_new_master
+        drawbacks:
+          - Only ~8% of uids resolve via split_part identity
+          - Facebook / AIHelp page-scoped PSID cannot join to game uid at all
+        directions:
+          - { label: Central identity bridge for FB/AIHelp PSIDs (needs upstream), effort: XL }
+        links:
+          plans:  [plans/complete/260609-1239-cs-console-filters-360-redesign]
+          memory: [cs-ticket-schema-join, cs-facebook-aihelp-uid-unresolvable]
+      - id: cs-attachments
+        label: CS ticket attachments
+        status: shipped
+        health: partial
+        summary: Attachment links from ticket_communications_centralized.files
+        drawbacks:
+          - FB signed URLs expire (~30-60d); in-game/web portal keys deferred (need base host)
+        deps: [cs-ticket-join]
+        links:
+          memory: [cs-ticket-attachment-storage]
+      - id: closed-loop-experiment
+        label: Closed-loop CS experiment
+        status: shipped
+        health: partial
+        summary: CS-actuated win-back POC; treatment delivered by CS, synced via cs_ticket_logs
+        drawbacks:
+          - No direct player push — playground cannot actuate, CS team is the delivery channel
+        directions:
+          - { label: stag_iceberg enrichment map for outcome attribution, effort: M }
+        deps: [cs-ticket-join]
+        links:
+          plans:  [plans/complete/260609-1813-cs-demo-care-loop, plans/complete/260610-1453-vip-segment-care-handoff]
+          memory: [closed-loop-experiment-cs-actuated]
+      - id: cs-queue-snapshot
+        label: CS queue snapshot eligibility
+        status: shipped
+        health: healthy
+        summary: CS queue snapshot + eligibility redesign; sweep progress banner
+        deps: [vip-care-console]
+        links:
+          plans:  [plans/260621-0110-cs-queue-snapshot-eligibility-redesign, plans/complete/260610-0939-sweep-progress-banner, plans/complete/260609-1654-cs-segment-live-count-sweep]
