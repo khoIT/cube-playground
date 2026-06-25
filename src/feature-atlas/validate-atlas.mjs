@@ -51,8 +51,14 @@ export function validateAtlas(atlas) {
     return { valid: false, errors: ['atlas root must be an object'] };
   }
   if (atlas.version !== 1) push(`version must be 1 (got ${JSON.stringify(atlas.version)})`);
-  if (typeof atlas.reconciledAt !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(atlas.reconciledAt)) {
-    push(`reconciledAt must be an ISO date string YYYY-MM-DD (got ${JSON.stringify(atlas.reconciledAt)})`);
+  // Date, optionally with a time (and offset). A timed stamp MUST be quoted in
+  // YAML — an unquoted datetime is parsed to a Date and normalizeAtlas would
+  // slice off the time. The header renders HH:mm when a time is present.
+  if (
+    typeof atlas.reconciledAt !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?([+-]\d{2}:\d{2}|Z)?)?$/.test(atlas.reconciledAt)
+  ) {
+    push(`reconciledAt must be ISO YYYY-MM-DD or a quoted YYYY-MM-DDTHH:mm stamp (got ${JSON.stringify(atlas.reconciledAt)})`);
   }
   if (!Array.isArray(atlas.surfaces)) {
     push('surfaces must be an array');

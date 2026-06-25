@@ -133,6 +133,15 @@ describe('validateAtlas', () => {
     expect(validateAtlas(atlas)).toEqual({ valid: true, errors: [] });
   });
 
+  it('accepts a reconciledAt with a quoted time + offset, rejects a malformed one', () => {
+    const ok = atlasWith([{ id: 'a', label: 'A', status: 'idea', health: 'healthy' }], '2026-06-25T17:26+07:00');
+    expect(validateAtlas(ok)).toEqual({ valid: true, errors: [] });
+    const bad = atlasWith([{ id: 'a', label: 'A', status: 'idea', health: 'healthy' }], '2026/06/25 17:26');
+    const { valid, errors } = validateAtlas(bad);
+    expect(valid).toBe(false);
+    expect(errors.some((e) => e.includes('reconciledAt'))).toBe(true);
+  });
+
   it('rejects an invalid status/health and a bad effort', () => {
     const atlas = atlasWith([
       { id: 'a', label: 'A', status: 'live', health: 'green', directions: [{ label: 'x', effort: 'HUGE' }] },

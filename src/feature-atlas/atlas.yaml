@@ -12,7 +12,9 @@
 #
 # Seeded 2026-06-25 from plans/ + plans/complete/ + MEMORY.md. Curate freely.
 version: 1
-reconciledAt: 2026-06-25
+# Quoted so the GMT+7 time survives (an unquoted datetime is parsed to a Date
+# and normalizeAtlas would slice off the time). Header shows date + HH:mm.
+reconciledAt: "2026-06-25T17:26+07:00"
 
 surfaces:
   # ───────────────────────────────────────────────────────────────────────────
