@@ -1,7 +1,7 @@
 ---
 phase: 1
 title: "Spine + reconcile skill"
-status: pending
+status: completed
 priority: P1
 effort: "1-2d"
 dependencies: []
@@ -95,11 +95,18 @@ surfaces:
 
 ## Success Criteria
 
-- [ ] `src/feature-atlas/atlas.yaml` exists, schema-valid, ~60 features across the agreed surfaces, each with status + health + ≥0 drawbacks; shipped features carry ≥1 direction where sensible.
-- [ ] `node scripts/atlas-reconcile.mjs` on a clean tree proposes an empty/near-empty diff; on a fixture with a moved-to-complete plan proposes `set-status: shipped`.
-- [ ] `/atlas` skill runs the helper, presents an approve/edit/drop diff, and writes a valid `atlas.yaml` on confirm (no silent writes).
-- [ ] Proposal engine unit tests pass.
-- [ ] `atlas.yaml` is readable as agent context (well-structured, self-explaining ids).
+- [x] `src/feature-atlas/atlas.yaml` exists, schema-valid, 63 features across the 6 agreed surfaces, each with status + health + drawbacks/directions where sensible.
+- [x] `node scripts/atlas-reconcile.mjs` on a clean tree proposes a near-empty diff (2 conservative, expected); fixture test proves a moved-to-complete plan proposes `set-status: shipped`.
+- [x] `.claude/skills/atlas/SKILL.md` drives the approve/edit/drop ritual; engine is read-only (never writes) — the skill writes on confirm.
+- [x] Proposal engine unit tests pass (15/15, `scripts/__tests__/atlas-reconcile.test.mjs`).
+- [x] `atlas.yaml` is readable as agent context (well-structured, self-explaining ids).
+
+## Completion notes (2026-06-25)
+
+- Built: `src/feature-atlas/atlas.yaml` (63 features / 6 surfaces), `src/feature-atlas/validate-atlas.mjs` (shared validator + `normalizeAtlas`), `scripts/atlas-reconcile.mjs` (read-only proposal engine), `scripts/__tests__/atlas-reconcile.test.mjs` (15 tests), `.claude/skills/atlas/SKILL.md`, `docs/feature-atlas/README.md`.
+- Modified (additive): `vitest.config.ts` — registers `scripts/**/*.{test,spec}.mjs` in the `node` env so the engine tests run in the existing suite.
+- Code review: DONE_WITH_CONCERNS, no blockers; 3 minor robustness fixes applied (future-date guard on add-feature; clean failure on `--atlas` w/o value and on missing atlas file).
+- Validator/loader are shared with the future P3 in-app loader (DRY); `normalizeAtlas` coerces js-yaml timestamp Dates back to ISO strings so dates stay hand-editable unquoted.
 
 ## Risk Assessment
 

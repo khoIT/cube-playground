@@ -1,7 +1,7 @@
 ---
 phase: 2
 title: "Visualization design (huashu)"
-status: pending
+status: completed
 priority: P2
 effort: "1d"
 dependencies: [1]

@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Feature Atlas — Variant 2 · Cluster Graph</title>
+<style>
+  :root {
+    --brand:#f05a22; --brand-hover:#f54a00; --brand-soft:#fdf0e9;
+    --bg-app:#f8efe5; --bg-card:#f8efe5; --bg-muted:#efe3d4;
+    --border-card:#e1d4c2; --border-strong:#d2c2ab;
+    --text-primary:#171717; --text-secondary:#404040; --text-muted:#737373;
+    --text-on-brand:#ffffff;
+    --success-soft:#d1fae5; --success-ink:#047857; --success-border:#86efac;
+    --warning-soft:#fef3c7; --warning-ink:#92400e; --warning-border:#fcd34d;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b; --destructive-border:#fca5a5;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8; --info-border:#93c5fd;
+    --muted-soft:#efe3d4; --muted-ink:#525252;
+    --radius-xs:4px; --radius-sm:6px; --radius-md:8px; --radius-lg:10px; --radius-full:9999px;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:0 4px 12px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+    --shadow-lg:0 12px 32px rgba(0,0,0,.12),0 4px 8px rgba(0,0,0,.06);
+    --font-sans:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --edge:#d2c2ab; --edge-dep:#93c5fd;
+  }
+  :root[data-theme="dark"] {
+    --brand:#f06b3a; --brand-hover:#f7894e; --brand-soft:rgba(240,90,34,.12);
+    --bg-app:#0a0a0a; --bg-card:#171717; --bg-muted:#262626;
+    --border-card:#262626; --border-strong:#404040;
+    --text-primary:#fafafa; --text-secondary:#d4d4d4; --text-muted:#737373;
+    --success-soft:rgba(16,185,129,.15); --success-ink:#6ee7b7; --success-border:rgba(16,185,129,.4);
+    --warning-soft:rgba(217,119,6,.18); --warning-ink:#fcd34d; --warning-border:rgba(217,119,6,.45);
+    --destructive-soft:rgba(220,38,38,.18); --destructive-ink:#fca5a5; --destructive-border:rgba(220,38,38,.4);
+    --info-soft:rgba(63,141,255,.18); --info-ink:#93c5fd; --info-border:rgba(63,141,255,.45);
+    --muted-soft:#262626; --muted-ink:#d4d4d4;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.55);
+    --shadow-md:0 4px 12px rgba(0,0,0,.5);
+    --shadow-lg:0 16px 40px rgba(0,0,0,.6);
+    --edge:#404040; --edge-dep:rgba(63,141,255,.55);
+  }
+  * { box-sizing:border-box; }
+  html,body { margin:0; padding:0; height:100%; background:var(--bg-app); color:var(--text-primary); font-family:var(--font-sans); overflow:hidden; }
+  body { font-size:13px; }
+
+  .topbar { position:fixed; top:0; left:0; right:0; z-index:30; padding:16px 24px 12px; background:var(--bg-app);
+    border-bottom:1px solid var(--border-card); }
+  .eyebrow { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:4px; }
+  .titlerow { display:flex; align-items:center; gap:10px; }
+  .titlerow h1 { margin:0; font-size:20px; font-weight:700; }
+  .ico { color:var(--brand); flex:none; }
+  .ghostbtn { background:var(--bg-card); border:1px solid var(--border-card); color:var(--text-secondary);
+    border-radius:var(--radius-md); padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; }
+  .ghostbtn:hover { box-shadow:var(--shadow-sm); }
+
+  .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px; }
+  .search { display:flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border-card);
+    border-radius:var(--radius-md); padding:6px 10px; min-width:240px; }
+  .search input { border:none; background:transparent; outline:none; font:inherit; color:var(--text-primary); width:100%; }
+  .search svg { color:var(--text-muted); flex:none; }
+  .chiprow { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .chip { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:var(--radius-full);
+    border:1px solid var(--border-card); background:var(--bg-card); color:var(--text-secondary);
+    font-size:12px; font-weight:500; cursor:pointer; user-select:none; }
+  .chip .dot { width:8px; height:8px; border-radius:var(--radius-full); }
+  .chip.on { background:var(--brand-soft); border-color:var(--brand); color:var(--brand); }
+  .grp-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin:0 2px 0 8px; }
+
+  /* canvas */
+  #stage { position:fixed; inset:0; top:0; cursor:grab; }
+  #stage.grabbing { cursor:grabbing; }
+  #world { position:absolute; top:0; left:0; transform-origin:0 0; }
+  #edges { position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }
+
+  .node { position:absolute; transform:translate(-50%,-50%); user-select:none; }
+  /* surface root */
+  .surface-node { display:flex; flex-direction:column; align-items:center; gap:2px; padding:10px 16px;
+    background:var(--bg-card); border:1.5px solid var(--border-strong); border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-md); cursor:pointer; min-width:120px; text-align:center; }
+  .surface-node:hover { border-color:var(--brand); }
+  .surface-node .sn-name { font-size:14px; font-weight:700; }
+  .surface-node .sn-count { font-size:10.5px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .surface-node.collapsed { background:var(--bg-muted); }
+  .sn-toggle { font-size:10px; color:var(--text-muted); margin-top:2px; }
+
+  /* feature node */
+  .feat-node { display:flex; align-items:center; gap:7px; padding:6px 10px 6px 8px; background:var(--bg-card);
+    border:1px solid var(--border-card); border-radius:var(--radius-md); box-shadow:var(--shadow-sm);
+    cursor:pointer; max-width:200px; }
+  .feat-node:hover { box-shadow:var(--shadow-md); }
+  .feat-node.sel { border-color:var(--brand); box-shadow:0 0 0 2px var(--brand-soft),var(--shadow-md); }
+  .feat-node.dimmed { opacity:.28; }
+  .feat-node .accent { width:4px; align-self:stretch; min-height:20px; border-radius:var(--radius-full); flex:none; }
+  .feat-node .fn-name { font-size:12px; font-weight:500; line-height:1.25; overflow:hidden; text-overflow:ellipsis;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+  .fn-meta { display:flex; flex-direction:column; gap:2px; align-items:flex-end; flex:none; }
+  .sbadge { width:9px; height:9px; border-radius:2px; flex:none; }
+  .fn-marks { display:flex; gap:3px; }
+  .mk { font-size:9px; font-weight:700; padding:0 4px; border-radius:var(--radius-xs); font-variant-numeric:tabular-nums; }
+  .mk-dw { background:var(--destructive-soft); color:var(--destructive-ink); }
+  .mk-dir { background:var(--bg-muted); color:var(--text-secondary); }
+
+  /* direction leaf */
+  .dir-node { padding:3px 7px; background:transparent; border:1px dashed var(--border-strong); border-radius:var(--radius-full);
+    font-size:10px; color:var(--text-secondary); max-width:150px; display:flex; align-items:center; gap:5px;
+    box-shadow:none; cursor:default; }
+  .dir-node .dl { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dir-node .ef { font-size:8.5px; font-weight:700; padding:0 3px; border-radius:2px; flex:none; }
+  .ef-S { background:var(--success-soft); color:var(--success-ink); }
+  .ef-M { background:var(--info-soft); color:var(--info-ink); }
+  .ef-L { background:var(--warning-soft); color:var(--warning-ink); }
+  .ef-XL { background:var(--destructive-soft); color:var(--destructive-ink); }
+
+  /* zoom controls */
+  .zoomctl { position:fixed; bottom:20px; left:20px; z-index:30; display:flex; flex-direction:column; gap:4px;
+    background:var(--bg-card); border:1px solid var(--border-card); border-radius:var(--radius-md); padding:4px; box-shadow:var(--shadow-sm); }
+  .zoomctl button { width:30px; height:30px; border:none; background:transparent; color:var(--text-secondary);
+    font-size:16px; cursor:pointer; border-radius:var(--radius-sm); }
+  .zoomctl button:hover { background:var(--bg-muted); }
+  .legend { position:fixed; bottom:20px; right:20px; z-index:30; background:var(--bg-card); border:1px solid var(--border-card);
+    border-radius:var(--radius-md); padding:10px 12px; box-shadow:var(--shadow-sm); font-size:11px; max-width:220px; }
+  .legend .lh { font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-bottom:6px; }
+  .legend .li { display:flex; align-items:center; gap:6px; margin-bottom:3px; color:var(--text-secondary); }
+  .legend .ls { width:10px; height:10px; border-radius:var(--radius-full); }
+  .hint { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:5; color:var(--text-muted);
+    font-size:12px; pointer-events:none; opacity:.6; }
+
+  /* Drawer (shared with v1) */
+  .scrim { position:fixed; inset:0; background:rgba(0,0,0,.28); opacity:0; pointer-events:none; transition:.18s; z-index:40; }
+  .scrim.open { opacity:1; pointer-events:auto; }
+  .drawer { position:fixed; top:0; right:0; height:100%; width:420px; max-width:92vw; background:var(--bg-card);
+    border-left:1px solid var(--border-card); box-shadow:var(--shadow-lg); z-index:50; transform:translateX(100%);
+    transition:transform .22s cubic-bezier(.4,0,.2,1); display:flex; flex-direction:column; }
+  .drawer.open { transform:translateX(0); }
+  .drawer-head { padding:18px 20px 14px; border-bottom:1px solid var(--border-card); }
+  .drawer-top { display:flex; align-items:flex-start; gap:10px; }
+  .accent { width:4px; border-radius:var(--radius-full); flex:none; }
+  .drawer-top .accent { min-height:34px; }
+  .drawer-title { font-size:16px; font-weight:700; margin:0; }
+  .drawer-surface { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin-top:2px; }
+  .drawer-close { margin-left:auto; background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:4px; border-radius:var(--radius-sm); }
+  .drawer-close:hover { background:var(--bg-muted); color:var(--text-primary); }
+  .drawer-badges { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; align-items:center; }
+  .badge { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:var(--radius-full); font-size:10.5px; font-weight:600; }
+  .badge .bdot { width:6px; height:6px; border-radius:var(--radius-full); }
+  .touched { font-size:11px; color:var(--text-muted); }
+  .drawer-body { padding:16px 20px 32px; overflow-y:auto; flex:1; }
+  .sect { margin-bottom:20px; }
+  .sect-h { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text-muted); margin:0 0 8px; display:flex; align-items:center; gap:6px; }
+  .sect-h .ct { background:var(--bg-muted); color:var(--text-secondary); border-radius:var(--radius-full); padding:0 7px; font-size:10px; }
+  .summary-txt { font-size:13px; color:var(--text-secondary); line-height:1.55; }
+  .dw-item { display:flex; gap:8px; padding:8px 10px; background:var(--destructive-soft); border:1px solid var(--destructive-border); border-radius:var(--radius-md); font-size:12px; color:var(--destructive-ink); margin-bottom:6px; line-height:1.45; }
+  .dw-item svg { flex:none; margin-top:1px; }
+  .dir-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px dashed var(--border-strong); border-radius:var(--radius-md); margin-bottom:6px; font-size:12.5px; color:var(--text-secondary); }
+  .effort { font-size:10px; font-weight:700; width:24px; text-align:center; padding:1px 0; border-radius:var(--radius-xs); flex:none; }
+  .dep-item { display:flex; align-items:center; gap:8px; padding:7px 10px; border:1px solid var(--info-border); background:var(--info-soft); border-radius:var(--radius-md); margin-bottom:6px; font-size:12.5px; color:var(--info-ink); cursor:pointer; }
+  .dep-item:hover { box-shadow:var(--shadow-sm); }
+  .dep-item.missing { background:var(--muted-soft); border-color:var(--border-strong); color:var(--text-muted); cursor:default; }
+  .link-grp { margin-bottom:8px; }
+  .link-grp .lk-h { font-size:11px; font-weight:600; color:var(--text-secondary); margin-bottom:4px; display:flex; gap:5px; align-items:center; }
+  .link-path { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:var(--text-muted); background:var(--bg-muted); border-radius:var(--radius-sm); padding:3px 7px; margin:0 0 3px; word-break:break-all; }
+  .empty-note { font-size:12px; color:var(--text-muted); font-style:italic; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="eyebrow">Internal dev tool · reconciled <span id="reconciled"></span></div>
+  <div class="titlerow">
+    <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="M7 6.7 9.5 10M16.5 10 17 7M9.5 14 7 17.3M14.5 14 17 17.3"/></svg>
+    <h1>Feature Atlas</h1>
+    <span style="font-size:12px;color:var(--text-muted);font-weight:500">cluster graph</span>
+    <button class="ghostbtn" id="themeToggle" style="margin-left:auto">Dark</button>
+  </div>
+  <div class="controls">
+    <div class="search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="Search features…" autocomplete="off" />
+    </div>
+    <span class="grp-label">Health</span><span class="chiprow" id="f-health"></span>
+    <span class="grp-label">Status</span><span class="chiprow" id="f-status"></span>
+  </div>
+</div>
+
+<div id="stage">
+  <div class="hint" id="hint">Drag to pan · scroll to zoom · click a surface to collapse/expand · click a feature for details</div>
+  <svg id="edges"></svg>
+  <div id="world"></div>
+</div>
+
+<div class="zoomctl">
+  <button id="zin" title="Zoom in">+</button>
+  <button id="zout" title="Zoom out">&minus;</button>
+  <button id="zfit" title="Fit to screen" style="font-size:12px">fit</button>
+</div>
+<div class="legend">
+  <div class="lh">Health (fill)</div>
+  <div class="li"><span class="ls" style="background:var(--success-ink)"></span>Healthy</div>
+  <div class="li"><span class="ls" style="background:var(--warning-ink)"></span>Partial</div>
+  <div class="li"><span class="ls" style="background:var(--destructive-ink)"></span>At-risk</div>
+  <div class="li"><span class="ls" style="background:var(--muted-ink)"></span>Stale</div>
+  <div class="lh" style="margin-top:8px">Other</div>
+  <div class="li"><span class="ls" style="width:14px;height:0;border-top:1px dashed var(--border-strong);border-radius:0"></span>Direction (idea)</div>
+  <div class="li"><span class="ls" style="width:14px;height:0;border-top:2px solid var(--edge-dep);border-radius:0"></span>Dependency edge</div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+
+<script id="atlas-data" type="application/json">{"version":1,"reconciledAt":"2026-06-25","surfaces":[{"id":"liveops","label":"LiveOps","features":[{"id":"liveops-monitoring-center","label":"Monitoring Command Center","status":"shipped","health":"partial","summary":"Command center + diagnostics / monetization / alerts sub-hubs","drawbacks":["Lifecycle & tier transitions render disclosed-empty — no history table upstream","Alert-rule cron bridge applies only on next server boot, not live"],"directions":[{"label":"Upstream lifecycle/tier history table to fill empty cards","effort":"L"},{"label":"Sankey drilldown on lifecycle transitions","effort":"M"},{"label":"Auto-create alert-rule from a detected anomaly","effort":"S"}],"deps":["cs-ticket-join","mf-users-preagg-coverage"],"links":{"plans":["plans/260624-0104-liveops-monitoring-center","plans/complete/260525-1540-liveops-feature-pack"],"code":["src/pages/Liveops"],"memory":["liveops-monitoring-center-built"]},"lastTouched":"2026-06-24"},{"id":"liveops-cohort-grid","label":"Cohort retention grid","status":"shipped","health":"healthy","summary":"LiveOps cohort grid — retention/engagement by cohort","directions":[{"label":"Cohort compare overlay (A vs B)","effort":"M"}],"links":{"code":["src/pages/Liveops/cohort"]},"lastTouched":"2026-06-24"},{"id":"apollo-liveops-enrichment","label":"Apollo bucket enrichment","status":"shipped","health":"partial","summary":"Apollo liveops bucket map onto mf_users (92% join, no bridge)","drawbacks":["std_past_segment OOMs at scale — needs a pre-agg before broad use","3 game-code namespaces (slug / product_code / game_id) must be reconciled per game"],"directions":[{"label":"Pre-aggregate past_segment to kill the OOM","effort":"M"}],"deps":["preagg-readiness"],"links":{"memory":["apollo-liveops-bucket-enrichment"]}},{"id":"liveops-snapshot-autorun","label":"Snapshot autorun + preagg autobuild","status":"shipped","health":"healthy","summary":"TZ-aware snapshot autorun and triggered pre-agg autobuild","deps":["preagg-build-board"],"links":{"plans":["plans/260616-1036-snapshot-tz-autorun-preagg-autobuild"]}}]},{"id":"segments","label":"Segments","features":[{"id":"segments-builder","label":"Segment builder (first-class)","status":"shipped","health":"healthy","summary":"First-class segment authoring/editing surface","directions":[{"label":"Saved segment templates / presets gallery","effort":"M"}],"links":{"plans":["plans/complete/260520-2346-segments-first-class-redesign"],"code":["src/pages/Segments"]}},{"id":"segment-predicate-engine","label":"Predicate engine","status":"shipped","health":"partial","summary":"Operator-uniform predicates; condition builder","drawbacks":["No percentile or derived-date predicate in the builder (advisor Phase 0 gap)"],"directions":[{"label":"Percentile predicate (top-N% by measure)","effort":"M"},{"label":"Derived-date predicate (e.g. last_seen < today-30d)","effort":"M"}],"deps":["segments-builder"],"links":{"plans":["plans/complete/260612-0540-segment-predicate-upgrade","plans/complete/260609-2232-condition-operator-uniformity"],"memory":["optimization-advisor-plan"]}},{"id":"segment-paying-scope","label":"Paying-scope toggle","status":"shipped","health":"partial","summary":"?scope=paying re-scopes KPIs / Insights / Monitor","drawbacks":["Members + Care tabs not yet re-scoped — snapshot has no per-uid LTV"],"directions":[{"label":"Add per-uid LTV to membership snapshot to finish Members+Care scoping","effort":"L"}],"deps":["segment-membership-lakehouse"],"links":{"plans":["plans/260622-2339-segment-paying-scope-toggle"],"memory":["segment-paying-scope-toggle"]}},{"id":"segment-membership-lakehouse","label":"Membership lakehouse snapshot","status":"shipped","health":"healthy","summary":"Nightly full membership + delta to Trino Iceberg (stag_iceberg.khoitn)","directions":[{"label":"Serve-layer rollup over membership snapshot (deferred)","effort":"L"}],"links":{"plans":["plans/complete/260610-1517-segment-membership-lakehouse-snapshot","plans/complete/260610-1709-schema-per-game-membership-rollup"],"memory":["segment-membership-lakehouse-snapshot"]}},{"id":"segment-pull-api","label":"Members pull / export API","status":"in-flight","health":"partial","summary":"Tokenless ranked members pull + public segment export API","drawbacks":["Public export API consumer contract still being finalized"],"directions":[{"label":"Signed-URL bulk export for very large cohorts","effort":"M"}],"deps":["segment-membership-lakehouse"],"links":{"plans":["plans/260625-1106-public-segment-export-api","plans/complete/260604-2319-segment-snapshot-pull-api"],"code":["src/pages/Segments/detail/tabs/pull-api-tab.tsx"],"memory":["segment-members-pull-api-tokenless-ranked"]},"lastTouched":"2026-06-25"},{"id":"segment-care-tab","label":"Segment Care tab","status":"shipped","health":"partial","summary":"CS care history on segments (whale-care handoff)","drawbacks":["CS ticket join only resolves ~8% of uids (split_part identity)"],"deps":["cs-ticket-join","segment-care-precompute"],"links":{"plans":["plans/complete/260613-0033-whale-segment-cs-care-tab","plans/complete/260613-1509-cs-ticket-care-history-360"],"memory":["cs-ticket-schema-join"]}},{"id":"segment-care-precompute","label":"Care cache precompute","status":"shipped","health":"healthy","summary":"Precompute care sweeps; live-count sweeps; pagination","links":{"plans":["plans/260615-0252-segment-care-cache-precompute","plans/complete/260609-1059-vip-care-sweep-snapshots-pagination"]}},{"id":"segment-snapshot-kpi","label":"Daily KPI snapshots + movement","status":"shipped","health":"healthy","summary":"Segment daily-state KPI snapshots; metric-movement lakehouse; monitor merge","links":{"plans":["plans/260618-1607-segment-daily-state-kpi-snapshots","plans/complete/260612-1554-segment-metric-movement-lakehouse","plans/260619-0950-merge-monitor-movement-and-snapshot-history"]}},{"id":"segment-refresh-ops","label":"Refresh cadence + ops console","status":"shipped","health":"healthy","summary":"Refresh cadence, run history, segment-refresh ops console","links":{"plans":["plans/complete/260605-1147-segment-card-runner-and-refresh-cadence","plans/complete/260610-1923-segment-refresh-ops-console","plans/complete/260613-0045-segment-refresh-run-history"]}},{"id":"segment-explore-first","label":"Explore-first creation","status":"shipped","health":"healthy","summary":"Explore-first segment creation; track-A exploration features","deps":["segments-builder"],"links":{"plans":["plans/260622-1934-explore-first-segment-creation","plans/260621-0323-track-a-exploration-segment-features","plans/complete/260519-1610-query-results-to-segments"]}},{"id":"segment-multimeasure-size","label":"Multi-measure sizing","status":"shipped","health":"healthy","summary":"Segment size with multiple measures; live size edit","links":{"plans":["plans/260622-1833-segment-size-multimeasure-edit"]}},{"id":"segment-detail-redesign","label":"Detail / header redesign","status":"shipped","health":"healthy","summary":"Segment detail, header, and tabbar visual redesign","links":{"plans":["plans/260624-0118-segment-header-redesign","plans/260624-0207-segment-tabbar-background","plans/complete/260607-1331-segment-detail-ui-redesign"]}},{"id":"member360","label":"Member 360 page","status":"shipped","health":"healthy","summary":"Per-member 360 across all games; readable metrics section","deps":["cs-ticket-join"],"links":{"plans":["plans/complete/260605-1200-per-member-360-page","plans/complete/260608-1824-member360-all-games-rollout","plans/complete/260607-1419-member360-readable-metrics-section-redesign"],"memory":["cs-ticket-schema-join"]}}]},{"id":"chat","label":"Chat","features":[{"id":"chat-agent","label":"Chat assistant (core)","status":"shipped","health":"healthy","summary":"Tiered chat agent, data-as-truth; stream resume","directions":[{"label":"Deeper multi-turn planning memory","effort":"M"}],"links":{"plans":["plans/complete/260523-1643-cube-playground-chat-agent","plans/complete/260528-1144-tiered-chat-agent-data-as-truth","plans/complete/260524-2216-chat-stream-resume"],"code":["src/pages/Chat"]}},{"id":"chat-segment-creation","label":"Segment creation from chat","status":"shipped","health":"partial","summary":"Chat proposes; FE writes segments (measure / top-N / percentile)","drawbacks":["Population-scoping trap — unscoped percentile predicates compute p75=0"],"deps":["chat-agent","segment-predicate-engine"],"links":{"plans":["plans/260619-1341-chat-segment-creation-from-chat"],"memory":["chat-segment-creation-plan"]}},{"id":"chat-diagnostic-rail","label":"Diagnostic / prescriptive rail","status":"shipped","health":"partial","summary":"Diagnose/advise doors + genre levers + trust guard","drawbacks":["Write-actuation descoped — playground is data exploration, no direct player push"],"directions":[{"label":"Wire levers to closed-loop experiment hand-off","effort":"M"}],"deps":["chat-agent","closed-loop-experiment"],"links":{"plans":["plans/260619-1651-chat-diagnostic-prescriptive-rail"],"memory":["chat-diagnostic-prescriptive-rail"]}},{"id":"chat-charts","label":"Chart rendering","status":"shipped","health":"healthy","summary":"Chat chart rendering; dual-axis & combined artifacts; table-first picker","directions":[{"label":"More chart families (funnel","heatmap)":null,"effort":"M"}],"links":{"plans":["plans/complete/260524-0051-chat-chart-rendering","plans/260619-1716-chat-combined-dual-axis-artifact","plans/complete/260605-1154-chat-artifact-table-first-chart-picker"],"memory":["ops-charts-reuse-chat-renderer"]}},{"id":"chat-empty-range-reanchor","label":"Empty-range re-anchor","status":"shipped","health":"healthy","summary":"Auto re-anchors empty RELATIVE date ranges to latest window with data","deps":["chat-agent"],"links":{"memory":["chat-empty-range-coverage-snap"]}},{"id":"chat-company-context","label":"Company / platform context","status":"shipped","health":"partial","summary":"get_company_context tool (VNGGames + GPP domains)","drawbacks":["Seed is on-demand and hand-refreshed — drifts from Confluence source"],"directions":[{"label":"Scheduled refresh from GPP Confluence","effort":"M"}],"deps":["chat-agent"],"links":{"memory":["chat-company-platform-context-knowledge"]}},{"id":"chat-situational-answers","label":"Situational answers","status":"shipped","health":"healthy","summary":"Churn / reach situational answers; NL disambiguation; glossary VI","deps":["chat-agent","glossary-resolver"],"links":{"plans":["plans/260617-1345-chat-situational-answers-churn-reach","plans/complete/260525-1042-nl-disambiguation-and-glossary-vi"]}},{"id":"chat-model-awareness","label":"Model awareness + smart asking","status":"shipped","health":"healthy","summary":"Agent aware of its model; asks smart clarifying questions","links":{"plans":["plans/260617-1057-agent-model-awareness-smart-asking"]}},{"id":"chat-choice-chips","label":"Turn-ending choice chips","status":"shipped","health":"partial","summary":"Choice chips persist + rehydrate across turns","drawbacks":["Follow-up chips + refine row hidden in the right-side panel surface"],"deps":["chat-agent","chat-feature-parity"],"links":{"plans":["plans/260617-0853-turn-ending-choice-chips","plans/260617-1012-persist-rehydrate-choice-chips"]}},{"id":"chat-feature-parity","label":"Two-surface parity","status":"shipped","health":"partial","summary":"Main /chat + right-side panel share one renderer","drawbacks":["onFollowupPick gate hides follow-up chips + refine row in the panel"],"links":{"memory":["chat-feature-parity-two-surfaces"]}},{"id":"chat-history-attachments","label":"History + attachments + saved views","status":"shipped","health":"healthy","summary":"Chat history, attachments, saved views; session isolation + publish","links":{"plans":["plans/260621-1253-chat-history-attachments-saved-views","plans/complete/260604-1524-chat-session-isolation-and-publish"]}},{"id":"chat-main-layout","label":"Main layout redesign","status":"shipped","health":"healthy","summary":"Chat main layout redesign; message spacing & chip redesign","links":{"plans":["plans/260622-1446-chat-main-layout-redesign","plans/260617-1816-chat-message-spacing-chip-redesign"]}},{"id":"chat-audit-console","label":"Chat audit / observability","status":"shipped","health":"healthy","summary":"Chat-audit tool (LLM observability, cache) ported into admin hub","deps":["chat-llm-failover"],"links":{"plans":["plans/260624-1108-port-chat-audit-to-admin-hub","plans/complete/260525-1050-chat-llm-observability","plans/complete/260525-1410-chat-audit-v2-monitoring-cache"]}},{"id":"chat-llm-failover","label":"LLM key failover","status":"shipped","health":"at-risk","summary":"Auto-rotation primary -> stg -> backup -> subscription OAuth token","drawbacks":["Gateway key 403s on non-sonnet models — needs per-feature env overrides","All 3 keys share one drained upstream — failover can't help when pool is empty"],"directions":[{"label":"Independent upstream pools per key tier","effort":"L"}],"links":{"memory":["anthropic-key-failover-chat-service","llm-gateway-key-sonnet-only"]}},{"id":"chat-service-decouple","label":"Service decoupling","status":"shipped","health":"healthy","summary":"Decoupled chat-service from advisor and care","links":{"plans":["plans/260620-1112-decouple-chat-service-from-advisor-and-care"]}},{"id":"answer-quality-eval","label":"Answer-quality eval harness","status":"shipped","health":"partial","summary":"Runner + scorer + bank (chat-service/test/eval)","drawbacks":["Subscription session-cap forces paced/fail-fast/resumable runs; host-only lane"],"directions":[{"label":"CI-gated regression scoring on each chat change","effort":"M"}],"deps":["chat-agent"],"links":{"memory":["answer-quality-eval-harness"]}}]},{"id":"catalog","label":"Catalog / Data-Model","features":[{"id":"cube-join-graph","label":"Cube join graph","status":"shipped","health":"healthy","summary":"Cube join-graph default view (Catalog) — reused by Atlas viz","directions":[{"label":"Highlight unused / orphan cubes","effort":"S"}],"links":{"plans":["plans/complete/260612-1753-cube-join-graph-default-view"],"code":["src/pages/Catalog/cube-graph"]}},{"id":"concept-fabric","label":"Unified concept fabric","status":"shipped","health":"partial","summary":"Concept index + cartographer across metrics/cubes/glossary","drawbacks":["Standalone 4-layer node-graph map page deferred"],"directions":[{"label":"Build the deferred standalone concept-map page","effort":"L"}],"links":{"plans":["plans/complete/260603-0324-unified-concept-fabric","plans/complete/260604-0058-unified-concept-fabric-map-page"],"code":["src/pages/Catalog/concept-detail"],"memory":["concept-fabric-map-page-plan"]}},{"id":"metric-catalog","label":"Metric catalog + wizard","status":"shipped","health":"healthy","summary":"Metric catalog, define-metric wizard, multi-source/multi-input","directions":[{"label":"Bulk metric import from spec","effort":"M"}],"links":{"plans":["plans/complete/260516-1530-define-metric-wizard","plans/complete/260524-2112-metric-catalog-expansion","plans/complete/260517-1930-new-metric-multi-source-multi-input"]}},{"id":"metric-cube-coverage","label":"Metric ↔ cube coverage","status":"shipped","health":"healthy","summary":"Coverage monitor + draft-scaffolding + Settings tab","deps":["metric-catalog"],"links":{"plans":["plans/complete/260527-1257-metric-cube-coverage-sync"],"memory":["metric-cube-coverage-feature"]}},{"id":"metric-drift-center","label":"Metric Drift Center","status":"shipped","health":"healthy","summary":"/drift-center root-cause grouping + repoint-ref + mark-N/A","deps":["metric-catalog"],"links":{"plans":["plans/complete/260530-1204-metric-drift-center"],"code":["src/pages/DriftCenter"],"memory":["metric-drift-center-plan"]}},{"id":"metric-trust-audit","label":"Metric-trust audit + certify","status":"shipped","health":"partial","summary":"audit:metric-trust classifies/auto-certifies per game; trust is global","drawbacks":["Cross-game gap worklist — most metrics most portable from cfm"],"deps":["metric-catalog"],"links":{"plans":["plans/complete/260525-0012-metrics-trust-tier-cleanup","plans/complete/260525-0050-broken-metric-guard-and-certify-flow"],"memory":["metric-trust-audit-playbook"]}},{"id":"glossary-resolver","label":"Glossary resolver","status":"shipped","health":"partial","summary":"Glossary↔metric ref integrity; resolver consolidation","drawbacks":["Dangling primary refs create dead chat-chip links (3-layer fix)"],"links":{"plans":["plans/complete/260527-1306-glossary-resolver-consolidation"],"memory":["glossary-metric-ref-integrity"]}},{"id":"cube-model-onboarding","label":"Cube-model onboarding","status":"planned","health":"partial","summary":"DA onboarding wizard: introspect Trino -> infer -> stage draft cube models","drawbacks":["Blocked by drift-center; standard 33-table core + Node generator not yet built"],"directions":[{"label":"Generator-as-truth Node scaffolder at cube-dev/scripts","effort":"L"}],"deps":["metric-drift-center","cube-member-resolver"],"links":{"plans":["plans/complete/260530-1406-cube-model-onboarding-agent","plans/260614-0153-standard-cube-model-onboarding-script"],"memory":["cube-model-onboarding-agent-plan","standard-cube-model-onboarding-plan"]}},{"id":"cube-workspace-switching","label":"Workspace switching","status":"shipped","health":"partial","summary":"local↔prod cube-dev workspaces; default workspace = local","drawbacks":["Prod prefix workspace gate is header-only (accepted single-trusted-admin trade-off until Keycloak RBAC)"],"directions":[{"label":"Keycloak RBAC per-workspace grants","effort":"L"}],"links":{"plans":["plans/complete/260527-1539-cube-workspace-switching"],"memory":["cube-workspaces-switching-project","cube-default-workspace-is-local","prod-cross-tenant-reads-accepted"]}},{"id":"cube-member-resolver","label":"Cube member resolver","status":"shipped","health":"partial","summary":"Logical↔physical member translator (prefix vs game_id workspaces)","drawbacks":["Member-translation still uses single-underscore on prod double-underscore names (deferred)"],"links":{"memory":["cube-member-resolver-workspace-abstraction","prod-cube-double-underscore-prefix"]}},{"id":"connector-management","label":"Connector management","status":"shipped","health":"healthy","summary":"Cross-source modeling / connector management","links":{"plans":["plans/complete/260531-1016-connector-management-cross-source-modeling"]}},{"id":"jus-gold-behavior-cubes","label":"jus gold behavior cubes","status":"planned","health":"partial","summary":"jus_vn farming/MMO behavior + economy cubes (role-grain, garden/npc)","drawbacks":["Per-game money_flow dict; not yet built"],"deps":["cube-model-onboarding"],"links":{"plans":["plans/260621-0228-jus-gold-behavior-cubes-chat-aware"],"memory":["jus-gold-behavior-cubes-plan"]}},{"id":"jus-ccu-cube","label":"jus CCU concurrency cube","status":"shipped","health":"healthy","summary":"jus ptg CCU / concurrency cube","links":{"plans":["plans/260617-1407-jus-ptg-ccu-concurrency-cube"]}},{"id":"cross-game-parity","label":"Cross-game cube parity","status":"shipped","health":"partial","summary":"Cross-game cube parity audit; per-game measure coverage","drawbacks":["revenue_vnd_real measure is cfm-only — parity gaps across per-game YAMLs"],"deps":["metric-cube-coverage"],"links":{"plans":["plans/260621-1333-cross-game-cube-parity-audit"],"memory":["game-integration-raw-table-taxonomy"]}}]},{"id":"advisor","label":"Advisor / Optimization","features":[{"id":"optimization-advisor","label":"Optimization Advisor","status":"shipped","health":"partial","summary":"Decision rail upstream of command center; Explore↔Hand-off UX","drawbacks":["Earlier 100% timeout fixed (lens dimension-as-measure, budget cap, game-scope) — watch for regressions"],"directions":[{"label":"More genre-specific lever packs","effort":"M"}],"deps":["chat-agent","segment-predicate-engine"],"links":{"plans":["plans/260614-1813-optimization-advisor","plans/260615-1159-advisor-drive-continue-to-draft"],"code":["src/pages/Advisor"],"memory":["optimization-advisor-plan","advisor-now-works-lens-and-budget"]}},{"id":"advisor-experiment-flow","label":"Experiment flow + scorecard","status":"shipped","health":"partial","summary":"Experiment registry + frozen deterministic split + billing_detail scorecard","drawbacks":["Cold reads need loadWithContinueWait; forward window only; ?illustrative=1 for demo"],"deps":["optimization-advisor","closed-loop-experiment"],"links":{"plans":["plans/260614-0018-experiment-command-center","plans/260615-1432-advisor-experiment-flow"],"memory":["advisor-experiment-real-outcomes"]}},{"id":"advisor-audit-console","label":"Advisor run audit console","status":"shipped","health":"healthy","summary":"Advisor runs persisted + /admin/dev/advisor-audit console","deps":["optimization-advisor"],"links":{"plans":["plans/260615-0154-advisor-run-audit-console"],"code":["src/pages/DevAudit"],"memory":["advisor-run-audit-console"]}},{"id":"advisor-briefing-console","label":"Cube Advisor briefing console","status":"shipped","health":"partial","summary":"Sibling app (../cube-advisor) spawns claude -p CLI -> top-3 ideas/category","drawbacks":["Separate sibling app; live prompt eval still pending"],"links":{"plans":["plans/complete/260603-1842-cube-advisor-architect-briefing-console"],"memory":["cube-advisor-briefing-console-plan"]}},{"id":"preagg-build-board","label":"Pre-agg build board","status":"shipped","health":"healthy","summary":"Triggered pre-agg build history console + build mechanics harness","directions":[{"label":"Auto-suggest rollups from slow-query telemetry","effort":"M"}],"links":{"plans":["plans/260613-1653-triggered-preagg-build-history","plans/complete/260610-1838-preagg-run-history-console"],"memory":["cube-preagg-build-mechanics-harness"]}},{"id":"preagg-readiness","label":"Pre-agg readiness + probe","status":"shipped","health":"at-risk","summary":"Readiness probe asserts usedPreAggregations; CubeStore introspection","drawbacks":["Pre-aggs dormant locally — rollup defs exist but no partitions built","DEV_MODE=false = no hot-reload; must restart cube_api for new rollups to route"],"deps":["preagg-build-board"],"links":{"plans":["plans/complete/260605-1707-preagg-readiness-and-artifact-validation","plans/complete/260613-1429-cubestore-cache-visibility"],"memory":["cubestore-preaggs-dormant-locally","cubestore-introspection-and-probe-hardening","cube-serving-instance-needs-restart-for-new-rollups"]}},{"id":"query-performance-hub","label":"Query Performance Hub","status":"planned","health":"partial","summary":"Live query telemetry + rollup-suggestion advisor","drawbacks":["Per-user-dim Trino fallthrough causes proxy 504s; distinct from preagg board"],"directions":[{"label":"Surface per-query rollup-hit/miss inline","effort":"M"}],"deps":["preagg-readiness"],"links":{"plans":["plans/260616-1125-query-performance-optimization-hub"],"memory":["query-performance-optimization-hub-plan","cube-query-wait-timeouts"]}},{"id":"rollup-authoring","label":"Rollup authoring rules","status":"shipped","health":"partial","summary":"Rollup designer + authoring rules (time-dim match, additive-only)","drawbacks":["Time-dim must match query (dteventtime vs log_date) or no route; verify by compiled SQL"],"deps":["preagg-build-board"],"links":{"memory":["cube-rollup-authoring-rules","cube-preagg-build-mechanics-harness"]}},{"id":"mf-users-preagg-coverage","label":"mf_users pre-agg coverage","status":"shipped","health":"healthy","summary":"Segment-sizing rollup coverage on all 8 games","deps":["preagg-readiness"],"links":{"plans":["plans/260619-1544-mf-users-preagg-coverage-optimization","plans/complete/260608-1733-user-behavior-cube-preagg-rollout"],"memory":["mf-users-composition-rollup-coverage"]}}]},{"id":"ops-cs","label":"Ops & CS","features":[{"id":"ops-console","label":"Ops console (/ops)","status":"shipped","health":"partial","summary":"Ops command center for cfm_vn / jus_vn; trends reuse chat renderer","drawbacks":["revenue_vnd_real is cfm-only — jus revenue measure gap","Empty charts on Local = no billing data, not a bug"],"deps":["chat-charts","cross-game-parity"],"links":{"plans":["plans/260614-1500-ops-console-placement","plans/260614-2010-ops-redesign-powerups-daterange-members"],"code":["src/pages/OpsConsole"],"memory":["ops-console-and-jus-revenue-measure-gap","ops-charts-reuse-chat-renderer"]}},{"id":"vip-care-console","label":"VIP Care playbook console","status":"shipped","health":"partial","summary":"21-playbook CS console (monitor + ledger + member360) for cfm_vn/jus_vn","drawbacks":["Threshold calibration + availability-gating per game still expanding"],"deps":["cs-ticket-join","member360"],"links":{"plans":["plans/complete/260608-2152-vip-care-playbook-console","plans/complete/260608-2128-vip-care-cs-console-flow"],"memory":["vip-care-playbook-console-plan"]}},{"id":"care-coverage-expansion","label":"Care coverage expansion","status":"shipped","health":"at-risk","summary":"Playbook coverage expansion; jus_vn unlock; per-game data-yaml","drawbacks":["CS-dashboard Tier-0 identity views invisible to availability check — uids silently stuck in queue"],"deps":["vip-care-console"],"links":{"plans":["plans/complete/260609-1515-care-playbook-coverage-expansion","plans/complete/260610-0000-jus-vn-playbook-coverage-unlock","plans/complete/260610-1133-cfm-behavior-playbook-data-gaps"],"memory":["game-onboarding-data-yaml-guide"]}},{"id":"cs-ticket-join","label":"CS ticket schema + join","status":"shipped","health":"at-risk","summary":"iceberg.cs_ticket; join via split_part(user_id,'@',1); cs_ticket_new_master","drawbacks":["Only ~8% of uids resolve via split_part identity","Facebook / AIHelp page-scoped PSID cannot join to game uid at all"],"directions":[{"label":"Central identity bridge for FB/AIHelp PSIDs (needs upstream)","effort":"XL"}],"links":{"plans":["plans/complete/260609-1239-cs-console-filters-360-redesign"],"memory":["cs-ticket-schema-join","cs-facebook-aihelp-uid-unresolvable"]}},{"id":"cs-attachments","label":"CS ticket attachments","status":"shipped","health":"partial","summary":"Attachment links from ticket_communications_centralized.files","drawbacks":["FB signed URLs expire (~30-60d); in-game/web portal keys deferred (need base host)"],"deps":["cs-ticket-join"],"links":{"memory":["cs-ticket-attachment-storage"]}},{"id":"closed-loop-experiment","label":"Closed-loop CS experiment","status":"shipped","health":"partial","summary":"CS-actuated win-back POC; treatment delivered by CS, synced via cs_ticket_logs","drawbacks":["No direct player push — playground cannot actuate, CS team is the delivery channel"],"directions":[{"label":"stag_iceberg enrichment map for outcome attribution","effort":"M"}],"deps":["cs-ticket-join"],"links":{"plans":["plans/complete/260609-1813-cs-demo-care-loop","plans/complete/260610-1453-vip-segment-care-handoff"],"memory":["closed-loop-experiment-cs-actuated"]}},{"id":"cs-queue-snapshot","label":"CS queue snapshot eligibility","status":"shipped","health":"healthy","summary":"CS queue snapshot + eligibility redesign; sweep progress banner","deps":["vip-care-console"],"links":{"plans":["plans/260621-0110-cs-queue-snapshot-eligibility-redesign","plans/complete/260610-0939-sweep-progress-banner","plans/complete/260609-1654-cs-segment-live-count-sweep"]}}]}]}</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById('atlas-data').textContent);
+document.getElementById('reconciled').textContent = DATA.reconciledAt;
+
+const HEALTH = {
+  healthy:  { label:'Healthy',  color:'var(--success-ink)',     soft:'var(--success-soft)',     bd:'var(--success-border)' },
+  partial:  { label:'Partial',  color:'var(--warning-ink)',     soft:'var(--warning-soft)',     bd:'var(--warning-border)' },
+  'at-risk':{ label:'At-risk',  color:'var(--destructive-ink)', soft:'var(--destructive-soft)', bd:'var(--destructive-border)' },
+  stale:    { label:'Stale',    color:'var(--muted-ink)',       soft:'var(--muted-soft)',       bd:'var(--border-strong)' },
+};
+const HEALTH_ORDER=['at-risk','partial','healthy','stale'];
+const STATUS = {
+  idea:{label:'idea',soft:'var(--muted-soft)',ink:'var(--muted-ink)',sw:'var(--muted-ink)'},
+  planned:{label:'planned',soft:'var(--info-soft)',ink:'var(--info-ink)',sw:'var(--info-ink)'},
+  'in-flight':{label:'in-flight',soft:'var(--warning-soft)',ink:'var(--warning-ink)',sw:'var(--warning-ink)'},
+  shipped:{label:'shipped',soft:'var(--success-soft)',ink:'var(--success-ink)',sw:'var(--success-ink)'},
+  deprecated:{label:'deprecated',soft:'var(--destructive-soft)',ink:'var(--destructive-ink)',sw:'var(--destructive-ink)'},
+};
+const STATUS_ORDER=['idea','planned','in-flight','shipped','deprecated'];
+
+const featById={}, featSurfaceLabel={}, featSurfaceId={};
+DATA.surfaces.forEach(s=>s.features.forEach(f=>{ featById[f.id]=f; featSurfaceLabel[f.id]=s.label; featSurfaceId[f.id]=s.id; }));
+const allFeatures=Object.values(featById);
+function normDirs(f){ return (f.directions||[]).filter(d=>d&&d.label).map(d=>({label:d.label,effort:['S','M','L','XL'].includes(d.effort)?d.effort:null})); }
+
+const filters={health:new Set(),status:new Set(),q:''};
+function passFilter(f){
+  if(filters.health.size&&!filters.health.has(f.health))return false;
+  if(filters.status.size&&!filters.status.has(f.status))return false;
+  if(filters.q){ const q=filters.q.toLowerCase(); if(!((f.label+' '+(f.summary||'')).toLowerCase().includes(q)))return false; }
+  return true;
+}
+
+// ---- layout: radial clusters ----
+const world=document.getElementById('world'), edgesSvg=document.getElementById('edges'), stage=document.getElementById('stage');
+const collapsedSurfaces=new Set();
+let selectedId=null, hoveredId=null;
+const pos={}; // id -> {x,y} world coords
+let view={x:0,y:0,k:1};
+
+function layout(){
+  pos.surfaces={}; pos.feats={}; pos.dirs={};
+  const N=DATA.surfaces.length;
+  // Surface ring radius scales with the busiest surface so dense clusters
+  // (Segments 13, Chat 16) don't overlap their neighbours toward the center.
+  const maxFeat=Math.max(...DATA.surfaces.map(s=>s.features.filter(passFilter).length),1);
+  const Rsurface=Math.max(620, 380+maxFeat*30); const cx=1100, cy=1100;
+  DATA.surfaces.forEach((s,i)=>{
+    const ang=(i/N)*Math.PI*2 - Math.PI/2;
+    const sx=cx+Math.cos(ang)*Rsurface, sy=cy+Math.sin(ang)*Rsurface;
+    pos.surfaces[s.id]={x:sx,y:sy,ang};
+    const feats=s.features.filter(passFilter);
+    const fn=feats.length;
+    // Multi-ring fan: keep angular pitch ~constant so labels never collide; when
+    // an arc would exceed ~150°, push the overflow onto an outer concentric ring.
+    const pitch=0.30;                 // radians between adjacent features on a ring
+    const maxArc=Math.PI*0.83;        // cap a single ring's fan at ~150°
+    const perRing=Math.max(1,Math.floor(maxArc/pitch)+1);
+    feats.forEach((f,j)=>{
+      const ring=Math.floor(j/perRing);
+      const idxInRing=j%perRing;
+      const countInRing=Math.min(perRing, fn-ring*perRing);
+      const Rfeat=260+ring*180;
+      const spread=Math.min(maxArc,(countInRing-1)*pitch);
+      const t=countInRing===1?0:(idxInRing/(countInRing-1)-0.5);
+      const fa=ang + t*spread;
+      const fx=sx+Math.cos(fa)*Rfeat, fy=sy+Math.sin(fa)*Rfeat;
+      pos.feats[f.id]={x:fx,y:fy,ang:fa};
+      const dirs=normDirs(f);
+      dirs.forEach((d,k)=>{
+        const Rdir=120; const dspread=0.6;
+        const da=fa + (dirs.length===1?0:(k/(dirs.length-1)-0.5))*dspread;
+        pos.dirs[f.id+'#'+k]={x:fx+Math.cos(da)*Rdir, y:fy+Math.sin(da)*Rdir, label:d.label, effort:d.effort};
+      });
+    });
+  });
+}
+
+function render(){
+  layout();
+  world.innerHTML='';
+  const edgeParts=[];
+  // surface->feature spokes + feature->dir dashed + dep edges
+  DATA.surfaces.forEach(s=>{
+    if(collapsedSurfaces.has(s.id)) return;
+    const sp=pos.surfaces[s.id];
+    s.features.filter(passFilter).forEach(f=>{
+      const fp=pos.feats[f.id];
+      edgeParts.push('<line x1="'+sp.x+'" y1="'+sp.y+'" x2="'+fp.x+'" y2="'+fp.y+'" stroke="var(--edge)" stroke-width="1.2"/>');
+      normDirs(f).forEach((d,k)=>{ const dp=pos.dirs[f.id+'#'+k]; if(dp) edgeParts.push('<line x1="'+fp.x+'" y1="'+fp.y+'" x2="'+dp.x+'" y2="'+dp.y+'" stroke="var(--border-strong)" stroke-width="1" stroke-dasharray="3 3"/>'); });
+    });
+  });
+  // dependency edges only when a node hovered/selected (reduce clutter)
+  const focusId=hoveredId||selectedId;
+  if(focusId){
+    const f=featById[focusId];
+    (f.deps||[]).forEach(dep=>{ if(pos.feats[focusId]&&pos.feats[dep]&&!collapsedSurfaces.has(featSurfaceId[dep])){ const a=pos.feats[focusId],b=pos.feats[dep];
+      edgeParts.push('<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="var(--edge-dep)" stroke-width="2" marker-end="url(#arrow)"/>'); } });
+    allFeatures.filter(x=>(x.deps||[]).includes(focusId)).forEach(x=>{ if(pos.feats[x.id]&&pos.feats[focusId]&&!collapsedSurfaces.has(featSurfaceId[x.id])){ const a=pos.feats[x.id],b=pos.feats[focusId];
+      edgeParts.push('<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="var(--edge-dep)" stroke-width="2" marker-end="url(#arrow)"/>'); } });
+  }
+  edgesSvg.innerHTML='<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="var(--edge-dep)"/></marker></defs>'+edgeParts.join('');
+
+  // nodes
+  DATA.surfaces.forEach(s=>{
+    const sp=pos.surfaces[s.id]; const collapsed=collapsedSurfaces.has(s.id);
+    const visFeats=s.features.filter(passFilter);
+    const sn=document.createElement('div'); sn.className='node';
+    sn.style.left=sp.x+'px'; sn.style.top=sp.y+'px';
+    const inner=document.createElement('div'); inner.className='surface-node'+(collapsed?' collapsed':'');
+    inner.innerHTML='<span class="sn-name">'+esc(s.label)+'</span><span class="sn-count">'+visFeats.length+(visFeats.length!==s.features.length?(' / '+s.features.length):'')+' features</span><span class="sn-toggle">'+(collapsed?'▸ expand':'▾ collapse')+'</span>';
+    inner.onclick=()=>{ if(collapsed)collapsedSurfaces.delete(s.id);else collapsedSurfaces.add(s.id); render(); };
+    sn.appendChild(inner); world.appendChild(sn);
+    if(collapsed) return;
+
+    visFeats.forEach(f=>{
+      const fp=pos.feats[f.id]; const dirs=normDirs(f);
+      const fnode=document.createElement('div'); fnode.className='node'; fnode.style.left=fp.x+'px'; fnode.style.top=fp.y+'px';
+      const inn=document.createElement('div'); inn.className='feat-node'+(selectedId===f.id?' sel':'');
+      const st=STATUS[f.status]||STATUS.idea;
+      let marks='';
+      if((f.drawbacks||[]).length) marks+='<span class="mk mk-dw">⚠'+f.drawbacks.length+'</span>';
+      if((f.deps||[]).length) marks+='<span class="mk mk-dir">↳'+f.deps.length+'</span>';
+      inn.innerHTML='<span class="accent" style="background:'+HEALTH[f.health].color+'"></span>'+
+        '<span class="fn-name">'+esc(f.label)+'</span>'+
+        '<span class="fn-meta"><span class="sbadge" style="background:'+st.sw+'" title="'+st.label+'"></span><span class="fn-marks">'+marks+'</span></span>';
+      inn.onclick=(e)=>{ e.stopPropagation(); openDrawer(f.id); };
+      inn.onmouseenter=()=>{ hoveredId=f.id; render(); };
+      inn.onmouseleave=()=>{ if(hoveredId===f.id){hoveredId=null; render();} };
+      fnode.appendChild(inn); world.appendChild(fnode);
+
+      dirs.forEach((d,k)=>{ const dp=pos.dirs[f.id+'#'+k]; if(!dp)return;
+        const dn=document.createElement('div'); dn.className='node'; dn.style.left=dp.x+'px'; dn.style.top=dp.y+'px';
+        const di=document.createElement('div'); di.className='dir-node';
+        di.innerHTML='<span class="dl">'+esc(d.label)+'</span>'+(d.effort?'<span class="ef ef-'+d.effort+'">'+d.effort+'</span>':'');
+        di.title=d.label; dn.appendChild(di); world.appendChild(dn);
+      });
+    });
+  });
+  applyView();
+}
+function applyView(){
+  world.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.k+')';
+  edgesSvg.style.transform='translate('+view.x+'px,'+view.y+'px) scale('+view.k+')';
+}
+
+// ---- pan/zoom ----
+let dragging=false, sx0,sy0,vx0,vy0;
+stage.addEventListener('mousedown',e=>{ if(e.target.closest('.feat-node')||e.target.closest('.surface-node'))return; dragging=true; stage.classList.add('grabbing'); sx0=e.clientX; sy0=e.clientY; vx0=view.x; vy0=view.y; document.getElementById('hint').style.display='none'; });
+window.addEventListener('mousemove',e=>{ if(!dragging)return; view.x=vx0+(e.clientX-sx0); view.y=vy0+(e.clientY-sy0); applyView(); });
+window.addEventListener('mouseup',()=>{ dragging=false; stage.classList.remove('grabbing'); });
+stage.addEventListener('wheel',e=>{ e.preventDefault(); const f=e.deltaY<0?1.12:0.89; zoomAt(e.clientX,e.clientY,f); },{passive:false});
+function zoomAt(px,py,factor){ const nk=Math.min(2.2,Math.max(0.25,view.k*factor));
+  const wx=(px-view.x)/view.k, wy=(py-view.y)/view.k; view.k=nk; view.x=px-wx*nk; view.y=py-wy*nk; applyView(); }
+document.getElementById('zin').onclick=()=>zoomAt(innerWidth/2,innerHeight/2,1.2);
+document.getElementById('zout').onclick=()=>zoomAt(innerWidth/2,innerHeight/2,0.83);
+document.getElementById('zfit').onclick=fit;
+function fit(){
+  // compute bbox of visible nodes
+  const xs=[],ys=[];
+  Object.values(pos.surfaces).forEach(p=>{xs.push(p.x);ys.push(p.y);});
+  Object.values(pos.feats).forEach(p=>{xs.push(p.x);ys.push(p.y);});
+  Object.values(pos.dirs).forEach(p=>{xs.push(p.x);ys.push(p.y);});
+  if(!xs.length)return;
+  const minX=Math.min(...xs)-180,maxX=Math.max(...xs)+180,minY=Math.min(...ys)-120,maxY=Math.max(...ys)+120;
+  const w=maxX-minX,h=maxY-minY; const topPad=150;
+  const k=Math.min((innerWidth-80)/w,(innerHeight-topPad-60)/h,1.4);
+  view.k=k; view.x=(innerWidth-w*k)/2-minX*k; view.y=topPad+(innerHeight-topPad-h*k)/2-minY*k; applyView();
+}
+
+// ---- filter chips ----
+function countBy(g){const m={};allFeatures.forEach(f=>{const k=g(f);m[k]=(m[k]||0)+1;});return m;}
+const hc=countBy(f=>f.health), sc=countBy(f=>f.status);
+function chip(text,on,dot,count,fn){const el=document.createElement('span');el.className='chip'+(on?' on':'');if(dot){const d=document.createElement('span');d.className='dot';d.style.background=dot;el.appendChild(d);}el.appendChild(document.createTextNode(text));if(count!=null){const c=document.createElement('span');c.style.cssText='font-size:10px;opacity:.7;font-variant-numeric:tabular-nums';c.textContent=count;el.appendChild(c);}el.onclick=fn;return el;}
+function renderChips(){
+  const fh=document.getElementById('f-health');fh.innerHTML='';
+  HEALTH_ORDER.forEach(h=>fh.appendChild(chip(HEALTH[h].label,filters.health.has(h),HEALTH[h].color,hc[h]||0,()=>tog('health',h))));
+  const fs=document.getElementById('f-status');fs.innerHTML='';
+  STATUS_ORDER.filter(s=>sc[s]).forEach(s=>fs.appendChild(chip(STATUS[s].label,filters.status.has(s),STATUS[s].sw,sc[s]||0,()=>tog('status',s))));
+}
+function tog(k,v){const set=filters[k];if(set.has(v))set.delete(v);else set.add(v);renderChips();render();}
+
+// ---- drawer (same as v1) ----
+const drawer=document.getElementById('drawer'),scrim=document.getElementById('scrim');
+const IC={warn:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  link:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+  bulb:'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>',
+  x:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>'};
+function openDrawer(id){
+  selectedId=id; const f=featById[id]; if(!f)return; const dirs=normDirs(f);
+  let html='<div class="drawer-head"><div class="drawer-top"><span class="accent" style="background:'+HEALTH[f.health].color+'"></span>';
+  html+='<div style="flex:1"><h2 class="drawer-title">'+esc(f.label)+'</h2><div class="drawer-surface">'+esc(featSurfaceLabel[id])+'</div></div>';
+  html+='<button class="drawer-close" id="dclose">'+IC.x+'</button></div><div class="drawer-badges">';
+  const st=STATUS[f.status]||STATUS.idea; html+='<span class="badge" style="background:'+st.soft+';color:'+st.ink+'">'+esc(st.label)+'</span>';
+  const hl=HEALTH[f.health]; html+='<span class="badge" style="background:'+hl.soft+';color:'+hl.color+';border:1px solid '+hl.bd+'"><span class="bdot" style="background:'+hl.color+'"></span>'+hl.label+'</span>';
+  if(f.lastTouched) html+='<span class="touched">touched '+esc(f.lastTouched)+'</span>';
+  html+='</div></div><div class="drawer-body">';
+  html+='<div class="sect"><div class="sect-h">Summary</div><div class="summary-txt">'+esc(f.summary||'—')+'</div></div>';
+  html+='<div class="sect"><div class="sect-h">Drawbacks'+((f.drawbacks||[]).length?'<span class="ct">'+f.drawbacks.length+'</span>':'')+'</div>';
+  if((f.drawbacks||[]).length)f.drawbacks.forEach(d=>html+='<div class="dw-item">'+IC.warn+'<span>'+esc(d)+'</span></div>'); else html+='<div class="empty-note">No known drawbacks.</div>';
+  html+='</div>';
+  html+='<div class="sect"><div class="sect-h">Directions <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)">· ideation</span>'+(dirs.length?'<span class="ct">'+dirs.length+'</span>':'')+'</div>';
+  if(dirs.length)dirs.forEach(d=>html+='<div class="dir-item">'+IC.bulb+'<span style="flex:1">'+esc(d.label)+'</span>'+(d.effort?'<span class="effort ef-'+d.effort+'">'+d.effort+'</span>':'')+'</div>'); else html+='<div class="empty-note">No directions logged yet.</div>';
+  html+='</div>';
+  if((f.deps||[]).length){ html+='<div class="sect"><div class="sect-h">Depends on <span class="ct">'+f.deps.length+'</span></div>';
+    f.deps.forEach(dep=>{const t=featById[dep]; if(t)html+='<div class="dep-item" data-dep="'+esc(dep)+'">'+IC.link+'<span>'+esc(t.label)+'</span></div>'; else html+='<div class="dep-item missing">'+IC.link+'<span>'+esc(dep)+' (external / unmodeled)</span></div>';}); html+='</div>'; }
+  const rd=allFeatures.filter(x=>(x.deps||[]).includes(id));
+  if(rd.length){ html+='<div class="sect"><div class="sect-h">Depended on by <span class="ct">'+rd.length+'</span></div>'; rd.forEach(x=>html+='<div class="dep-item" data-dep="'+esc(x.id)+'">'+IC.link+'<span>'+esc(x.label)+'</span></div>'); html+='</div>'; }
+  const lk=f.links||{};
+  if((lk.plans||[]).length||(lk.code||[]).length||(lk.memory||[]).length){ html+='<div class="sect"><div class="sect-h">Links</div>';
+    if((lk.code||[]).length){html+='<div class="link-grp"><div class="lk-h">'+IC.link+' Code</div>';lk.code.forEach(p=>html+='<p class="link-path">'+esc(p)+'</p>');html+='</div>';}
+    if((lk.plans||[]).length){html+='<div class="link-grp"><div class="lk-h">'+IC.link+' Plans</div>';lk.plans.forEach(p=>html+='<p class="link-path">'+esc(p)+'</p>');html+='</div>';}
+    if((lk.memory||[]).length){html+='<div class="link-grp"><div class="lk-h">'+IC.link+' Memory</div>';lk.memory.forEach(p=>html+='<p class="link-path">'+esc(p)+'</p>');html+='</div>';}
+    html+='</div>'; }
+  html+='</div>';
+  drawer.innerHTML=html; drawer.classList.add('open'); drawer.setAttribute('aria-hidden','false'); scrim.classList.add('open');
+  document.getElementById('dclose').onclick=closeDrawer;
+  drawer.querySelectorAll('.dep-item[data-dep]').forEach(el=>el.onclick=()=>focusFeature(el.getAttribute('data-dep')));
+  render();
+}
+function closeDrawer(){ drawer.classList.remove('open'); drawer.setAttribute('aria-hidden','true'); scrim.classList.remove('open'); selectedId=null; render(); }
+scrim.onclick=closeDrawer; document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();});
+function focusFeature(id){ const sid=featSurfaceId[id]; collapsedSurfaces.delete(sid);
+  if(filters.health.size&&!filters.health.has(featById[id].health))filters.health.clear();
+  if(filters.status.size&&!filters.status.has(featById[id].status))filters.status.clear();
+  filters.q=''; document.getElementById('search').value=''; renderChips(); render();
+  const p=pos.feats[id]; if(p){ view.k=Math.max(view.k,0.9); view.x=innerWidth/2-p.x*view.k; view.y=innerHeight/2-p.y*view.k; applyView(); }
+  openDrawer(id);
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+document.getElementById('search').addEventListener('input',e=>{filters.q=e.target.value.trim();render();});
+const tt=document.getElementById('themeToggle');
+tt.onclick=()=>{const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');tt.textContent=d?'Dark':'Light';};
+
+renderChips(); render(); fit();
+window.addEventListener('resize',()=>{ /* keep view */ });
+</script>
+</body>
+</html>

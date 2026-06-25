@@ -42,10 +42,10 @@ Authoritative design source: `plans/reports/brainstorm-summary-260625-1303-featu
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | [Spine + reconcile skill](./phase-01-spine-reconcile-skill.md) | Pending |
-| 2 | [Visualization design (huashu)](./phase-02-visualization-design-huashu.md) | Pending |
-| 3 | [In-app atlas page](./phase-03-in-app-atlas-page.md) | Pending |
-| 4 | [Auto git-derivation (optional)](./phase-04-auto-git-derivation-optional.md) | Pending |
+| 1 | [Spine + reconcile skill](./phase-01-spine-reconcile-skill.md) | ✅ Complete (2026-06-25) |
+| 2 | [Visualization design (huashu)](./phase-02-visualization-design-huashu.md) | ✅ Complete (2026-06-25) — 3 variants built; user chose ALL THREE with a view toggle |
+| 3 | [In-app atlas page](./phase-03-in-app-atlas-page.md) | ✅ Complete (2026-06-25) — /admin/dev/atlas, 3 views (Triage/Map/Graph) behind a switcher |
+| 4 | [Auto git-derivation (optional)](./phase-04-auto-git-derivation-optional.md) | Deferred (optional, YAGNI-gated) |
 
 Build sequence delivers value before the expensive surface: **P1 produces a usable + greppable spine (zero app-build risk); P2 yields an already-interactive HTML prototype; P3 ports it in-app; P4 is optional polish.** Whole-app scope is honored at P1 (the seed harvest); the build is sequenced, not the scope.
 

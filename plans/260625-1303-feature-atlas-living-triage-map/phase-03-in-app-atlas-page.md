@@ -1,7 +1,7 @@
 ---
 phase: 3
 title: "In-app atlas page"
-status: pending
+status: completed
 priority: P2
 effort: "2-3d"
 dependencies: [1, 2]
@@ -78,6 +78,15 @@ Reuse, do not rebuild:
 - [ ] Filter chips + search narrow the graph; deps clickable and centre the target node; drawer shows summary/drawbacks/directions/links.
 - [ ] Editing `atlas.yaml` and reloading changes the page with **no component edits** (pure-renderer invariant proven).
 - [ ] `build-atlas-graph` unit tests pass; `tsc` + build clean; tokens match adjacent pages.
+
+## Completion notes (2026-06-25)
+
+- User chose **all 3 views behind a toggle** (Triage swimlane · Map tree · Graph), not a single port.
+- Mount: registered as a Dev sub-tab in `src/pages/Admin/hub/dev-hub-panel.tsx` (DEV_TABS + Route) — the canonical pattern its siblings (chat-audit/advisor-audit) use; already admin-gated by `index.tsx` `AdminHubRoute`. No bespoke sidebar entry (consistency over a redundant link).
+- Files: `src/pages/Atlas/{atlas-types.ts, atlas-data.ts, atlas-encoding.ts, build-atlas-graph.ts, atlas-badges.tsx, atlas-detail-drawer.tsx, atlas-tree-view.tsx, atlas-swimlane-view.tsx, atlas-graph-view.tsx, atlas-page.tsx, atlas.css}` + `__tests__/{build-atlas-graph,atlas-data}.test.ts`; `src/feature-atlas/validate-atlas.d.ts`; modified `src/yaml-raw-imports.d.ts` (`*.yaml?raw`).
+- Pure-renderer invariant holds: all state from `atlas.yaml` via `loadAtlas` (?raw + js-yaml + shared validator).
+- Verified: typecheck-clean, 25 tests pass, `npm run build` succeeds (?raw resolves in prod), code-review no blockers (graph keyboard-a11y fix applied).
+- Notes: TS discriminated-union narrowing of `if(!result.ok){…result.error}` misbehaves in this repo's config — used `'error' in result` guard. Fixed a real seed bug (comma-in-flow-map direction label) + hardened the validator to reject unexpected direction keys.
 
 ## Risk Assessment
 
