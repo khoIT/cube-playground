@@ -26,6 +26,7 @@ import {
   type CreateApiKeyInput,
 } from '../../../api/api-keys-client';
 import { CollapseChevron } from './collapse-chevron';
+import { useWorkspaceContext } from '../../../components/workspace-context';
 
 // ---------------------------------------------------------------------------
 // Shared style recipes (mirrors sibling tabs)
@@ -320,8 +321,15 @@ interface CreateModalProps {
 }
 
 function CreateKeyModal({ open, onClose, onCreated }: CreateModalProps) {
+  // Workspaces come from the same registry that powers the top-bar switcher, so
+  // the dropdown can only offer real workspaces. Default to the one the admin is
+  // currently browsing under — a key scoped to a workspace with no segments
+  // (e.g. `prod` on a local instance) silently lists nothing.
+  const { workspaceId, workspaces } = useWorkspaceContext();
+  const defaultWorkspace =
+    workspaceId || workspaces.find((w) => w.isDefault)?.id || workspaces[0]?.id || 'prod';
   const [label, setLabel] = useState('');
-  const [workspace, setWorkspace] = useState('prod');
+  const [workspace, setWorkspace] = useState(defaultWorkspace);
   const [segmentIdsRaw, setSegmentIdsRaw] = useState('');
   const [gameIdsRaw, setGameIdsRaw] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
@@ -333,7 +341,7 @@ function CreateKeyModal({ open, onClose, onCreated }: CreateModalProps) {
   useEffect(() => {
     if (open) {
       setLabel('');
-      setWorkspace('prod');
+      setWorkspace(defaultWorkspace);
       setSegmentIdsRaw('');
       setGameIdsRaw('');
       setExpiresAt('');
@@ -342,7 +350,7 @@ function CreateKeyModal({ open, onClose, onCreated }: CreateModalProps) {
       // Focus the label field.
       setTimeout(() => labelRef.current?.focus(), 60);
     }
-  }, [open]);
+  }, [open, defaultWorkspace]);
 
   // Close on Escape.
   useEffect(() => {
@@ -444,19 +452,25 @@ function CreateKeyModal({ open, onClose, onCreated }: CreateModalProps) {
             />
           </div>
 
-          {/* Workspace */}
+          {/* Workspace — a dropdown of real workspaces (no free text), so a key
+              can't be scoped to a workspace that doesn't exist. */}
           <div>
             <label style={fieldLabel} htmlFor="ak-workspace">Workspace *</label>
-            <input
+            <select
               id="ak-workspace"
-              type="text"
               value={workspace}
               onChange={(e) => setWorkspace(e.target.value)}
-              placeholder="prod"
               required
               disabled={busy}
               style={inputStyle}
-            />
+            >
+              {workspaces.length === 0 && <option value={workspace}>{workspace}</option>}
+              {workspaces.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.label} ({w.id}){w.id === workspaceId ? ' — current' : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Segment IDs (optional) */}
