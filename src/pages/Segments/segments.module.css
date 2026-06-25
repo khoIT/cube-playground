@@ -458,18 +458,6 @@
   max-width: min(560px, 70vw);
 }
 
-.cubeBadge {
-  display: inline-flex;
-  align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-size: 11.5px;
-  font-family: var(--font-mono);
-  background: var(--surface-inset-strong);
-  color: var(--text-secondary);
-}
-
 .tabStrip {
   display: flex;
   gap: 2px;

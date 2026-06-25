@@ -6,6 +6,7 @@ import React from 'react';
 import { SidebarItem } from './sidebar-item';
 import { SidebarSubheader } from './sidebar-subheader';
 import { getRecent, type RecentModule } from './recent-items-store';
+import type { LucideIcon } from '../theme';
 
 interface RecentItemsProps {
   module: RecentModule;
@@ -19,12 +20,14 @@ interface RecentItemsProps {
   subheader?: string;
   /** Optional filter predicate — hide dangling/orphan recents. */
   filter?: (item: { id: string; title: string }) => boolean;
+  /** Optional per-item leading glyph (e.g. Live/Static segment marker). */
+  iconFor?: (item: { id: string; title: string }) => { icon: LucideIcon; iconColor?: string; title?: string } | undefined;
   /** Empty-state label override (default "No recent items"). */
   emptyLabel?: string;
 }
 
 export function RecentItems({
-  module, seeAllTo, hrefFor, visible = 4, subheader, filter, emptyLabel = 'No recent items',
+  module, seeAllTo, hrefFor, visible = 4, subheader, filter, iconFor, emptyLabel = 'No recent items',
 }: RecentItemsProps) {
   const [rawItems, setItems] = React.useState(() => getRecent(module));
 
@@ -52,14 +55,19 @@ export function RecentItems({
   return (
     <>
       {subheader && <SidebarSubheader>{subheader}</SidebarSubheader>}
-      {shown.map(item => (
-        <SidebarItem
-          key={item.id}
-          label={item.title}
-          to={item.href ?? hrefFor?.(item.id) ?? `${seeAllTo}/${item.id}`}
-          indent
-        />
-      ))}
+      {shown.map(item => {
+        const kind = iconFor?.({ id: item.id, title: item.title });
+        return (
+          <SidebarItem
+            key={item.id}
+            label={item.title}
+            to={item.href ?? hrefFor?.(item.id) ?? `${seeAllTo}/${item.id}`}
+            indent
+            icon={kind?.icon}
+            iconColor={kind?.iconColor}
+          />
+        );
+      })}
       {items.length > visible && (
         <SidebarItem label={`See all... (${items.length})`} to={seeAllTo} indent muted neverActive />
       )}

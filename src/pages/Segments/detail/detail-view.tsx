@@ -186,9 +186,6 @@ export function DetailView(): ReactElement {
             <ChevronDown size={15} aria-hidden />
           </button>
           <EditableSegmentTitle segment={segment} onRename={setSegment} />
-          {segment.cube != null && (
-            <span className={styles.cubeBadge}>{segment.cube}</span>
-          )}
           {preset?.auto && (
             <span
               className={styles.autoPresetChip}

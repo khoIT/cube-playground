@@ -28,6 +28,7 @@ import {
 import { useActiveGameId } from '../../components/Header/use-game-context';
 import { isOpsGame } from '../../pages/OpsConsole/ops-games';
 import { SharedPill } from './shared-pill';
+import { segmentKindIcon } from './segment-kind-icon';
 
 const SIDEBAR_WIDTH_EXPANDED = 260;
 const SIDEBAR_WIDTH_COLLAPSED = 60;
@@ -62,6 +63,12 @@ export function Sidebar() {
   );
   const sharedSegments = React.useMemo(
     () => selectSharedSegments(gameSegmentRows, 4),
+    [gameSegmentRows],
+  );
+  // id → refresh MODE, so the recents tray can mark each segment Live/Static
+  // (recents store carries only id + title, not the segment's type).
+  const segmentTypeById = React.useMemo(
+    () => new Map((gameSegmentRows ?? []).map((s) => [s.id, s.type])),
     [gameSegmentRows],
   );
   // Built from the UNCAPPED shared set — a teammate-shared segment past the
@@ -240,19 +247,25 @@ export function Sidebar() {
                 !sharedSegmentIds.has(item.id) &&
                 (segmentIds === null || segmentIds.has(item.id))
               }
+              iconFor={(item) => segmentKindIcon(segmentTypeById.get(item.id))}
             />
             {/* Segments shared WITH the viewer — same row shape as recents,
                 marked with the always-visible pill (owner in its tooltip). */}
-            {sharedSegments.map((s) => (
-              <SidebarItem
-                key={s.id}
-                label={s.name}
-                to={`/segments/${s.id}`}
-                indent
-                muted
-                trailing={<SharedPill ownerLabel={s.owner_label ?? s.owner} />}
-              />
-            ))}
+            {sharedSegments.map((s) => {
+              const kind = segmentKindIcon(s.type);
+              return (
+                <SidebarItem
+                  key={s.id}
+                  label={s.name}
+                  to={`/segments/${s.id}`}
+                  indent
+                  muted
+                  icon={kind.icon}
+                  iconColor={kind.iconColor}
+                  trailing={<SharedPill ownerLabel={s.owner_label ?? s.owner} />}
+                />
+              );
+            })}
           </SidebarSection>
         )}
 
