@@ -141,6 +141,9 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
   const publicApiBase = 'https://playground.gds.vng.vn';
   const publicMembersUrl = `${publicApiBase}/api/public/v1/segments/${segment.id}/members`;
   const docsUrl = `${origin}/docs`;
+  // Swagger UI is served at the nested prefix; the TRAILING SLASH is required —
+  // without it the plugin emits asset URLs that 404 and the page renders blank.
+  const swaggerDocsUrl = `${origin}/docs/swagger/`;
   const copy = (text: string) => {
     navigator.clipboard?.writeText(text);
     message.success(t('common.copied', { defaultValue: 'Copied' }));
@@ -287,27 +290,48 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
             <BookOpen size={13} aria-hidden />{' '}
             {t('segments.detail.pullApi.integrate', { defaultValue: 'Build a downstream integration' })}
           </h3>
-          <a
-            href={docsUrl}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 5,
-              fontSize: 12.5,
-              fontWeight: 600,
-              color: 'var(--text-on-brand)',
-              background: 'var(--brand)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              padding: '7px 14px',
-              textDecoration: 'none',
-            }}
-          >
-            {t('segments.detail.pullApi.openDocs', { defaultValue: 'Open API docs' })}
-            <ArrowUpRight size={13} aria-hidden />
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
+            {/* Secondary renderer — same spec, the classic "Authorize + Try it"
+                flow. Trailing slash is required (see swaggerDocsUrl). */}
+            <a
+              href={swaggerDocsUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: 'var(--brand)',
+                textDecoration: 'none',
+              }}
+            >
+              {t('segments.detail.pullApi.openSwagger', { defaultValue: 'Swagger UI' })}
+              <ArrowUpRight size={12} aria-hidden />
+            </a>
+            <a
+              href={docsUrl}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                fontSize: 12.5,
+                fontWeight: 600,
+                color: 'var(--text-on-brand)',
+                background: 'var(--brand)',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                padding: '7px 14px',
+                textDecoration: 'none',
+              }}
+            >
+              {t('segments.detail.pullApi.openDocs', { defaultValue: 'Open API docs' })}
+              <ArrowUpRight size={13} aria-hidden />
+            </a>
+          </div>
         </div>
         <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
           {t('segments.detail.pullApi.integrateHint', {
