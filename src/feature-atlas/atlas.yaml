@@ -14,7 +14,7 @@
 version: 1
 # Quoted so the GMT+7 time survives (an unquoted datetime is parsed to a Date
 # and normalizeAtlas would slice off the time). Header shows date + HH:mm.
-reconciledAt: "2026-06-25T17:26+07:00"
+reconciledAt: "2026-06-25T17:37+07:00"
 
 surfaces:
   # ───────────────────────────────────────────────────────────────────────────
@@ -435,17 +435,21 @@ surfaces:
           memory: [glossary-metric-ref-integrity]
       - id: cube-model-onboarding
         label: Cube-model onboarding
-        status: planned
+        status: shipped
         health: partial
-        summary: "DA onboarding wizard: introspect Trino -> infer -> stage draft cube models"
+        summary: "DA onboarding wizard (/data, /data-model/new) + per-game generator script; all 8 games rolled out"
         drawbacks:
-          - Blocked by drift-center; standard 33-table core + Node generator not yet built
+          - Generator emits 14 portable cubes (Tier A+B); 20 net-new core-table cubes deferred
+          - Formal round-trip validation harness still partial; prod serving push (usedPreAggregations probe) pending
         directions:
-          - { label: Generator-as-truth Node scaffolder at cube-dev/scripts, effort: L }
+          - { label: Build the 20 deferred net-new core-table cubes, effort: L }
+          - { label: Formal round-trip validation harness across all 8 games, effort: M }
         deps: [metric-drift-center, cube-member-resolver]
         links:
           plans:  [plans/complete/260530-1406-cube-model-onboarding-agent, plans/260614-0153-standard-cube-model-onboarding-script]
+          code:   [src/pages/Data, cube-dev/scripts/onboard-game-cube-model.mjs]
           memory: [cube-model-onboarding-agent-plan, standard-cube-model-onboarding-plan]
+        lastTouched: 2026-06-14
       - id: cube-workspace-switching
         label: Workspace switching
         status: shipped
