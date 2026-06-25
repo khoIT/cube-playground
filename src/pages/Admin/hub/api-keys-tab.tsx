@@ -350,12 +350,22 @@ function CreateKeyModal({ open, onClose, onCreated }: CreateModalProps) {
       return ids.length > 0 ? ids : null;
     };
 
+    // <input type="datetime-local"> yields a zone-less 'YYYY-MM-DDTHH:mm'; the
+    // server validates a full ISO-8601 datetime (with offset). Convert via Date
+    // (interpreted as local time) → toISOString(). Empty = non-expiring.
+    const expiresAtIso = (() => {
+      const v = expiresAt.trim();
+      if (!v) return null;
+      const d = new Date(v);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString();
+    })();
+
     const input: CreateApiKeyInput = {
       label: trimmedLabel,
       workspace: trimmedWorkspace,
       segmentIds: parseIds(segmentIdsRaw),
       gameIds: parseIds(gameIdsRaw),
-      expiresAt: expiresAt.trim() || null,
+      expiresAt: expiresAtIso,
     };
 
     setBusy(true);
