@@ -7,3 +7,10 @@ declare module '*.yml?raw' {
   const content: string;
   export default content;
 }
+
+// Feature Atlas spine (src/feature-atlas/atlas.yaml) is loaded as a raw string and
+// parsed with js-yaml at module load (src/pages/Atlas/atlas-data.ts).
+declare module '*.yaml?raw' {
+  const content: string;
+  export default content;
+}

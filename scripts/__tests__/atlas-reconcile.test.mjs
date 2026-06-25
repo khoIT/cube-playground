@@ -158,6 +158,15 @@ describe('validateAtlas', () => {
     expect(errors.some((e) => e.includes('duplicate feature id'))).toBe(true);
   });
 
+  it('rejects a direction with an unexpected key (comma-in-flow-label trap)', () => {
+    const atlas = atlasWith([
+      { id: 'a', label: 'A', status: 'idea', health: 'healthy', directions: [{ label: 'x (y', 'z)': null, effort: 'M' }] },
+    ]);
+    const { valid, errors } = validateAtlas(atlas);
+    expect(valid).toBe(false);
+    expect(errors.some((e) => e.includes('unexpected key'))).toBe(true);
+  });
+
   it('rejects a dep that references an unknown feature id', () => {
     const atlas = atlasWith([
       { id: 'a', label: 'A', status: 'idea', health: 'healthy', deps: ['ghost'] },

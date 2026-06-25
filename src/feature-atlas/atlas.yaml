@@ -243,7 +243,7 @@ surfaces:
         health: healthy
         summary: Chat chart rendering; dual-axis & combined artifacts; table-first picker
         directions:
-          - { label: More chart families (funnel, heatmap), effort: M }
+          - { label: "More chart families (funnel, heatmap)", effort: M }
         links:
           plans:  [plans/complete/260524-0051-chat-chart-rendering, plans/260619-1716-chat-combined-dual-axis-artifact, plans/complete/260605-1154-chat-artifact-table-first-chart-picker]
           memory: [ops-charts-reuse-chat-renderer]

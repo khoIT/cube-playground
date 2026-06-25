@@ -104,6 +104,10 @@ export function validateAtlas(atlas) {
           if (!isPlainObject(d)) { push(`${dw} must be an object {label, effort}`); return; }
           if (typeof d.label !== 'string' || !d.label.trim()) push(`${dw}.label is required`);
           if (d.effort != null && !EFFORTS.includes(d.effort)) push(`${dw}.effort must be one of ${EFFORTS.join('|')}`);
+          // Unknown keys usually mean a comma inside an unquoted flow-map label split it
+          // into a junk key (e.g. `{label: a (x, y), effort: M}` → leaks a "y)" key).
+          const extra = Object.keys(d).filter((k) => k !== 'label' && k !== 'effort');
+          if (extra.length) push(`${dw} has unexpected key(s) ${extra.join(', ')} — quote the label if it contains a comma`);
         });
       }
 

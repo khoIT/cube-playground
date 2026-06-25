@@ -24,6 +24,7 @@ import { buildAuditTabs } from '../../DevAudit/audit-tabs';
 import { AdvisorAuditPanel } from './advisor-audit-panel';
 import { Member360CoveragePanel } from './member360-coverage-panel';
 import { useOwnerEmailResolver } from './use-owner-email-resolver';
+import { AtlasPage } from '../../Atlas/atlas-page';
 
 const CHAT_AUDIT_BASE_PATH = '/admin/dev/chat-audit';
 // Admin port drops Starters (global dev QA viewer, not a cross-user concern).
@@ -33,6 +34,7 @@ const DEV_TABS: TabDef[] = [
   { key: 'chat-audit', label: 'Chat-Audit', path: '/admin/dev/chat-audit' },
   { key: 'advisor-audit', label: 'Advisor-Audit', path: '/admin/dev/advisor-audit' },
   { key: 'data-coverage', label: 'Data coverage', path: '/admin/dev/data-coverage' },
+  { key: 'atlas', label: 'Feature Atlas', path: '/admin/dev/atlas' },
 ];
 
 export function DevHubPanel(): ReactElement {
@@ -57,6 +59,9 @@ export function DevHubPanel(): ReactElement {
         </Route>
         <Route path="/admin/dev/data-coverage">
           <Member360CoveragePanel />
+        </Route>
+        <Route path="/admin/dev/atlas">
+          <AtlasPage />
         </Route>
       </Switch>
     </TabShell>
