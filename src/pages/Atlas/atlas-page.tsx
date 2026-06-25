@@ -1,5 +1,5 @@
 /**
- * Feature Atlas — in-app page at /admin/dev/atlas. Pure renderer of the committed
+ * Feature Atlas — in-app page at /admin/atlas. Pure renderer of the committed
  * atlas.yaml spine: load → filter/search → one of three swappable views (tree /
  * graph / swimlane) → shared detail drawer. All feature state lives in the YAML;
  * never encode feature state in this component (the pure-renderer invariant).
@@ -8,7 +8,7 @@ import { useMemo, useState, type ReactElement } from 'react';
 import './atlas.css';
 import { loadAtlas } from './atlas-data';
 import {
-  HEALTH_ORDER, HEALTH_TOKENS, STATUS_ORDER, STATUS_TOKENS, matchesSearch,
+  HEALTH_ORDER, HEALTH_TOKENS, STATUS_ORDER, STATUS_TOKENS, matchesSearch, formatReconciledAt,
 } from './atlas-encoding';
 import { AtlasTreeView } from './atlas-tree-view';
 import { AtlasSwimlaneView } from './atlas-swimlane-view';
@@ -94,7 +94,7 @@ export function AtlasPage(): ReactElement {
         <div className="atlas-eyebrow">Development</div>
         <div className="atlas-title">
           <h1>🗺️ Feature Atlas</h1>
-          <span className="atlas-meta">{visible.size}/{allFeatures.length} features · reconciled {model.reconciledAt}</span>
+          <span className="atlas-meta" title={`reconciled ${model.reconciledAt}`}>{visible.size}/{allFeatures.length} features · reconciled {formatReconciledAt(model.reconciledAt)}</span>
         </div>
         <p className="atlas-sub">Living triage &amp; ideation map — health, drawbacks, directions, and links per feature. Edit via <code>/atlas reconcile</code>; this page is a pure renderer.</p>
       </div>
