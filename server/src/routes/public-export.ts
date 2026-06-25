@@ -241,6 +241,10 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
       setPullAuditSource(auditId, source.path);
 
       const contentType = format === 'csv' ? 'text/csv; charset=utf-8' : 'application/x-ndjson';
+      // A full-cohort stream is a download, not a previewable doc — name it so
+      // clients save `segment-<id>.ndjson|csv` instead of `response.unknown`.
+      const ext = format === 'csv' ? 'csv' : 'ndjson';
+      const filename = `segment-${row.id}.${ext}`;
 
       const abort = new AbortController();
       // Listen on reply.raw (not request.raw) — request.raw 'close' fires on
@@ -250,6 +254,7 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
       void reply.hijack();
       reply.raw.writeHead(200, {
         'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Cache-Control': 'no-cache, no-transform',
         'X-Accel-Buffering': 'no',
         // Up-front cross-check half of the completion contract (segment size).
