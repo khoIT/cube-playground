@@ -23,6 +23,15 @@ import { publicApiBaseUrl } from '../services/public-segment-dto.js';
 // surface it as a top-level link — set once here, never per-renderer.
 const CONSUMER_GUIDE_URL = 'https://claude.ai/code/artifact/ee7ccec9-5c26-4685-a4cc-9e6c2b29a0f0';
 
+// The Cube Playground browser-tab icon — the exact bytes of the app's
+// `public/favicon-32x32.png`, inlined so the docs pages carry the same logo as
+// the main app on every host (local vite, prod nginx) without depending on a
+// static path being served alongside the proxied /docs route. Fed to both
+// renderers below so Scalar (/docs) and Swagger UI (/docs/swagger) match.
+const FAVICON_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAABHUlEQVR4nO3XT2qDQBTH8axddxneg5KldpVlF0LVkPYGvUTSeIckpxIRQRC8Qv7QHiBQKEESLEJeGiJTZ8aZkMUM/Jby/SxczPR65pyOZVlC270/VpcT/V4acB2WhQgD2sKiEG6AaJgX0groGm6DMAGqwyxI43xNXrSGLzf37GMDUJZlVe9z6msLL3z74LpuVY8JoG0/RsrCS98pKcwNOENm4y7h/XVYGEDbhK/84cD5YYWlAbT1P5Bl4Hy3hTsDaKvw7e/nCp52vGFlAJpo2AAMwADuFxBF0c0AiOg1AHRRiONYGwARn7mvZEmSKAMAwFD6UpqmqTQAAGxl1/Isy7gBADDQ9jDJ85wJAIC+9pcRrSiKMwARH0S/N4fOL4UjhhsRlzjiAAAAAElFTkSuQmCC';
+const FAVICON_DATA_URI = `data:image/png;base64,${FAVICON_PNG_BASE64}`;
+
 export async function registerSwagger(app: FastifyInstance): Promise<void> {
   // Prod first (the canonical base). Outside production, also offer the local
   // dev origin so the Scalar "Try it" client can target this machine through
@@ -77,6 +86,8 @@ export async function registerDocs(app: FastifyInstance): Promise<void> {
       url: '/openapi.json',
       // Calm, single-column theme that reads like reference docs.
       theme: 'default',
+      // Cube Playground tab icon (data URI — self-contained, host-independent).
+      favicon: FAVICON_DATA_URI,
     },
   });
 
@@ -85,5 +96,18 @@ export async function registerDocs(app: FastifyInstance): Promise<void> {
   await app.register(swaggerUi, {
     routePrefix: '/docs/swagger',
     uiConfig: { docExpansion: 'list', deepLinking: true },
+    // Override Swagger's bundled favicon with the Cube Playground logo so the
+    // tab icon matches Scalar and the main app.
+    theme: {
+      favicon: [
+        {
+          filename: 'favicon-32x32.png',
+          rel: 'icon',
+          sizes: '32x32',
+          type: 'image/png',
+          content: Buffer.from(FAVICON_PNG_BASE64, 'base64'),
+        },
+      ],
+    },
   });
 }
