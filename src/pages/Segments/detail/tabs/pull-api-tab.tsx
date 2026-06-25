@@ -179,148 +179,140 @@ export function PullApiTab({ segment }: Props): ReactElement {
         </p>
       </header>
 
-      {/* Snapshot status */}
+      {/* Compact snapshot strip — status + key counts + filters in one slim bar
+          (replaces the taller card; reads at a glance, frees vertical space). */}
       <div
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          flexWrap: 'wrap',
           background: 'var(--bg-card)',
           border: '1px solid var(--border-card)',
           borderRadius: 'var(--radius-xl)',
+          padding: '12px 18px',
           marginBottom: 16,
         }}
       >
-        <div
+        <span
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
+            display: 'inline-flex',
             alignItems: 'center',
-            padding: '14px 20px',
-            borderBottom: '1px solid var(--border-card)',
+            gap: 6,
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            padding: '3px 9px',
+            borderRadius: 'var(--radius-full)',
+            background: isFresh ? 'var(--success-soft)' : 'var(--warning-soft)',
+            color: isFresh ? 'var(--success-ink)' : 'var(--warning-ink)',
           }}
         >
-          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>
-            {t('segments.detail.pullApi.snapshot', { defaultValue: 'Current snapshot' })}
-          </h3>
-          <span
-            style={{
-              fontSize: 11.5,
-              fontWeight: 600,
-              padding: '3px 9px',
-              borderRadius: 'var(--radius-full)',
-              background: isFresh ? 'var(--success-soft)' : 'var(--warning-soft)',
-              color: isFresh ? 'var(--success-ink)' : 'var(--warning-ink)',
-            }}
-          >
-            {(segment.status ?? 'unknown').toUpperCase()}
-          </span>
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 1,
-            background: 'var(--border-card)',
-          }}
-        >
-          {[
-            { k: t('segments.detail.pullApi.computed', { defaultValue: 'Computed' }), v: freshness(segment.last_refreshed_at) },
-            { k: t('segments.detail.pullApi.members', { defaultValue: 'Members' }), v: (page?.total_count ?? segment.uid_count).toLocaleString() },
-            { k: t('segments.detail.pullApi.scope', { defaultValue: 'Game' }), v: segment.game_id },
-          ].map((cell) => (
-            <div key={cell.k} style={{ background: 'var(--bg-card)', padding: '14px 16px' }}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                  marginBottom: 6,
-                }}
-              >
-                {cell.k}
-              </div>
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 700,
-                  color: 'var(--text-primary)',
-                  wordBreak: 'break-all',
-                }}
-              >
-                {cell.v}
-              </div>
-            </div>
-          ))}
-        </div>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'currentColor' }} aria-hidden />
+          {(segment.status ?? 'unknown').toUpperCase()}
+        </span>
 
-        {/* Filters — the cohort definition in plain language, so a puller knows
-            WHAT this segment returns (live predicate / named cube slices). */}
-        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-card)' }}>
-          <div
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '0.04em',
-              textTransform: 'uppercase',
-              color: 'var(--text-muted)',
-              marginBottom: 8,
-            }}
-          >
+        {/* Members — the headline number. */}
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+          <b style={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--text-primary)' }}>
+            {(page?.total_count ?? segment.uid_count).toLocaleString()}
+          </b>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {t('segments.detail.pullApi.members', { defaultValue: 'members' })}
+          </span>
+        </span>
+
+        <span style={{ width: 1, height: 22, background: 'var(--border-card)' }} aria-hidden />
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {t('segments.detail.pullApi.scope', { defaultValue: 'game' })}
+          </span>
+          <b style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{segment.game_id}</b>
+        </span>
+
+        <span style={{ width: 1, height: 22, background: 'var(--border-card)' }} aria-hidden />
+        <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {t('segments.detail.pullApi.computed', { defaultValue: 'computed' })}
+          </span>
+          <b style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{freshness(segment.last_refreshed_at)}</b>
+        </span>
+
+        {/* Filters — the cohort definition in plain language, pushed right. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginLeft: 'auto' }}>
+          <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
             {t('segments.detail.pullApi.filters', { defaultValue: 'Filters' })}
-          </div>
+          </span>
           {filterChips.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {filterChips.map((chip, i) => (
-                <span
-                  key={`${chip}-${i}`}
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 11.5,
-                    fontWeight: 500,
-                    color: 'var(--text-secondary)',
-                    background: 'var(--bg-muted)',
-                    border: '1px solid var(--border-card)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '3px 9px',
-                  }}
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
+            filterChips.map((chip, i) => (
+              <span
+                key={`${chip}-${i}`}
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11.5,
+                  fontWeight: 500,
+                  color: 'var(--text-secondary)',
+                  background: 'var(--bg-muted)',
+                  border: '1px solid var(--border-card)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '3px 9px',
+                }}
+              >
+                {chip}
+              </span>
+            ))
           ) : (
-            <div style={{ fontSize: 12.5, color: 'var(--text-muted)' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
               {segment.type === 'manual'
-                ? t('segments.detail.pullApi.filtersManual', {
-                    defaultValue: 'Manual list — a fixed set of members with no live filter.',
-                  })
-                : t('segments.detail.pullApi.filtersNone', {
-                    defaultValue: 'No filters — this segment pulls the full game population.',
-                  })}
-            </div>
+                ? t('segments.detail.pullApi.filtersManual', { defaultValue: 'manual list — no live filter' })
+                : t('segments.detail.pullApi.filtersNone', { defaultValue: 'none — full game population' })}
+            </span>
           )}
         </div>
       </div>
 
-      {/* Downstream API integration — the documented, versioned public surface.
-          The seamless path: this card hands a downstream tech team the segment
-          id + the exact endpoint and one click into the interactive API docs to
-          build a real integration against THIS segment. */}
+      {/* Downstream API integration — the PRIMARY path, visually elevated above
+          the neutral cards: brand border + brand-tint fill + brand shadow mark
+          it as the recommended way to build against THIS segment. Hands a
+          downstream team the segment id + endpoint + one click into the docs. */}
       <div
         style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--border-card)',
+          background: 'var(--brand-soft)',
+          border: '1.5px solid var(--brand)',
           borderRadius: 'var(--radius-xl)',
-          padding: '18px 20px',
-          marginBottom: 16,
+          boxShadow: '0 6px 20px rgba(240,90,34,0.16), 0 2px 6px rgba(240,90,34,0.10)',
+          padding: '20px 22px',
+          marginBottom: 18,
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
-            <BookOpen size={13} aria-hidden />{' '}
-            {t('segments.detail.pullApi.integrate', { defaultValue: 'Build a downstream integration' })}
-          </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 'none' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <span
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--brand)',
+                color: 'var(--text-on-brand)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 'none',
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              <BookOpen size={16} aria-hidden />
+            </span>
+            <div>
+              <span style={{ display: 'block', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--brand)', marginBottom: 2 }}>
+                {t('segments.detail.pullApi.publicApiEyebrow', { defaultValue: 'Public API' })}
+              </span>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>
+                {t('segments.detail.pullApi.integrate', { defaultValue: 'Build a downstream integration' })}
+              </h3>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 'none' }}>
             {/* Secondary renderer — same spec, the classic "Authorize + Try it"
                 flow. Trailing slash is required (see swaggerDocsUrl). */}
             <a
@@ -347,14 +339,15 @@ export function PullApiTab({ segment }: Props): ReactElement {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: 5,
+                gap: 6,
                 fontSize: 12.5,
                 fontWeight: 600,
                 color: 'var(--text-on-brand)',
                 background: 'var(--brand)',
                 border: 'none',
                 borderRadius: 'var(--radius-md)',
-                padding: '7px 14px',
+                padding: '8px 15px',
+                boxShadow: 'var(--shadow-sm)',
                 textDecoration: 'none',
               }}
             >
@@ -363,7 +356,7 @@ export function PullApiTab({ segment }: Props): ReactElement {
             </a>
           </div>
         </div>
-        <p style={{ margin: '0 0 12px', color: 'var(--text-muted)', fontSize: 12, maxWidth: 560 }}>
+        <p style={{ margin: '11px 0 16px', color: 'var(--text-secondary)', fontSize: 12.5, maxWidth: 600, lineHeight: 1.5 }}>
           {t('segments.detail.pullApi.integrateHint', {
             defaultValue:
               'The versioned, API-key-secured public endpoint streams the FULL cohort (NDJSON/CSV, resumable). The interactive docs show auth, the completion contract, and copy-paste consumer code. Use this segment id below.',
@@ -379,7 +372,8 @@ export function PullApiTab({ segment }: Props): ReactElement {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            background: 'var(--bg-muted)',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-strong)',
             borderRadius: 'var(--radius-md)',
             padding: '8px 12px',
             fontFamily: 'var(--font-mono)',
@@ -467,8 +461,11 @@ export function PullApiTab({ segment }: Props): ReactElement {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: sqlOpen ? 4 : 0 }}>
-            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+            <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 7 }}>
               <Terminal size={13} aria-hidden /> {t('segments.detail.pullApi.trinoSql', { defaultValue: 'Trino SQL' })}
+              <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11.5 }}>
+                · {t('segments.detail.pullApi.trinoSqlCaption', { defaultValue: 'run the cohort directly against the warehouse' })}
+              </span>
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {sqlOpen && trinoSql.sql && (
@@ -595,8 +592,11 @@ export function PullApiTab({ segment }: Props): ReactElement {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: credsOpen ? 4 : 0 }}>
-          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+          <h3 style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 7 }}>
             <Lock size={13} aria-hidden /> {t('segments.detail.pullApi.fullPull', { defaultValue: 'Full-cohort pull (authenticated)' })}
+            <span style={{ fontWeight: 400, color: 'var(--text-muted)', fontSize: 11.5 }}>
+              · {t('segments.detail.pullApi.fullPullCaption', { defaultValue: 'service-account recipes' })}
+            </span>
           </h3>
           <CollapseChevron
             open={credsOpen}
