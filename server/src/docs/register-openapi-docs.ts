@@ -16,6 +16,17 @@ import scalar from '@scalar/fastify-api-reference';
 import { publicApiBaseUrl } from '../services/public-segment-dto.js';
 
 export async function registerSwagger(app: FastifyInstance): Promise<void> {
+  // Prod first (the canonical base). Outside production, also offer the local
+  // dev origin so the Scalar "Try it" client can target this machine through
+  // the vite proxy instead of the (VPN-only) prod host.
+  const servers = [{ url: publicApiBaseUrl(), description: 'Production (VPN)' }];
+  if (process.env.NODE_ENV !== 'production') {
+    servers.push({
+      url: process.env.DEV_WEB_ORIGIN ?? 'http://localhost:3000',
+      description: 'Local dev (vite proxy → server)',
+    });
+  }
+
   await app.register(swagger, {
     openapi: {
       info: {
@@ -26,7 +37,7 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
           'Read the completion contract on the members endpoint before building a ' +
           'consumer — a 200 is necessary but not sufficient.',
       },
-      servers: [{ url: publicApiBaseUrl(), description: 'Production (VPN)' }],
+      servers,
       components: {
         securitySchemes: {
           apiKey: {
