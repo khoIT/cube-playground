@@ -6,14 +6,14 @@
  * the ranked profile snapshot: uid + in-game name + LTV + lifecycle dates,
  * ordered by the segment's rank measure.
  *
- * Shows: snapshot freshness + counts, a loud truncation warning when the stored
- * list is a capped sample, the copy-able pull endpoint, a live first-page member
- * preview (so the idea is tangible), and a PII/access note.
+ * Shows: snapshot freshness + counts, the documented public-API integration
+ * (segment id + full-cohort endpoint + docs links), warehouse-pull alternatives
+ * (Trino SQL / authenticated recipes), a live member preview, and a PII note.
  */
 
 import { ReactElement, useCallback, useEffect, useState } from 'react';
 import { message } from 'antd';
-import { Copy, AlertTriangle, KeyRound, Shield, Terminal, Lock, BookOpen, ArrowUpRight } from 'lucide-react';
+import { Copy, KeyRound, Shield, Terminal, Lock, BookOpen, ArrowUpRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { CollapseChevron } from '../../../Admin/hub/collapse-chevron';
@@ -243,33 +243,6 @@ export function PullApiTab({ segment, identityDim }: Props): ReactElement {
             </div>
           ))}
         </div>
-
-        {page?.truncated && (
-          <div
-            style={{
-              display: 'flex',
-              gap: 10,
-              alignItems: 'flex-start',
-              margin: '16px 20px 20px',
-              padding: '12px 14px',
-              background: 'var(--warning-soft)',
-              color: 'var(--warning-ink)',
-              border: '1px solid var(--warning-border)',
-              borderRadius: 'var(--radius-lg)',
-              fontSize: 12.5,
-              lineHeight: 1.45,
-            }}
-          >
-            <AlertTriangle size={15} aria-hidden style={{ flex: 'none', marginTop: 1 }} />
-            <span>
-              {t('segments.detail.pullApi.truncated', {
-                defaultValue:
-                  'The stored ranked snapshot is a capped sample — the member preview below shows a subset of the true {{total}}-member cohort. This does NOT affect the public export API: it streams the full cohort live from the warehouse, not this snapshot.',
-                total: (page?.total_count ?? 0).toLocaleString(),
-              })}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Downstream API integration — the documented, versioned public surface.
