@@ -7,13 +7,21 @@
  * spec never leaks the internal surface.
  *
  * `registerDocs` runs AFTER routes: it serves the raw spec at /openapi.json and
- * the Scalar UI at /docs (both public — auth is still enforced at call time).
+ * TWO interactive renderers off that one spec — Scalar at /docs (primary) and
+ * Swagger UI at /docs/swagger (the flow external integrators expect). Both are
+ * public; auth is still enforced at call time.
  */
 
 import type { FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import scalar from '@scalar/fastify-api-reference';
 import { publicApiBaseUrl } from '../services/public-segment-dto.js';
+
+// Long-form consumer integration guide (completion contract, auth, cursor
+// resume, rate limits). Wired into the spec's externalDocs so BOTH renderers
+// surface it as a top-level link — set once here, never per-renderer.
+const CONSUMER_GUIDE_URL = 'https://claude.ai/code/artifact/ee7ccec9-5c26-4685-a4cc-9e6c2b29a0f0';
 
 export async function registerSwagger(app: FastifyInstance): Promise<void> {
   // Prod first (the canonical base). Outside production, also offer the local
@@ -35,7 +43,12 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
         description:
           'Documented, API-key-secured streaming export of full segment cohorts. ' +
           'Read the completion contract on the members endpoint before building a ' +
-          'consumer — a 200 is necessary but not sufficient.',
+          'consumer — a 200 is necessary but not sufficient. ' +
+          `Full integration guide: ${CONSUMER_GUIDE_URL}`,
+      },
+      externalDocs: {
+        url: CONSUMER_GUIDE_URL,
+        description: 'Consumer integration guide (completion contract, auth, resume, rate limits)',
       },
       servers,
       components: {
@@ -57,6 +70,7 @@ export async function registerSwagger(app: FastifyInstance): Promise<void> {
 export async function registerDocs(app: FastifyInstance): Promise<void> {
   app.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
 
+  // Scalar — primary, polished reference at /docs.
   await app.register(scalar, {
     routePrefix: '/docs',
     configuration: {
@@ -64,5 +78,12 @@ export async function registerDocs(app: FastifyInstance): Promise<void> {
       // Calm, single-column theme that reads like reference docs.
       theme: 'default',
     },
+  });
+
+  // Swagger UI — the classic "Authorize 🔓 + Try it" flow external integrators
+  // expect, served off the SAME spec at /docs/swagger.
+  await app.register(swaggerUi, {
+    routePrefix: '/docs/swagger',
+    uiConfig: { docExpansion: 'list', deepLinking: true },
   });
 }
