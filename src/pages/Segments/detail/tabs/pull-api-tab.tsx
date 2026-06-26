@@ -17,6 +17,7 @@ import { Copy, KeyRound, Shield, Terminal, Lock, BookOpen, ArrowUpRight } from '
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { CollapseChevron } from '../../../Admin/hub/collapse-chevron';
+import { PaginatedPullCard } from './paginated-pull-card';
 import { describePredicate } from '../../slice-scope/describe-predicate';
 import { parseCubeSegmentsFromQueryJson } from '../../slice-scope/parse-cube-segments';
 import {
@@ -447,6 +448,9 @@ export function PullApiTab({ segment }: Props): ReactElement {
           </button>
         </div>
       </div>
+
+      {/* Paginated JSON pull — discrete page_id pages, complements the stream. */}
+      <PaginatedPullCard membersUrl={publicMembersUrl} onCopy={copy} />
 
       {/* Trino SQL — run the membership query directly against the warehouse.
           Collapsed by default (advanced path). */}
