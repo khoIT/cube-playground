@@ -138,8 +138,6 @@ export function HeadlineStatsRow({
  *  needs to fetch it correctly. */
 interface ScopedKpi {
   spec: KpiSpec;
-  /** Render Size live (paying count) instead of the server-authoritative uid_count. */
-  renderSizeLive: boolean;
   /** Fetch this card outside the paying sub-scope (base-segment stat). */
   ignorePayingScope: boolean;
   /** Skip the precomputed full-segment cache (its numbers don't match this card). */
@@ -148,15 +146,21 @@ interface ScopedKpi {
 
 /** Rewrite a headline KPI for the active scope. Under "paying only" two cards
  *  go degenerate, so we repurpose them (decision: Paying users → Paying rate,
- *  ARPU → ARPPU) and let Size report the payer count live. Everything else is
- *  scope-invariant (LTV total, Whales, Lapsed are already payer-side) and just
- *  re-fetches under the sub-scope. */
+ *  ARPU → ARPPU). Everything else is scope-invariant (LTV total, Whales, Lapsed
+ *  are already payer-side) and just re-fetches under the sub-scope. Size always
+ *  resolves to a live measure query — like every other card — so the headline
+ *  row stays internally consistent (never paying > size off a stale count). */
 function resolveScopedKpi(spec: KpiSpec, paying: boolean): ScopedKpi {
   if (!paying) {
-    return { spec, renderSizeLive: false, ignorePayingScope: false, suppressCache: false };
+    // Size hydrates from the precomputed `kpi:size` cache when present, else
+    // fetches live — same lane as the other cards. The stored uid_count still
+    // backs the Members tab / Pull API (the materialized snapshot), which is why
+    // the Members list carries its own "as of last refresh" stamp.
+    return { spec, ignorePayingScope: false, suppressCache: false };
   }
   if (spec.id === 'size') {
-    return { spec, renderSizeLive: true, ignorePayingScope: false, suppressCache: true };
+    // No precomputed payer count exists, so size fetches live under the sub-scope.
+    return { spec, ignorePayingScope: false, suppressCache: true };
   }
   if (spec.id === 'paying') {
     // Share of the WHOLE segment that pays — the "you're viewing X% of the
@@ -164,7 +168,6 @@ function resolveScopedKpi(spec: KpiSpec, paying: boolean): ScopedKpi {
     // out of the sub-scope and reports the base rate.
     return {
       spec: { ...spec, label: 'Paying rate', measure: 'mf_users.paying_rate', format: 'percent' },
-      renderSizeLive: false,
       ignorePayingScope: true,
       suppressCache: true,
     };
@@ -173,12 +176,11 @@ function resolveScopedKpi(spec: KpiSpec, paying: boolean): ScopedKpi {
     // Revenue ÷ payers == ARPPU; same number, now honestly named.
     return {
       spec: { ...spec, label: 'ARPPU', measure: 'mf_users.arppu_vnd' },
-      renderSizeLive: false,
       ignorePayingScope: false,
       suppressCache: true,
     };
   }
-  return { spec, renderSizeLive: false, ignorePayingScope: false, suppressCache: true };
+  return { spec, ignorePayingScope: false, suppressCache: true };
 }
 
 /** Headline KPI grid that rewrites each spec for the active population scope.
@@ -230,23 +232,11 @@ function InlineKpi({
   delta: HeadlineDelta | null;
   mini: boolean;
 }): ReactElement {
-  const { spec, renderSizeLive, ignorePayingScope, suppressCache } = resolved;
-  // Special-case the Size KPI (unscoped only): the segment object already
-  // carries the true cohort count from the server-side refresh (Cube's
-  // `total:true` defeats the 10k rowLimit). Running another measure query here
-  // would be redundant and drift-prone. Under the paying sub-scope there is no
-  // precomputed payer count, so Size falls through to a live measure query.
-  if (spec.id === 'size' && !renderSizeLive) {
-    return (
-      <SizeStatCell
-        icon={resolveKpiIcon(spec)}
-        label={spec.label}
-        count={segment.uid_count}
-        delta={delta}
-        mini={mini}
-      />
-    );
-  }
+  const { spec, ignorePayingScope, suppressCache } = resolved;
+  // Size resolves through the same live lane as every other card (see
+  // resolveScopedKpi) so the headline row can't show paying > size off a stale
+  // stored count. The materialized uid_count still backs the Members tab, which
+  // carries its own "as of last refresh" stamp.
   const item = useStatItemFromKpi(
     spec,
     segment,
@@ -273,45 +263,6 @@ function InlineKpi({
       delta={delta?.text ?? item.delta}
       tone={delta?.tone ?? item.tone}
       footer={item.footer}
-    />
-  );
-}
-
-/** Size cell rendered from segment.uid_count — exact thousands-separated value
- *  with the compact form ("82.4k") underneath for quick scanning. The value
- *  stays the server-authoritative cohort count (what Members / Pull API serve);
- *  the delta is the snapshot vs-yesterday movement merged from the Monitor tab. */
-function SizeStatCell({
-  icon, label, count, delta, mini,
-}: {
-  icon: ReactNode;
-  label: string;
-  count: number;
-  delta: HeadlineDelta | null;
-  mini: boolean;
-}): ReactElement {
-  // Exact thousands-separated value up to 1M — precise counts beat compact
-  // noise at this scale. From 1M up the tile compacts ("2.41M") and the
-  // exact figure moves into the hover tooltip.
-  const exact = count.toLocaleString('en-US');
-  const display = count >= 1_000_000 ? formatCompact(count) : exact;
-  if (mini) {
-    return (
-      <MiniStatCell
-        label={label}
-        value={<span title={`${exact} users`}>{display}</span>}
-        delta={delta?.text?.replace(' vs yesterday', '')}
-        tone={delta?.tone}
-      />
-    );
-  }
-  return (
-    <StatCellInner
-      icon={icon}
-      label={<span title={`${exact} users`}>{label}</span>}
-      value={<span title={`${exact} users`}>{display}</span>}
-      delta={delta?.text}
-      tone={delta?.tone}
     />
   );
 }

@@ -33,6 +33,7 @@ import { TieredMembersView } from './tiered-members-view';
 import { PayingMembersView } from './paying-members-view';
 import { tierOptions } from './tier-view-model';
 import { useSegmentScope } from '../segment-scope-context';
+import { MembershipFreshnessChip } from './membership-freshness-chip';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -150,6 +151,7 @@ function RandomSampleFallback({ segment, preset }: Props): ReactElement {
       <div className={styles.sampleControls}>
         <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', color: 'var(--text-secondary)', fontSize: 12 }}>
           <span>{t('segments.detail.sampleUsers.description')} ({summaryText})</span>
+          <MembershipFreshnessChip segment={segment} />
           {!member360Enabled && <Member360UnavailableChip gameId={segment.game_id} />}
         </div>
         <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>

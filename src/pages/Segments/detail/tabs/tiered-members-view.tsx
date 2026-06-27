@@ -33,6 +33,7 @@ import {
 import { TierSelector } from './tier-selector';
 import { tierOptions, buildLtvByUid, searchPool, rankColumnSpec } from './tier-view-model';
 import { MemberCacheChip, useMemberCacheStatus } from './member-cache-chip';
+import { MembershipFreshnessChip } from './membership-freshness-chip';
 import styles from '../../segments.module.css';
 
 interface Props {
@@ -148,6 +149,7 @@ export function TieredMembersView({ segment, preset, tiers }: Props): ReactEleme
       <div className={styles.sampleControls}>
         <div style={{ display: 'inline-flex', gap: 10, alignItems: 'center', color: 'var(--text-secondary)', fontSize: 12 }} title={tiers.computed_at}>
           <span>{caption}</span>
+          <MembershipFreshnessChip segment={segment} />
           {!member360Enabled && <Member360UnavailableChip gameId={segment.game_id} />}
         </div>
         <div style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
