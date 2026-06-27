@@ -19,6 +19,7 @@ import type { Segment } from '../../../../../types/segment-api';
 import { ServingContractBanner } from './serving-contract-banner';
 import { SnapshotScheduleCards } from './snapshot-schedule-cards';
 import { SegmentTokensTable } from './segment-tokens-table';
+import { ConsumptionView } from './consumption/consumption-view';
 
 interface Props {
   segment: Segment;
@@ -109,6 +110,8 @@ export function ServingContractSection({ segment, onSegmentChange }: Props): Rea
       {serving && <ServingContractBanner serving={serving} deprecated={lifecycle === 'deprecated'} />}
       {serving && lifecycle === 'served' && <SnapshotScheduleCards serving={serving} />}
       <SegmentTokensTable segmentId={segment.id} />
+      {/* Admin-only consumption observability (hides itself on 403 for non-admins). */}
+      <ConsumptionView segmentId={segment.id} />
       {canAdminister && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 16 }}>
           {lifecycle === 'deprecated' && (
