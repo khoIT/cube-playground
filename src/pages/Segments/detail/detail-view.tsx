@@ -276,7 +276,7 @@ export function DetailView(): ReactElement {
         <FunnelDetailTab funnelJson={segment.funnel_json} />
       )}
       {tab === 'activation' && (
-        <PullApiTab segment={segment} identityDim={preset?.identityDim ?? null} />
+        <PullApiTab segment={segment} identityDim={preset?.identityDim ?? null} onSegmentChange={setSegment} />
       )}
 
       <ConfirmDestructiveModal

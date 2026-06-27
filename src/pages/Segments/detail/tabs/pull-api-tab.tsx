@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { CollapseChevron } from '../../../Admin/hub/collapse-chevron';
 import { PaginatedPullCard } from './paginated-pull-card';
+import { ServingContractSection } from './serving/serving-contract-section';
 import { describePredicate } from '../../slice-scope/describe-predicate';
 import { parseCubeSegmentsFromQueryJson } from '../../slice-scope/parse-cube-segments';
 import {
@@ -33,6 +34,9 @@ interface Props {
   /** Resolved identity dimension (from the segment's preset). Retained on the
    *  contract for callers; the snapshot card no longer surfaces it. */
   identityDim: string | null;
+  /** Lifts the updated segment up after publish/demote so the detail view
+   *  re-renders into the new lifecycle state without a reload. */
+  onSegmentChange?: (s: Segment) => void;
 }
 
 const PREVIEW_LIMIT = 25;
@@ -46,7 +50,7 @@ function freshness(value: string | null): string {
   }
 }
 
-export function PullApiTab({ segment }: Props): ReactElement {
+export function PullApiTab({ segment, onSegmentChange }: Props): ReactElement {
   const { t } = useTranslation();
   const [page, setPage] = useState<SegmentMembersPage | null>(null);
   const [preview, setPreview] = useState<SegmentMemberRow[]>([]);
@@ -179,6 +183,11 @@ export function PullApiTab({ segment }: Props): ReactElement {
           })}
         </p>
       </header>
+
+      {/* Serving contract: publish ramp (draft) or contract banner + schedule +
+          entitled tokens (served/deprecated). Leads the tab so the lifecycle is
+          the first thing an operator sees. */}
+      <ServingContractSection segment={segment} onSegmentChange={onSegmentChange} />
 
       {/* Compact snapshot strip — status + key counts + filters in one slim bar
           (replaces the taller card; reads at a glance, frees vertical space). */}
