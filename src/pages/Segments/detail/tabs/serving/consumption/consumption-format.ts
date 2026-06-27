@@ -24,6 +24,7 @@ export function formatDuration(ms: number | null): string {
   return h > 0 ? `${days}d ${h}h` : `${days}d`;
 }
 
-export function formatPct(ratio: number): string {
+export function formatPct(ratio: number | null): string {
+  if (ratio == null) return '—';
   return `${Math.round(ratio * 100)}%`;
 }

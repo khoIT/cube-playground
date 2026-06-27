@@ -84,7 +84,7 @@ export function ConsumptionView({ segmentId }: { segmentId: string }): ReactElem
                 border: 'none',
                 cursor: 'pointer',
                 background: window === w ? 'var(--brand)' : 'var(--bg-card)',
-                color: window === w ? '#fff' : 'var(--text-muted)',
+                color: window === w ? 'var(--text-on-brand)' : 'var(--text-muted)',
               }}
             >
               {w}

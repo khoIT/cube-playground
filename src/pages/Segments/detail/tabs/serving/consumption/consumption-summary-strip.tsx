@@ -33,7 +33,7 @@ export function ConsumptionSummaryStrip({ summary }: { summary: ConsumptionSumma
     { k: 'Pulls', v: summary.pulls.toLocaleString() },
     { k: 'Consuming keys', v: String(summary.consumingKeys), hint: 'actually pulled' },
     { k: 'Rows · last pull', v: summary.rowsLastPull.toLocaleString() },
-    { k: 'Success', v: formatPct(summary.successRate) },
+    { k: 'Success', v: formatPct(summary.successRate), hint: 'instrumented pulls' },
     { k: 'p95 latency', v: formatLatency(summary.p95LatencyMs) },
     { k: 'Freshness @ pull', v: formatDuration(summary.avgFreshnessMs), hint: 'avg snapshot age when pulled' },
   ];

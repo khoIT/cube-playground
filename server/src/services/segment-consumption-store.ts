@@ -1,12 +1,20 @@
 /**
  * Per-segment consumption rollup over public_pull_audit (+ api_keys for labels).
  *
- * Read-only. All rate/latency/freshness math is computed over ENRICHED rows only
- * (audit_schema='v2') so pre-enrichment rows aren't miscounted as failures or
- * zero-latency. Grouping is by key_id (a key has a label, not a stable app
- * identity — a rotated key is a new id; display may dedupe identical labels with a
- * caveat). The headline consumer count is AUDIT-derived (keys that actually
- * pulled), never scope-derived — a wildcard key that never pulled this segment is
+ * Read-only. Two row populations, deliberately different:
+ *   • COUNTS (pulls / consuming keys / by-key / daily chart / rows-last) count
+ *     EVERY audited pull — a pull is a pull whether or not it carries v2
+ *     instrumentation. This keeps the summary consistent with the pull log
+ *     (which lists all rows); pre-enrichment rows must not vanish from the
+ *     headline counts.
+ *   • ENRICHED metrics (success rate / p95 latency / freshness@pull / outcome
+ *     breakdown) are computed over instrumented rows only (audit_schema='v2'),
+ *     so pre-enrichment rows aren't miscounted as failures or zero-latency. When
+ *     no instrumented rows exist, success rate is null → the UI shows "—".
+ * Grouping is by key_id (a key has a label, not a stable app identity — a rotated
+ * key is a new id; display may dedupe identical labels with a caveat). The
+ * headline consumer count is AUDIT-derived (keys that actually pulled), never
+ * scope-derived — a wildcard key that never pulled this segment is
  * entitled-but-idle, not a consumer.
  */
 
@@ -40,7 +48,8 @@ export interface ConsumptionSummary {
   pulls: number;
   consumingKeys: number;
   rowsLastPull: number;
-  successRate: number;
+  /** Over instrumented (v2) pulls only; null when there are none → UI shows "—". */
+  successRate: number | null;
   p95LatencyMs: number | null;
   avgFreshnessMs: number | null;
   windowStart: string;
@@ -83,49 +92,54 @@ export function getConsumption(segmentId: string, window: string, nowMs: number)
   const start = windowStartIso(window, nowMs);
   const labels = new Map(listKeys().map((k) => [k.id, k.label]));
 
-  // All enriched rows in window (latency/freshness/status math).
+  // EVERY audited row in window (counts: pulls / keys / by-key / rows-last).
+  // newest-first so rows[0] is the most recent pull.
   const rows = db
     .prepare(
-      `SELECT id, key_id, started_at, rows_streamed, http_status, snapshot_ts, latency_ms, page_index, error_code
+      `SELECT id, key_id, started_at, rows_streamed, http_status, snapshot_ts, latency_ms, page_index, error_code, audit_schema
          FROM public_pull_audit
-        WHERE segment_id = ? AND audit_schema = 'v2' AND started_at >= ?
+        WHERE segment_id = ? AND started_at >= ?
         ORDER BY id DESC`,
     )
     .all(segmentId, start) as Array<Record<string, unknown>>;
 
-  const ok = rows.filter((r) => Number(r.http_status) === 200);
+  // Instrumented subset (enriched metrics only — see file header).
+  const enriched = rows.filter((r) => r.audit_schema === 'v2');
+  const ok = enriched.filter((r) => Number(r.http_status) === 200);
   const latencies = ok.map((r) => Number(r.latency_ms)).filter((n) => Number.isFinite(n));
   const freshness = ok
     .filter((r) => r.snapshot_ts)
     .map((r) => Date.parse(String(r.started_at)) - Date.parse(snapshotIso(String(r.snapshot_ts))))
     .filter((n) => Number.isFinite(n) && n >= 0);
 
-  // Logical pulls + audit-derived consuming keys (distinct keys with a 200).
+  // Logical pulls + audit-derived consuming keys over ALL rows (a pull is a pull,
+  // instrumented or not). Paged rows of one snapshot-walk collapse to one.
   const pulls = (
     db
       .prepare(
         `SELECT COUNT(*) AS n FROM (
            SELECT 1 FROM public_pull_audit
-            WHERE segment_id = ? AND audit_schema = 'v2' AND started_at >= ?
+            WHERE segment_id = ? AND started_at >= ?
             GROUP BY ${PULL_GROUP})`,
       )
       .get(segmentId, start) as { n: number }
   ).n;
-  const consumingKeys = new Set(ok.map((r) => String(r.key_id))).size;
+  const consumingKeys = new Set(rows.map((r) => String(r.key_id))).size;
 
   const summary: ConsumptionSummary = {
     pulls,
     consumingKeys,
-    rowsLastPull: ok.length > 0 ? Number(ok[0].rows_streamed) : 0,
-    successRate: rows.length > 0 ? ok.length / rows.length : 0,
+    rowsLastPull: rows.length > 0 ? Number(rows[0].rows_streamed) : 0,
+    // Success rate over instrumented pulls only; null (→ "—") when none exist.
+    successRate: enriched.length > 0 ? ok.length / enriched.length : null,
     p95LatencyMs: p95(latencies),
     avgFreshnessMs: freshness.length > 0 ? Math.round(freshness.reduce((a, b) => a + b, 0) / freshness.length) : null,
     windowStart: start,
   };
 
-  // byKey: group in JS (rows already newest-first). `pulls` counts LOGICAL pulls
-  // (paged rows of one snapshot-walk collapse to one) so sum(byKey.pulls) ==
-  // summary.pulls — not raw page requests.
+  // byKey: group in JS over ALL rows (already newest-first). `pulls` counts
+  // LOGICAL pulls (paged rows of one snapshot-walk collapse to one) so
+  // sum(byKey.pulls) == summary.pulls — not raw page requests.
   const byKeyMap = new Map<string, ByKeyRow & { groups: Set<string> }>();
   for (const r of rows) {
     const keyId = String(r.key_id);
@@ -148,19 +162,21 @@ export function getConsumption(segmentId: string, window: string, nowMs: number)
     entry.pulls = entry.groups.size;
   }
 
+  // Daily chart counts all pulls (consistent with the headline + the log).
   const daily = db
     .prepare(
       `SELECT substr(started_at, 1, 10) AS date, key_id, COUNT(*) AS pulls
          FROM public_pull_audit
-        WHERE segment_id = ? AND audit_schema = 'v2' AND started_at >= ?
+        WHERE segment_id = ? AND started_at >= ?
         GROUP BY date, key_id ORDER BY date ASC`,
     )
     .all(segmentId, start) as Array<{ date: string; key_id: string; pulls: number }>;
 
+  // Outcome breakdown is an enriched metric → instrumented rows only.
   const statusBreakdown: StatusBreakdown = {
     ok: ok.length,
-    no_snapshot: rows.filter((r) => r.error_code === 'no_snapshot').length,
-    rate_limited: rows.filter((r) => r.error_code === 'rate_limited').length,
+    no_snapshot: enriched.filter((r) => r.error_code === 'no_snapshot').length,
+    rate_limited: enriched.filter((r) => r.error_code === 'rate_limited').length,
   };
 
   return {

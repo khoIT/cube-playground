@@ -206,7 +206,8 @@ export interface ConsumptionSummary {
   /** Distinct keys that ACTUALLY pulled (audit-derived), not entitled scope. */
   consumingKeys: number;
   rowsLastPull: number;
-  successRate: number;
+  /** Over instrumented pulls only; null when there are none → UI shows "—". */
+  successRate: number | null;
   p95LatencyMs: number | null;
   avgFreshnessMs: number | null;
   windowStart: string;

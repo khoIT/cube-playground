@@ -107,6 +107,24 @@ describe('segment consumption store', () => {
     expect(view.statusBreakdown.rate_limited).toBe(1);
   });
 
+  it('counts pre-enrichment (non-v2) pulls in the headline + log, but not in enriched metrics', () => {
+    const k1 = keyId('k1');
+    const k2 = keyId('k2');
+    // Only legacy rows exist (the realistic "pulled before instrumentation shipped"
+    // case the operator hit): http_status/latency/snapshot all unrecorded.
+    insertAudit(k1, { auditSchema: null, httpStatus: undefined, snapshotTs: null, pageIndex: null });
+    insertAudit(k2, { auditSchema: null, httpStatus: undefined, snapshotTs: null, pageIndex: null });
+
+    const view = getConsumption(SEG, '30d', Date.now());
+    // The pulls are real → headline counts them (was 0 before the fix).
+    expect(view.summary.pulls).toBe(2);
+    expect(view.summary.consumingKeys).toBe(2);
+    expect(view.byKey.length).toBe(2);
+    // No instrumented rows → success rate is null (UI renders "—"), not a fake 0%.
+    expect(view.summary.successRate).toBeNull();
+    expect(view.statusBreakdown.ok).toBe(0);
+  });
+
   it('separates entitled tokens from those that actually pulled', () => {
     const k1 = keyId('k1');
     insertAudit(k1, { httpStatus: 200 });
