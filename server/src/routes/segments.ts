@@ -56,6 +56,7 @@ import { SEGMENT_DEFAULT_VISIBILITY, VISIBILITY_VALUES } from '../services/trust
 import {
   SNAPSHOT_CADENCES,
   TRACK_CADENCES,
+  coerceTrackCadence,
   trackToRefreshMinutes,
   trackToSnapshotCadence,
 } from '../services/snapshot-cadence.js';
@@ -65,6 +66,7 @@ import { corePanelsForGame } from '../services/member360-panel-registry.js';
 import { triggerMember360Precompute } from '../services/member360-precompute-scheduler.js';
 import { recordActivity } from '../services/activity-store.js';
 import { LIFECYCLE_TRACKING_OWNER } from '../services/lifecycle-tracking-segment.js';
+import { buildServing, buildServingBatch, entitledKeysForSegment } from '../services/segment-serving-store.js';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
 // Member columns sourced from these cross-cutting cubes carry monetization
@@ -482,10 +484,15 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       rows.map((r) => r.id as string),
       db,
     );
+    // Serving contracts for the library lane split. Computed only for non-draft
+    // rows (drafts → null), so the big exploration lane costs no extra snapshot/
+    // key scan — no N+1 across the list.
+    const servingById = buildServingBatch(db, rows, Date.now());
     // Skip uid_list hydration on the list — see hydrateSegment's includeUidList.
-    return rows.map((r) =>
-      hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false, { sub: req.principal.sub, role: req.principal.role }),
-    );
+    return rows.map((r) => ({
+      ...hydrateSegment(r, db, tagsBySegment.get(r.id as string) ?? [], false, { sub: req.principal.sub, role: req.principal.role }),
+      serving: servingById.get(r.id as string) ?? null,
+    }));
   });
 
   // POST /api/segments
@@ -851,6 +858,10 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     return {
       ...hydrateSegment(row, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }),
       card_cache: getCardCache(id),
+      // Serving contract (cadence, next-ready, entitled keys) for the activation
+      // tab. Computed for every detail view; draft segments still carry their
+      // (draft) lifecycle so the FE can offer the publish ramp.
+      serving: buildServing(db, row, Date.now()),
     };
   });
 
@@ -1243,6 +1254,110 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
       return hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role });
     });
   }
+
+  // POST /api/segments/:id/serve — publish a segment as a downstream contract
+  // (owner/admin only). Makes "served" an explicit, owned state: the public pull
+  // path serves only 'served' segments (see public-export.ts), so this is what
+  // turns a scratch segment into a pullable contract.
+  app.post('/api/segments/:id/serve', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const db = getDb();
+    const row = guardSegment(req, reply, id, 'administer');
+    if (!row) return reply;
+
+    // A served contract must be snapshottable — refuse if capture can't run, else
+    // we'd advertise a contract that never produces data to pull.
+    if ((process.env.SEGMENT_SNAPSHOT_ENABLED ?? 'false').toLowerCase() !== 'true') {
+      return reply.status(409).send({
+        error: { code: 'SNAPSHOT_DISABLED', message: 'Snapshotting is disabled on this instance; cannot publish a served contract.' },
+      });
+    }
+
+    const now = new Date().toISOString();
+    // A served contract must have a schedule. If tracking is Off, auto-promote to
+    // daily as part of publish (one rule — no contradictory 409-then-default), and
+    // dual-write the legacy cadence columns the same way the PATCH route does.
+    const currentTrack = (row.track_cadence as string | undefined) ?? 'daily';
+    const nextTrack = currentTrack === 'Off' ? 'daily' : currentTrack;
+    if (nextTrack !== currentTrack) {
+      db.prepare(
+        `UPDATE segments SET lifecycle = 'served', served_at = ?, served_by = ?,
+           track_cadence = ?, refresh_cadence_min = ?, snapshot_cadence = ?, updated_at = ?
+         WHERE id = ?`,
+      ).run(
+        now,
+        req.principal.sub,
+        nextTrack,
+        trackToRefreshMinutes(coerceTrackCadence(nextTrack)),
+        trackToSnapshotCadence(coerceTrackCadence(nextTrack)) ?? (row.snapshot_cadence as string | null),
+        now,
+        id,
+      );
+    } else {
+      db.prepare(
+        `UPDATE segments SET lifecycle = 'served', served_at = ?, served_by = ?, updated_at = ? WHERE id = ?`,
+      ).run(now, req.principal.sub, now, id);
+    }
+
+    const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+    emitSegmentOp(req, 'update', id);
+    return {
+      ...hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }),
+      serving: buildServing(db, updated, Date.now()),
+    };
+  });
+
+  // DELETE /api/segments/:id/serve — demote/unpublish (owner/admin only).
+  // Transactional: re-reads entitled consumers and flips lifecycle atomically so a
+  // concurrent key grant can't slip a consumer in between the check and the write.
+  // Blocked (409) when consumers exist unless ?force=true, which deprecates instead
+  // of fully demoting. Either way the public pull path then returns 403 — a real
+  // kill-switch, not advisory.
+  app.delete('/api/segments/:id/serve', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const db = getDb();
+    const row = guardSegment(req, reply, id, 'administer');
+    if (!row) return reply;
+
+    const force = (req.query as { force?: string }).force === 'true';
+    const now = new Date().toISOString();
+    const outcome = db.transaction(() => {
+      const fresh = db
+        .prepare('SELECT id, workspace, game_id FROM segments WHERE id = ?')
+        .get(id) as { id: string; workspace: string | null; game_id: string | null };
+      const consumers = entitledKeysForSegment(fresh);
+      if (consumers.length > 0 && !force) {
+        return { blocked: true as const, consumers };
+      }
+      // Force-demote with consumers → 'deprecated' (kept distinct + readable in the
+      // library, history retained); clean demote → 'draft' (cleared).
+      if (consumers.length > 0) {
+        db.prepare(`UPDATE segments SET lifecycle = 'deprecated', updated_at = ? WHERE id = ?`).run(now, id);
+        return { blocked: false as const, target: 'deprecated' };
+      }
+      db.prepare(
+        `UPDATE segments SET lifecycle = 'draft', served_at = NULL, served_by = NULL, updated_at = ? WHERE id = ?`,
+      ).run(now, id);
+      return { blocked: false as const, target: 'draft' };
+    })();
+
+    if (outcome.blocked) {
+      return reply.status(409).send({
+        error: {
+          code: 'HAS_CONSUMERS',
+          message: 'Segment has entitled consumers; demote with ?force=true to deprecate it.',
+          consumers: outcome.consumers,
+        },
+      });
+    }
+
+    const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
+    emitSegmentOp(req, 'update', id);
+    return {
+      ...hydrateSegment(updated, db, undefined, true, { sub: req.principal.sub, role: req.principal.role }),
+      serving: buildServing(db, updated, Date.now()),
+    };
+  });
 
   // POST /api/segments/:id/append — owner/admin only (cohort-redefining).
   app.post('/api/segments/:id/append', async (req, reply) => {

@@ -45,6 +45,7 @@ import {
   openPullAudit,
   setPullAuditSource,
   finalizePullAudit,
+  recordPagePull,
 } from '../auth/public-pull-audit.js';
 
 const PREFIX = '/api/public/v1';
@@ -61,6 +62,7 @@ interface SegmentRow {
   cube: string | null;
   cube_query_json: string | null;
   uid_list_json: string | null;
+  lifecycle: string | null;
 }
 
 const TAG = 'public';
@@ -125,7 +127,10 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
       // applied only in JS after a workspace-only SQL page, a sparse allowlist
       // could empty the page and null the cursor prematurely — silently dropping
       // in-scope segments beyond the keyset boundary.
-      const clauses: string[] = ['workspace = ?'];
+      // Only served segments are visible downstream — the same kill-switch the
+      // detail/members endpoints enforce. A draft or force-demoted (deprecated)
+      // segment must not even appear in the public list (metadata kill-switch).
+      const clauses: string[] = ['workspace = ?', "lifecycle = 'served'"];
       const params: unknown[] = [scope.workspace];
       if (cursor) {
         clauses.push('id > ?');
@@ -178,6 +183,7 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
       const { id } = req.params as { id: string };
       const row = loadScopedSegment(scope, id);
       if (!row) return reply.status(404).send(notFound());
+      if (!ensureServed(row, reply)) return reply;
 
       const snapshotPartitionExists = await hasSnapshotPartition(row).catch(() => false);
       return toPublicSegmentDetail(row, { snapshotPartitionExists });
@@ -265,12 +271,18 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
 
       const row = loadScopedSegment(scope, id);
       if (!row) return reply.status(404).send(notFound());
+      if (!ensureServed(row, reply)) return reply;
 
       // Paginated mode — discrete pages with an opaque page_id, additive to the
       // NDJSON/CSV stream below. Plain reply (no hijack): JSON body, or a CSV body
       // with the next token in response headers.
       if (q.format === 'json' || q.format === 'csv_paged') {
-        return handleMembersPage(row, q, reply, q.format === 'csv_paged' ? 'csv' : 'json');
+        return handleMembersPage(row, q, reply, {
+          output: q.format === 'csv_paged' ? 'csv' : 'json',
+          auditFormat: q.format,
+          keyId: scope.id,
+          clientIp: req.ip,
+        });
       }
 
       let fields;
@@ -287,6 +299,7 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
       const format: ExportFormat = q.format === 'csv' ? 'csv' : 'ndjson';
       const cursor = q.cursor ?? null;
       const limit = q.limit ? Number(q.limit) : null;
+      const streamStartMs = Date.now();
 
       // Resolve the source BEFORE hijacking so "nothing to export" becomes a
       // clean pre-stream error (not a half-written 200).
@@ -305,6 +318,26 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
         release = acquireExportSlot(scope.id);
       } catch (err) {
         if (err instanceof RateLimitRejected) {
+          // The limiter fires before openPullAudit, so the 429 would otherwise be
+          // invisible. Record it (best-effort) so throttling shows in the rollup.
+          try {
+            recordPagePull({
+              keyId: scope.id,
+              segmentId: row.id,
+              startedAt: new Date(streamStartMs).toISOString(),
+              pageIndex: null,
+              pageId: null,
+              rows: 0,
+              latencyMs: Date.now() - streamStartMs,
+              snapshotTs: null,
+              httpStatus: 429,
+              format,
+              clientIp: req.ip,
+              errorCode: 'rate_limited',
+            });
+          } catch {
+            /* audit is best-effort — never fail a pull on a logging error */
+          }
           return reply
             .status(429)
             .header('Retry-After', String(err.retryAfterSec))
@@ -351,12 +384,17 @@ export default async function publicExportRoutes(app: FastifyInstance): Promise<
           if (chunk.sentinel) sawSentinel = true;
         }
         reply.raw.end();
-        finalizePullAudit(auditId, rowsStreamed, sawSentinel ? 'complete' : 'aborted');
+        finalizePullAudit(auditId, rowsStreamed, sawSentinel ? 'complete' : 'aborted', {
+          latencyMs: Date.now() - streamStartMs,
+          httpStatus: 200,
+        });
       } catch (err) {
         // Headers already sent — cannot change status. Tear down the socket so
         // the consumer sees an abrupt close (and NO sentinel = truncated).
         const aborted = abort.signal.aborted;
-        finalizePullAudit(auditId, rowsStreamed, aborted ? 'aborted' : 'error');
+        finalizePullAudit(auditId, rowsStreamed, aborted ? 'aborted' : 'error', {
+          latencyMs: Date.now() - streamStartMs,
+        });
         if (!aborted) req.log.warn(`[public-export] stream error: ${(err as Error).message}`);
         reply.raw.destroy();
       } finally {
@@ -382,8 +420,39 @@ async function handleMembersPage(
   row: SegmentRow,
   q: { page_id?: string; limit?: number },
   reply: FastifyReply,
-  output: 'json' | 'csv',
+  ctx: { output: 'json' | 'csv'; auditFormat: string; keyId: string; clientIp?: string | null },
 ): Promise<FastifyReply> {
+  const { output, auditFormat, keyId, clientIp } = ctx;
+  const startMs = Date.now();
+  const startedAt = new Date(startMs).toISOString();
+
+  // Audit a page event without ever failing the pull on a logging error.
+  const audit = (httpStatus: number, pageIndex: number | null, rows: number, snapshotTs: string | null, errorCode?: string) => {
+    try {
+      recordPagePull({
+        keyId, segmentId: row.id, startedAt, pageIndex, pageId: q.page_id ?? null,
+        rows, latencyMs: Date.now() - startMs, snapshotTs, httpStatus, format: auditFormat, clientIp, errorCode,
+      });
+    } catch {
+      /* best-effort */
+    }
+  };
+
+  // Limiter parity with the stream path: a runaway page loop is throttled too.
+  let release: () => void;
+  try {
+    release = acquireExportSlot(keyId);
+  } catch (err) {
+    if (err instanceof RateLimitRejected) {
+      audit(429, null, 0, null, 'rate_limited');
+      return reply
+        .status(429)
+        .header('Retry-After', String(err.retryAfterSec))
+        .send({ error: { code: 'RATE_LIMITED', message: err.message, reason: err.reason } });
+    }
+    throw err;
+  }
+
   const query: RowQueryFn = (sql) => {
     const connector = lakehouseConnectorFromEnv();
     const schema = schemaForGame(row.game_id) ?? '';
@@ -395,6 +464,7 @@ async function handleMembersPage(
       { segment: row, limit: q.limit ? Number(q.limit) : undefined, pageId: q.page_id },
       query,
     );
+    audit(200, page.pageIndex, page.uids.length, page.snapshotTs);
     if (output === 'csv') {
       reply
         .header('Content-Type', 'text/csv; charset=utf-8')
@@ -419,14 +489,18 @@ async function handleMembersPage(
     });
   } catch (err) {
     if (err instanceof InvalidPageTokenError) {
+      audit(400, null, 0, null, 'bad_fields');
       return reply.status(400).send({ error: { code: 'INVALID_PAGE_ID', message: err.message } });
     }
     if (err instanceof NoSnapshotError) {
+      audit(409, null, 0, null, 'no_snapshot');
       return reply.status(409).send({
         error: { code: 'NO_SNAPSHOT', message: err.message, hint: 'refresh the segment, then retry' },
       });
     }
     throw err;
+  } finally {
+    release();
   }
 }
 
@@ -440,7 +514,7 @@ function csvCell(value: string): string {
 function loadScopedSegment(scope: ApiKeyScope, id: string): SegmentRow | null {
   const row = getDb()
     .prepare(
-      `SELECT id, name, game_id, workspace, uid_count, status, last_refreshed_at, type, cube, cube_query_json, uid_list_json
+      `SELECT id, name, game_id, workspace, uid_count, status, last_refreshed_at, type, cube, cube_query_json, uid_list_json, lifecycle
          FROM segments WHERE id = ?`,
     )
     .get(id) as SegmentRow | undefined;
@@ -448,6 +522,20 @@ function loadScopedSegment(scope: ApiKeyScope, id: string): SegmentRow | null {
   // Fail-closed: a key never even confirms the existence of an out-of-scope id.
   if (!canKeyAccessSegment(scope, row)) return null;
   return row;
+}
+
+/**
+ * Demote/unpublish kill-switch: only a 'served' segment is pullable. The key is
+ * already proven in-scope here, so we can tell it the truth (403 SEGMENT_NOT_SERVED
+ * → ask the owner to publish) rather than a fail-closed 404. Returns true when the
+ * caller should proceed; otherwise sends the 403 and returns false.
+ */
+function ensureServed(row: SegmentRow, reply: FastifyReply): boolean {
+  if ((row.lifecycle as string | undefined) === 'served') return true;
+  reply
+    .status(403)
+    .send({ error: { code: 'SEGMENT_NOT_SERVED', message: 'This segment is not published for downstream serving.' } });
+  return false;
 }
 
 function notFound() {

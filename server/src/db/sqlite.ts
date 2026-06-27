@@ -53,7 +53,28 @@ export function getDb(): Database.Database {
 
 /**
  * Run SQL migration files idempotently.
- * Files are named NNN-description.sql. PRAGMA user_version tracks applied count.
+ *
+ * Files are named NNN-description.sql and applied in sorted-filename order.
+ * PRAGMA user_version holds the COUNT of files already applied, so each boot runs
+ * files.slice(user_version).
+ *
+ * INVARIANT — never back-fill a numbering gap. The directory has permanent gaps
+ * (e.g. 044/045/047/070 were never created). Ordering is by sorted filename, not
+ * the numeric prefix, and the cursor is a count — so adding a lower-numbered file
+ * later shifts every subsequent file's slice position and silently re-runs
+ * already-applied migrations. SQLite ADD COLUMN has no IF NOT EXISTS, so that
+ * surfaces as a "duplicate column" wedge on boot. Always append the next free
+ * number above the highest existing file.
+ *
+ * Each file is applied in its own transaction, and user_version is advanced WITHIN
+ * that same transaction. A mid-file failure (e.g. the 2nd ALTER of a multi-ALTER
+ * file) rolls the whole file back and leaves user_version pointing at the last
+ * fully-applied file, so the next boot resumes exactly at the failed file — no
+ * half-applied DDL, no duplicate-column wedge.
+ *
+ * Manual recovery if a file is genuinely broken: read `PRAGMA user_version`, undo
+ * any partial DDL by hand, fix the file, and set user_version back to the count of
+ * fully-applied files so the failed file re-runs cleanly.
  */
 function runMigrations(db: Database.Database): void {
   const files = readdirSync(MIGRATIONS_DIR)
@@ -65,12 +86,17 @@ function runMigrations(db: Database.Database): void {
   const pending = files.slice(currentVersion);
   if (pending.length === 0) return;
 
+  let applied = currentVersion;
   for (const file of pending) {
     const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
-    db.exec(sql);
+    const nextVersion = applied + 1;
+    const runFile = db.transaction(() => {
+      db.exec(sql);
+      db.pragma(`user_version = ${nextVersion}`);
+    });
+    runFile();
+    applied = nextVersion;
   }
-
-  db.pragma(`user_version = ${files.length}`);
 }
 
 /** Close the DB — used in tests to reset state between suites. */

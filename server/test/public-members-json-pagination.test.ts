@@ -55,12 +55,15 @@ function insertSegment(over: Record<string, unknown> = {}) {
     workspace: 'prod',
     uid_count: 2500,
     uid_list_json: '[]',
+    // Pull-path tests need a published contract: only 'served' segments are
+    // pullable. Override to 'draft'/'deprecated' to test the not-served gate.
+    lifecycle: 'served',
     ...over,
   };
   getDb()
     .prepare(
-      `INSERT INTO segments (id, name, type, owner, status, game_id, workspace, uid_count, uid_list_json)
-       VALUES (@id, @name, @type, @owner, @status, @game_id, @workspace, @uid_count, @uid_list_json)`,
+      `INSERT INTO segments (id, name, type, owner, status, game_id, workspace, uid_count, uid_list_json, lifecycle)
+       VALUES (@id, @name, @type, @owner, @status, @game_id, @workspace, @uid_count, @uid_list_json, @lifecycle)`,
     )
     .run(row);
   return row;

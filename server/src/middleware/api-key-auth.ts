@@ -11,7 +11,15 @@
  */
 
 import type { FastifyReply, FastifyRequest, preHandlerHookHandler } from 'fastify';
+import { createHash } from 'node:crypto';
 import { verifyKey, touchLastUsed, type ApiKeyScope } from '../auth/api-key-store.js';
+
+/** Non-reversible short fingerprint of a presented key for correlating repeated
+ *  bad attempts in logs — NEVER the raw key bytes (logging those would leak a
+ *  near-secret if the attempt was a typo of a real key). */
+function keyFingerprint(presented: string): string {
+  return createHash('sha256').update(presented).digest('hex').slice(0, 12);
+}
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -36,12 +44,19 @@ export const requireApiKey: preHandlerHookHandler = async (
 ) => {
   const presented = extractKey(req);
   if (!presented) {
+    // Log only — never a DB row: an unauthenticated caller must not be able to
+    // write the audit table (token-spray DoS) nor leak key bytes into it.
+    req.log.warn({ evt: 'public_pull_auth_reject', code: 'missing_key', ip: req.ip }, 'public export: missing API key');
     return reply
       .status(401)
       .send({ error: { code: 'UNAUTHORIZED', message: 'Missing API key. Send Authorization: Bearer sk_live_…' } });
   }
   const scope = verifyKey(presented);
   if (!scope) {
+    req.log.warn(
+      { evt: 'public_pull_auth_reject', code: 'invalid_key', fp: keyFingerprint(presented), ip: req.ip },
+      'public export: invalid/revoked/expired API key',
+    );
     return reply
       .status(401)
       .send({ error: { code: 'UNAUTHORIZED', message: 'Invalid, revoked, or expired API key.' } });

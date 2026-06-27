@@ -17,6 +17,7 @@ import cubeProxyRoutes from './routes/cube-proxy.js';
 import userPrefsRoutes from './routes/user-prefs.js';
 import cubeAliasesRoutes from './routes/cube-aliases.js';
 import segmentsRoutes from './routes/segments.js';
+import segmentConsumptionRoutes from './routes/segment-consumption-routes.js';
 import segmentCompareRoutes from './routes/segment-compare-routes.js';
 import segmentMember360Routes from './routes/segment-member360.js';
 import segmentBriefRoutes from './routes/segment-brief.js';
@@ -101,6 +102,7 @@ import { startAnomalyDetector } from './jobs/anomaly-detector.js';
 import { startActivityPruneCron } from './jobs/prune-activity-events.js';
 import { startQueryPerfPruneCron } from './jobs/prune-query-perf.js';
 import { startCareSweepPruneCron } from './jobs/prune-care-sweep-membership.js';
+import { startPullAuditPruneCron } from './jobs/prune-pull-audit.js';
 import { startCareAutoSweepCron } from './jobs/care-auto-sweep.js';
 import { startSegmentMembershipSnapshotCron } from './jobs/snapshot-segment-membership.js';
 import { ensureLifecycleTrackingSegments } from './services/lifecycle-tracking-segment.js';
@@ -134,6 +136,7 @@ export async function buildApp() {
   await app.register(userPrefsRoutes);
   await app.register(cubeAliasesRoutes);
   await app.register(segmentsRoutes);
+  await app.register(segmentConsumptionRoutes);
   await app.register(segmentCompareRoutes);
   await app.register(segmentMember360Routes);
   await app.register(segmentBriefRoutes);
@@ -328,6 +331,7 @@ if (isMain || process.env.START_SERVER === '1') {
       startActivityPruneCron();
       startQueryPerfPruneCron();
       startCareSweepPruneCron();
+      startPullAuditPruneCron();
       startCareAutoSweepCron();
       // Ensure the hidden all-users tracking segments exist so the lifecycle/
       // tier transition matrices approach full-population coverage. Gated on the

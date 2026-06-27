@@ -40,6 +40,10 @@ export interface PageToken {
   snapshotTs?: string | null;
   /** Keyset cursor — last uid of the previous page. */
   lastUid: string;
+  /** 0-based index of the page this token fetches. Page 1 carries no token, so an
+   *  absent index reads as 0; each emitted next-page token carries index+1. Used
+   *  by per-page audit so a page's position is sourced from the token, not guessed. */
+  pageIndex?: number;
 }
 
 /** Encode page state into an opaque base64url token. */
@@ -75,6 +79,9 @@ export function decodePageToken(raw: string): PageToken {
   if (t.snapshotTs !== undefined && t.snapshotTs !== null && typeof t.snapshotTs !== 'string') {
     throw new InvalidPageTokenError('page_id snapshotTs is malformed');
   }
+  if (t.pageIndex !== undefined && (typeof t.pageIndex !== 'number' || !Number.isInteger(t.pageIndex) || t.pageIndex < 0)) {
+    throw new InvalidPageTokenError('page_id pageIndex is malformed');
+  }
   return {
     v: 1,
     source: t.source,
@@ -82,5 +89,6 @@ export function decodePageToken(raw: string): PageToken {
     snapshotDate: t.snapshotDate as string | undefined,
     snapshotTs: t.snapshotTs as string | null | undefined,
     lastUid: t.lastUid,
+    pageIndex: t.pageIndex as number | undefined,
   };
 }

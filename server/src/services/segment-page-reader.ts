@@ -50,7 +50,7 @@ export interface PageSegment {
 }
 
 /** Runs a SQL string and yields row-major results (matches TrinoResult.rows).
- *  Phase 2 supplies one backed by the lakehouse connector; tests inject a mock. */
+ *  The route supplies one backed by the lakehouse connector; tests inject a mock. */
 export type RowQueryFn = (sql: string) => Promise<unknown[][]>;
 
 export interface ReadPageInput {
@@ -68,6 +68,12 @@ export interface PageResult {
   /** Token for the next page, or null when the cohort is exhausted. */
   next_page_id: string | null;
   has_more: boolean;
+  /** Pinned snapshot ts this page served from (daily source); null for manual or
+   *  a legacy NULL-ts partition. Sourced from the RESULT so per-page audit can read
+   *  it even on page 1 (which carries no incoming token to decode). */
+  snapshotTs: string | null;
+  /** 0-based index of this page (page 1 = 0). */
+  pageIndex: number;
 }
 
 export const DEFAULT_LIMIT = 1000;
@@ -119,11 +125,16 @@ function readManualPage(segment: PageSegment, limit: number, token: PageToken | 
   const start = lastUid ? firstIndexAfter(all, lastUid) : 0;
   const slice = all.slice(start, start + limit);
   const hasMore = start + slice.length < all.length;
+  const thisPageIndex = token?.pageIndex ?? 0;
 
   return {
     uids: slice,
     total_count: all.length,
     has_more: hasMore,
+    // Manual segments page from the in-memory uid list — no pinned warehouse
+    // snapshot, so freshness is "unknown" (null) to the audit, not a failure.
+    snapshotTs: null,
+    pageIndex: thisPageIndex,
     next_page_id:
       hasMore && slice.length > 0
         ? encodePageToken({
@@ -131,6 +142,7 @@ function readManualPage(segment: PageSegment, limit: number, token: PageToken | 
             source: 'manual',
             segmentId: segment.id,
             lastUid: slice[slice.length - 1],
+            pageIndex: thisPageIndex + 1,
           })
         : null,
   };
@@ -208,6 +220,7 @@ async function readDailyPage(
   );
   const uids = pageRows.map((r) => String(r[0]));
   const hasMore = uids.length === limit;
+  const thisPageIndex = token?.pageIndex ?? 0;
 
   return {
     uids,
@@ -215,6 +228,8 @@ async function readDailyPage(
     // the app trusts (mirrors the tokenless route). Never sourced from the token.
     total_count: Number(segment.uid_count ?? 0),
     has_more: hasMore,
+    snapshotTs,
+    pageIndex: thisPageIndex,
     next_page_id: hasMore
       ? encodePageToken({
           v: 1,
@@ -223,6 +238,7 @@ async function readDailyPage(
           snapshotDate,
           snapshotTs,
           lastUid: uids[uids.length - 1],
+          pageIndex: thisPageIndex + 1,
         })
       : null,
   };
