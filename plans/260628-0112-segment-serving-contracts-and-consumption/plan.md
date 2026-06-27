@@ -46,6 +46,17 @@ contract + promotion), D (snapshot schedule + per-app tokens), E (consumption hi
 | 6 | Frontend — per-segment consumption view (E) | done | 3 |
 | 7 | Tests + docs sync | done | 4,5,6 |
 
+### Post-ship UX pass (2026-06-28, variant B)
+Operator-tested the shipped tab; three fixes:
+1. **Consumption "0 pulls" bug** (`segment-consumption-store.ts`): the pull log listed rows but the summary read 0. Root cause — pulls/consumingKeys/byKey/dailyByKey all filtered `audit_schema='v2'` while the log didn't, so pre-enrichment (legacy) pulls vanished from the headline. Fix: counts now cover ALL audited rows (a pull is a pull); only ENRICHED metrics (success/p95/freshness/outcomes) stay v2-only. `successRate` → `number|null` (null → UI "—", not a fake 0%). +1 regression test (4/4).
+2. **Demote button** moved from a floating bottom-right orphan into the persistent contract header.
+3. **Tab redesign — huashu variant B (job-to-be-done switcher)**: 3 hi-fi HTML variants explored (`design-demos/variant-{a,b,c}*.html`), user picked B. New structure under `tabs/pull-api/`:
+   - `pull-contract-header.tsx` — merges the old serving-banner + snapshot-strip (killed the status/members/game/computed/filters duplication) into one persistent row; owns publish/demote/re-publish.
+   - `pull-job-switcher.tsx` — two captioned intent cards (Build / Monitor·admin).
+   - `build-mode-view.tsx` — integration docs (brand card, paginated pull, Trino SQL, auth recipes, preview, PII), moved out of the 872-LOC tab.
+   - `monitor-mode-view.tsx` — schedule + edit-guard note + tokens + consumption.
+   - `pull-api-tab.tsx` is now a thin orchestrator (<70 LOC); Monitor gated on `useAuthUser()?.role==='admin'` (its endpoints are admin-only). Deleted `serving/serving-contract-section.tsx` + `serving/serving-contract-banner.tsx` (superseded). Verified live (both modes screenshot-checked).
+
 ### Implementation notes (2026-06-28)
 - Shipped commits: `22797f49` (backend 0–3), `ec899de5` (lanes 4), `c894df1f` (activation 5), `562c3dd5` (consumption 6), `66fec46e` (tests 7).
 - **Rollout decision (user-confirmed):** existing segments default to `draft` → publish manually. Lifecycle gate is a breaking change to the shipped pull path (intended); fixtures updated to serve their segments.

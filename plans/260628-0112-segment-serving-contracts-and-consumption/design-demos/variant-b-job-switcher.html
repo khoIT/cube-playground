@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Variant B — Job-to-be-done switcher</title>
+<style>
+  :root{
+    --bg:#f8efe5; --muted-bg:#efe3d4;
+    --border-card:#e1d4c2; --border-strong:#d2c2ab;
+    --t-primary:#171717; --t-secondary:#404040; --t-muted:#737373; --on-brand:#fff;
+    --brand:#f05a22; --brand-soft:#fff7ed;
+    --violet:#725390; --violet-soft:#ece6f1;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --code-bg:#171717; --code-fg:#fafafa;
+    --mono:'SF Mono',ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    color:var(--t-primary); -webkit-font-smoothing:antialiased;
+  }
+  .caption-bar{
+    background:#171717; color:#fafafa; padding:12px 24px;
+    font-size:13px; font-weight:600; letter-spacing:.02em;
+  }
+  .caption-bar span{color:#a3a3a3; font-weight:500;}
+  .mode-label{
+    max-width:1100px; margin:32px auto 0; padding:0 24px;
+    font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--t-muted); display:flex; align-items:center; gap:10px;
+  }
+  .mode-label::after{content:""; flex:1; height:1px; background:var(--border-strong);}
+  .page{max-width:1100px; margin:14px auto 0; padding:0 24px 40px;}
+
+  /* ── Contract header ───────────────────────────── */
+  .contract{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:var(--bg); border:1px solid var(--border-card);
+    border-radius:14px; padding:14px 18px; margin-bottom:16px;
+  }
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; font-weight:700; padding:4px 11px; border-radius:999px;
+    background:var(--violet-soft); color:var(--violet); letter-spacing:.02em;
+  }
+  .pill .dot{width:7px;height:7px;border-radius:999px;background:var(--violet);}
+  .contract .members{font-size:16px;font-weight:700;}
+  .contract .meta{font-size:13px;color:var(--t-secondary);}
+  .contract .sep{width:1px;height:18px;background:var(--border-strong);}
+  .chip{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; font-family:var(--mono); padding:4px 9px; border-radius:8px;
+    background:var(--muted-bg); border:1px solid var(--border-card); color:var(--t-secondary);
+  }
+  .chip .glyph{color:var(--t-muted);}
+  .spacer{flex:1;}
+  .btn{
+    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:8px; padding:8px 14px; border:1px solid var(--border-strong);
+    background:var(--bg); color:var(--t-secondary); display:inline-flex; align-items:center; gap:6px;
+  }
+  .btn-brand{background:var(--brand); color:var(--on-brand); border-color:var(--brand);}
+  .btn-ghost{background:transparent; border-color:var(--border-strong); color:var(--t-secondary);}
+  .btn-demote{background:transparent; border:1px solid var(--destructive-ink); color:var(--destructive-ink);}
+
+  /* ── JTBD switcher ──────────────────────────────── */
+  .switcher{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px;}
+  .job{
+    position:relative; display:flex; gap:12px; align-items:flex-start;
+    background:var(--bg); border:1.5px solid var(--border-card); border-radius:14px;
+    padding:15px 16px; cursor:pointer; transition:.15s;
+  }
+  .job.active{border-color:var(--brand); background:var(--brand-soft); box-shadow:0 0 0 3px rgba(240,90,34,.10);}
+  .job .ico{
+    width:34px; height:34px; flex-shrink:0; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--muted-bg); border:1px solid var(--border-card); color:var(--t-muted);
+  }
+  .job.active .ico{background:#fff; border-color:#f6c5a8; color:var(--brand);}
+  .job .radio{
+    position:absolute; top:14px; right:14px; width:16px; height:16px; border-radius:999px;
+    border:2px solid var(--border-strong); background:var(--bg);
+  }
+  .job.active .radio{border-color:var(--brand);}
+  .job.active .radio::after{
+    content:""; position:absolute; inset:2px; border-radius:999px; background:var(--brand);
+  }
+  .job .title{font-size:14px; font-weight:700; display:flex; align-items:center; gap:8px;}
+  .job .cap{font-size:12px; color:var(--t-muted); margin-top:3px; line-height:1.45; padding-right:18px;}
+  .admin-tag{
+    font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    padding:2px 6px; border-radius:6px; background:var(--violet-soft); color:var(--violet);
+  }
+
+  /* ── Cards ──────────────────────────────────────── */
+  .card{
+    background:var(--bg); border:1px solid var(--border-card); border-radius:14px;
+    padding:18px 20px; margin-bottom:14px;
+  }
+  .card-primary{background:var(--brand-soft); border:1.5px solid var(--brand);
+    box-shadow:0 6px 20px -10px rgba(240,90,34,.45);}
+  .eyebrow{font-size:11px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--brand);}
+  .card h3{margin:6px 0 4px; font-size:16px; font-weight:700;}
+  .card h4{margin:0; font-size:14px; font-weight:700;}
+  .card .desc{font-size:13px; color:var(--t-secondary); line-height:1.5; margin:0 0 14px;}
+  .card-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+  .head-actions{display:flex; gap:8px; flex-shrink:0;}
+
+  .field-label{font-size:12px; font-weight:600; color:var(--t-secondary); margin:12px 0 5px;}
+  .field{
+    display:flex; align-items:center; gap:8px; background:#fff;
+    border:1px solid var(--border-card); border-radius:8px; padding:0 6px 0 12px;
+  }
+  .field input{
+    flex:1; border:0; background:transparent; font-family:var(--mono);
+    font-size:13px; color:var(--t-primary); padding:10px 0; outline:none; min-width:0;
+  }
+  .copy{
+    border:1px solid var(--border-card); background:var(--muted-bg); color:var(--t-secondary);
+    border-radius:6px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0;
+    display:inline-flex; align-items:center; gap:5px;
+  }
+  .codeblock{
+    background:var(--code-bg); border-radius:10px; padding:14px 16px; position:relative;
+    overflow-x:auto; margin-top:4px;
+  }
+  .codeblock pre{
+    margin:0; font-family:var(--mono); font-size:12.5px; line-height:1.65; color:var(--code-fg);
+    white-space:pre; tab-size:2;
+  }
+  .codeblock .cmt{color:#9ca3af;}
+  .codeblock .str{color:#fbbf24;}
+  .codeblock .key{color:#7dd3fc;}
+  .codeblock .copy-dark{
+    position:absolute; top:10px; right:10px; background:#262626; border:1px solid #404040;
+    color:#d4d4d4; border-radius:6px; padding:4px 9px; font-size:11px; font-weight:600; cursor:pointer;
+  }
+  .field-dark{
+    display:flex; align-items:center; gap:8px; background:var(--code-bg);
+    border-radius:8px; padding:0 6px 0 12px; margin-top:4px;
+  }
+  .field-dark code{
+    flex:1; font-family:var(--mono); font-size:12.5px; color:var(--code-fg);
+    padding:11px 0; overflow-x:auto; white-space:nowrap;
+  }
+  .field-dark .copy{background:#262626; border-color:#404040; color:#d4d4d4;}
+  .note{font-size:12px; color:var(--t-muted); margin-top:10px; line-height:1.5;}
+  .note code{font-family:var(--mono); background:var(--muted-bg); padding:1px 5px; border-radius:5px; color:var(--t-secondary);}
+
+  /* advanced collapsed rows */
+  .adv-row{
+    display:flex; align-items:center; gap:12px; background:var(--bg);
+    border:1px solid var(--border-card); border-radius:14px; padding:14px 18px; margin-bottom:14px; cursor:pointer;
+  }
+  .adv-row .chev{color:var(--t-muted); flex-shrink:0;}
+  .adv-row .lock{color:var(--t-muted);}
+  .adv-row .at{font-size:14px; font-weight:700;}
+  .adv-row .ac{font-size:12px; color:var(--t-muted); margin-top:2px;}
+  .adv-row .adv-tag{
+    margin-left:auto; font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+    color:var(--t-muted); background:var(--muted-bg); border:1px solid var(--border-card); padding:3px 8px; border-radius:6px;
+  }
+
+  /* member preview */
+  .preview-count{font-size:12px; color:var(--t-muted); margin:0 0 12px;}
+  .uid-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+  .uid{
+    font-family:var(--mono); font-size:12px; background:var(--muted-bg); border:1px solid var(--border-card);
+    border-radius:8px; padding:8px 10px; color:var(--t-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .callout{
+    display:flex; gap:12px; align-items:flex-start; background:var(--info-soft);
+    border:1px solid #bfd3f5; border-radius:14px; padding:14px 18px; margin-bottom:14px;
+  }
+  .callout .ci{color:var(--info-ink); flex-shrink:0; margin-top:1px;}
+  .callout p{margin:0; font-size:13px; color:var(--info-ink); line-height:1.55;}
+
+  /* ── Monitor mode ───────────────────────────────── */
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .mini-card{
+    background:var(--bg); border:1px solid var(--border-card); border-radius:12px; padding:14px 16px;
+  }
+  .mini-card .ml{font-size:12px; color:var(--t-muted); font-weight:600;}
+  .mini-card .mv{font-size:18px; font-weight:700; margin-top:4px; display:flex; align-items:center; gap:8px;}
+  .toggle-on{
+    font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px;
+    background:var(--success-soft); color:var(--success-ink);
+  }
+  .section-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .section-head h3{margin:0; font-size:15px; font-weight:700;}
+  .section-head .sub{font-size:12px; color:var(--t-muted); margin-top:2px;}
+  .link{font-size:12px; font-weight:600; color:var(--brand); text-decoration:none;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{text-align:left; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--t-muted); padding:8px 10px; border-bottom:1px solid var(--border-card);}
+  td{padding:10px; border-bottom:1px solid var(--border-card); color:var(--t-secondary);}
+  tr:last-child td{border-bottom:0;}
+  tbody tr:nth-child(even){background:var(--muted-bg);}
+  td.mono{font-family:var(--mono); font-size:12.5px; color:var(--t-primary);}
+  .tag{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; display:inline-flex; align-items:center; gap:5px;}
+  .tag-success{background:var(--success-soft); color:var(--success-ink);}
+  .tag-idle{background:var(--muted-bg); color:var(--t-muted); border:1px solid var(--border-card);}
+  .tag-entitled{background:var(--info-soft); color:var(--info-ink);}
+  .ro-cap{font-size:11px; color:var(--t-muted); margin-top:10px;}
+
+  .win-toggle{display:inline-flex; background:var(--muted-bg); border:1px solid var(--border-card); border-radius:999px; padding:3px;}
+  .win-toggle button{
+    border:0; background:transparent; font-family:inherit; font-size:12px; font-weight:600;
+    color:var(--t-muted); padding:5px 14px; border-radius:999px; cursor:pointer;
+  }
+  .win-toggle button.on{background:var(--bg); color:var(--t-primary); box-shadow:0 1px 2px rgba(0,0,0,.06);}
+
+  .tiles{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .tile{background:var(--bg); border:1px solid var(--border-card); border-radius:12px; padding:14px 16px;}
+  .tile .tl{font-size:12px; color:var(--t-muted); font-weight:600;}
+  .tile .tv{font-size:22px; font-weight:700; margin-top:5px; letter-spacing:-.01em;}
+  .tile .th{font-size:11px; color:var(--t-muted); margin-top:3px;}
+
+  /* chart */
+  .chart-wrap{display:grid; grid-template-columns:1.7fr 1fr; gap:12px;}
+  .bars{display:flex; align-items:flex-end; gap:14px; height:170px; padding:8px 4px 0;}
+  .bar-col{flex:1; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:6px;}
+  .bar{width:100%; max-width:34px; border-radius:5px 5px 0 0; display:flex; flex-direction:column; justify-content:flex-end; overflow:hidden;}
+  .bar .s1{background:var(--brand);}
+  .bar .s2{background:var(--violet);}
+  .bar-x{font-size:10px; color:var(--t-muted);}
+  .legend{display:flex; gap:16px; margin-top:10px; font-size:12px; color:var(--t-secondary);}
+  .legend span{display:inline-flex; align-items:center; gap:6px;}
+  .swatch{width:10px;height:10px;border-radius:3px;}
+  .outcomes{display:flex; flex-direction:column; gap:10px; justify-content:center;}
+  .outcome-row{display:flex; align-items:center; justify-content:space-between; font-size:13px;}
+  .outcome-row .ol{color:var(--t-secondary); display:flex; align-items:center; gap:8px;}
+  .outcome-row .ov{font-weight:700; font-family:var(--mono);}
+  .od{width:8px;height:8px;border-radius:999px;}
+</style>
+</head>
+<body>
+
+<div class="caption-bar">VARIANT B — Job-to-be-done switcher <span>(Build · Monitor)</span></div>
+
+<!-- ════════════════════════ MODE 1: BUILD SELECTED ════════════════════════ -->
+<div class="mode-label">Mode 1 · Build the integration (default selected)</div>
+<div class="page">
+
+  <!-- Contract header -->
+  <div class="contract">
+    <span class="pill"><span class="dot"></span>SERVED</span>
+    <span class="members">871,082 members</span>
+    <span class="sep"></span>
+    <span class="meta">game <strong>jus_vn</strong></span>
+    <span class="meta">·</span>
+    <span class="meta">computed 4 hours ago</span>
+    <span class="chip"><span class="glyph">⊃</span> days_since_last_active ≥ 3</span>
+    <span class="spacer"></span>
+    <button class="btn btn-demote">↓ Demote</button>
+  </div>
+
+  <!-- JTBD switcher -->
+  <div class="switcher">
+    <div class="job active">
+      <span class="radio"></span>
+      <span class="ico">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l-3 3 3 3M15 5l3 3-3 3M14 4l-4 16"/></svg>
+      </span>
+      <div>
+        <div class="title">Build the integration</div>
+        <div class="cap">id, endpoint, pagination &amp; code to pull this cohort</div>
+      </div>
+    </div>
+    <div class="job">
+      <span class="radio"></span>
+      <span class="ico">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg>
+      </span>
+      <div>
+        <div class="title">Monitor consumption <span class="admin-tag">admin</span></div>
+        <div class="cap">schedule, entitled keys, pulls &amp; health</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. PRIMARY brand card -->
+  <div class="card card-primary">
+    <div class="card-head">
+      <div>
+        <span class="eyebrow">Public API</span>
+        <h3>Build a downstream integration</h3>
+        <p class="desc">Pull this segment's full member cohort over HTTP. Page through results with a pinned snapshot, or run it directly against the warehouse.</p>
+      </div>
+      <div class="head-actions">
+        <button class="btn btn-ghost">Swagger UI ↗</button>
+        <button class="btn btn-brand">Open API docs ↗</button>
+      </div>
+    </div>
+    <div class="field-label">Segment ID</div>
+    <div class="field">
+      <input value="942116cf-c64e-409f-9cec-d83030d33e15" readonly>
+      <button class="copy">⧉ Copy</button>
+    </div>
+    <div class="field-label">Full-cohort endpoint</div>
+    <div class="field-dark">
+      <code>https://playground.gds.vng.vn/api/public/v1/segments/942116cf-c64e-409f-9cec-d83030d33e15/members</code>
+      <button class="copy">⧉ Copy</button>
+    </div>
+  </div>
+
+  <!-- 2. Paginated JSON pull -->
+  <div class="card">
+    <h4>Paginated JSON pull</h4>
+    <p class="desc" style="margin:6px 0 12px;">The recommended way to pull large cohorts: each page pins a point-in-time snapshot and returns a <code style="font-family:var(--mono);background:var(--muted-bg);padding:1px 5px;border-radius:5px;">page_id</code> for the next request.</p>
+    <div class="codeblock">
+      <button class="copy-dark">⧉ Copy</button>
+<pre><span class="cmt"># Page 1 — pins a point-in-time snapshot, returns up to 1000 uids + a page_id</span>
+curl -s -H <span class="str">"Authorization: Bearer sk_live_…"</span> \
+  <span class="str">"https://playground.gds.vng.vn/api/public/v1/segments/942116cf-c64e-409f-9cec-d83030d33e15/members?format=json&limit=1000"</span>
+<span class="cmt"># → { <span class="key">"members"</span>: ["…"], <span class="key">"page_id"</span>: "eyJ2Ijox…", <span class="key">"has_more"</span>: true, <span class="key">"total_count"</span>: 871082 }</span></pre>
+    </div>
+    <p class="note">Prefer streaming files? Use <code>format=csv_paged</code> — the next page token comes back in the <code>X-Next-Page-Id</code> response header instead of the body.</p>
+  </div>
+
+  <!-- 3. Trino SQL advanced -->
+  <div class="adv-row">
+    <span class="chev">▸</span>
+    <div>
+      <div class="at">Trino SQL</div>
+      <div class="ac">run the cohort directly against the warehouse</div>
+    </div>
+    <span class="adv-tag">Advanced</span>
+  </div>
+
+  <!-- 4. Full-cohort authenticated advanced -->
+  <div class="adv-row">
+    <span class="chev">▸</span>
+    <span class="lock">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    </span>
+    <div>
+      <div class="at">Full-cohort pull (authenticated)</div>
+      <div class="ac">service-account recipes</div>
+    </div>
+    <span class="adv-tag">Advanced</span>
+  </div>
+
+  <!-- 5. Member preview -->
+  <div class="card">
+    <div class="section-head" style="margin-bottom:4px;">
+      <h4>Member preview</h4>
+    </div>
+    <p class="preview-count">showing 25 of 871,082</p>
+    <div class="uid-grid">
+      <span class="uid">Linh_2k4 · 70123…</span>
+      <span class="uid">70124…</span>
+      <span class="uid">PhongVu · 70131…</span>
+      <span class="uid">70142…</span>
+      <span class="uid">70155…</span>
+      <span class="uid">MinhKh · 70168…</span>
+      <span class="uid">70170…</span>
+      <span class="uid">70184…</span>
+      <span class="uid">TuanA · 70199…</span>
+      <span class="uid">70201…</span>
+      <span class="uid">70213…</span>
+      <span class="uid">HaiNam · 70228…</span>
+      <span class="uid">70234…</span>
+      <span class="uid">70241…</span>
+      <span class="uid">QuangD · 70256…</span>
+      <span class="uid">70263…</span>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:14px;">Load more</button>
+  </div>
+
+  <!-- 6. PII callout -->
+  <div class="callout">
+    <span class="ci">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    </span>
+    <p>Pulling member IDs and profiles is a PII surface. Share API keys only with teams who may see this cohort, and revoke them when an integration is retired.</p>
+  </div>
+
+</div>
+
+<!-- ════════════════════════ MODE 2: MONITOR SELECTED ════════════════════════ -->
+<div class="mode-label">Mode 2 · Monitor consumption (admin)</div>
+<div class="page">
+
+  <!-- Contract header (same) -->
+  <div class="contract">
+    <span class="pill"><span class="dot"></span>SERVED</span>
+    <span class="members">871,082 members</span>
+    <span class="sep"></span>
+    <span class="meta">game <strong>jus_vn</strong></span>
+    <span class="meta">·</span>
+    <span class="meta">computed 4 hours ago</span>
+    <span class="chip"><span class="glyph">⊃</span> days_since_last_active ≥ 3</span>
+    <span class="spacer"></span>
+    <button class="btn btn-demote">↓ Demote</button>
+  </div>
+
+  <!-- JTBD switcher (monitor active) -->
+  <div class="switcher">
+    <div class="job">
+      <span class="radio"></span>
+      <span class="ico">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l-3 3 3 3M15 5l3 3-3 3M14 4l-4 16"/></svg>
+      </span>
+      <div>
+        <div class="title">Build the integration</div>
+        <div class="cap">id, endpoint, pagination &amp; code to pull this cohort</div>
+      </div>
+    </div>
+    <div class="job active">
+      <span class="radio"></span>
+      <span class="ico">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l4-4 3 3 5-6"/></svg>
+      </span>
+      <div>
+        <div class="title">Monitor consumption <span class="admin-tag">admin</span></div>
+        <div class="cap">schedule, entitled keys, pulls &amp; health</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 1. Snapshot schedule -->
+  <div class="grid-2">
+    <div class="mini-card">
+      <div class="ml">Tracking cadence</div>
+      <div class="mv">Daily <span class="toggle-on">● Snapshots on</span></div>
+    </div>
+    <div class="mini-card">
+      <div class="ml">Next snapshot</div>
+      <div class="mv">~ 08:00 <span style="font-size:13px;font-weight:600;color:var(--t-muted);">GMT+7</span></div>
+    </div>
+  </div>
+
+  <!-- 2. Entitled tokens -->
+  <div class="card" style="margin-top:14px;">
+    <div class="section-head">
+      <div>
+        <h3>Entitled tokens</h3>
+        <div class="sub">Keys allowed to pull this cohort</div>
+      </div>
+      <a class="link" href="#">Manage keys in Admin ↗</a>
+    </div>
+    <table>
+      <thead><tr><th>Key</th><th>Applies via</th><th>Last used</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">test 2</td><td>segment</td><td>2h ago</td><td><span class="tag tag-success">Pulling</span></td></tr>
+        <tr><td class="mono">test</td><td>segment</td><td>3d ago</td><td><span class="tag tag-idle">Idle</span></td></tr>
+        <tr><td class="mono">liveops-prod</td><td>all-segments</td><td>never</td><td><span class="tag tag-entitled">Entitled, idle</span></td></tr>
+      </tbody>
+    </table>
+    <p class="ro-cap">Read-only. Grant or revoke keys from the Admin keys console.</p>
+  </div>
+
+  <!-- 3. Consumption -->
+  <div class="card">
+    <div class="section-head">
+      <div><h3>Consumption</h3></div>
+      <div class="win-toggle">
+        <button>24h</button><button class="on">7d</button><button>30d</button>
+      </div>
+    </div>
+    <div class="tiles">
+      <div class="tile"><div class="tl">Pulls</div><div class="tv">3</div></div>
+      <div class="tile"><div class="tl">Consuming keys</div><div class="tv">2</div><div class="th">actually pulled</div></div>
+      <div class="tile"><div class="tl">Rows · last pull</div><div class="tv">874,242</div></div>
+      <div class="tile"><div class="tl">Success</div><div class="tv">100%</div><div class="th">instrumented pulls</div></div>
+      <div class="tile"><div class="tl">p95 latency</div><div class="tv">1.4s</div></div>
+      <div class="tile"><div class="tl">Freshness @ pull</div><div class="tv">3h 12m</div><div class="th">avg snapshot age when pulled</div></div>
+    </div>
+  </div>
+
+  <!-- 4. Chart -->
+  <div class="card">
+    <h4>Daily pulls by key</h4>
+    <div class="chart-wrap" style="margin-top:14px;">
+      <div>
+        <div class="bars">
+          <div class="bar-col"><div class="bar" style="height:30%"><div class="s1" style="height:100%"></div></div><div class="bar-x">Jun 20</div></div>
+          <div class="bar-col"><div class="bar" style="height:55%"><div class="s2" style="height:40%"></div><div class="s1" style="height:60%"></div></div><div class="bar-x">Jun 21</div></div>
+          <div class="bar-col"><div class="bar" style="height:0%"></div><div class="bar-x">Jun 22</div></div>
+          <div class="bar-col"><div class="bar" style="height:42%"><div class="s1" style="height:100%"></div></div><div class="bar-x">Jun 23</div></div>
+          <div class="bar-col"><div class="bar" style="height:70%"><div class="s2" style="height:35%"></div><div class="s1" style="height:65%"></div></div><div class="bar-x">Jun 24</div></div>
+          <div class="bar-col"><div class="bar" style="height:88%"><div class="s1" style="height:100%"></div></div><div class="bar-x">Jun 25</div></div>
+          <div class="bar-col"><div class="bar" style="height:48%"><div class="s1" style="height:100%"></div></div><div class="bar-x">Jun 26</div></div>
+        </div>
+        <div class="legend">
+          <span><span class="swatch" style="background:var(--brand)"></span>test 2</span>
+          <span><span class="swatch" style="background:var(--violet)"></span>test</span>
+        </div>
+      </div>
+      <div class="mini-card" style="display:flex;flex-direction:column;">
+        <div class="ml" style="margin-bottom:6px;">Pull outcomes</div>
+        <div class="outcomes">
+          <div class="outcome-row"><span class="ol"><span class="od" style="background:var(--success-ink)"></span>ok</span><span class="ov">5</span></div>
+          <div class="outcome-row"><span class="ol"><span class="od" style="background:var(--warning-ink)"></span>no snapshot</span><span class="ov">0</span></div>
+          <div class="outcome-row"><span class="ol"><span class="od" style="background:var(--destructive-ink)"></span>rate limited</span><span class="ov">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Pull log -->
+  <div class="card">
+    <div class="section-head">
+      <div><h3>Pull log</h3></div>
+      <button class="btn btn-ghost">↓ Export log (CSV)</button>
+    </div>
+    <table>
+      <thead><tr><th>Time (GMT+7)</th><th>Key</th><th>Status</th><th>Format</th><th>Page</th><th>Rows</th><th>Latency</th></tr></thead>
+      <tbody>
+        <tr><td>26 Jun 2026, 18:48</td><td class="mono">test 2</td><td><span class="tag tag-success">✓ 200</span></td><td class="mono">ndjson</td><td>—</td><td class="mono">874,242</td><td>1.4s</td></tr>
+        <tr><td>25 Jun 2026, 15:28</td><td class="mono">test 2</td><td><span class="tag tag-success">✓ 200</span></td><td class="mono">csv</td><td>—</td><td class="mono">873,712</td><td>1.1s</td></tr>
+        <tr><td>25 Jun 2026, 15:27</td><td class="mono">test 2</td><td><span class="tag tag-success">✓ 200</span></td><td class="mono">ndjson</td><td>—</td><td class="mono">873,712</td><td>0.9s</td></tr>
+        <tr><td>25 Jun 2026, 15:14</td><td class="mono">test 2</td><td><span class="tag tag-success">✓ 200</span></td><td class="mono">ndjson</td><td>—</td><td class="mono">873,712</td><td>1.2s</td></tr>
+        <tr><td>25 Jun 2026, 14:30</td><td class="mono">test</td><td><span class="tag tag-success">✓ 200</span></td><td class="mono">ndjson</td><td>—</td><td class="mono">873,712</td><td>1.0s</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+</body>
+</html>

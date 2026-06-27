@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Variant C — Command console</title>
+<style>
+  :root{
+    --bg:#f8efe5; --recess:#efe3d4;
+    --border-card:#e1d4c2; --border-strong:#d2c2ab;
+    --text:#171717; --text-2:#404040; --muted:#737373; --on-brand:#fff;
+    --brand:#f05a22; --brand-soft:#fff7ed;
+    --violet:#725390; --violet-soft:#ece6f1;
+    --success-soft:#d1fae5; --success-ink:#047857;
+    --warning-soft:#fef3c7; --warning-ink:#92400e;
+    --destructive-soft:#fee2e2; --destructive-ink:#991b1b;
+    --info-soft:#dbeafe; --info-ink:#1d4ed8;
+    --code-bg:#171717; --code-fg:#fafafa;
+    --r6:6px; --r8:8px; --r10:10px; --r14:14px; --r999:999px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:-apple-system,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--text);
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+  }
+  .mono{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace; font-variant-numeric:tabular-nums;}
+  .num{font-variant-numeric:tabular-nums;}
+
+  /* caption bar */
+  .caption{
+    background:var(--text); color:#fafafa; padding:10px 24px;
+    font-size:12px; font-weight:600; letter-spacing:.04em; text-transform:uppercase;
+    display:flex; align-items:center; gap:10px;
+  }
+  .caption .dot{width:8px;height:8px;border-radius:var(--r999);background:var(--brand);}
+
+  .page{max-width:1240px; margin:0 auto; padding:24px 32px 64px;}
+  .mode-label{
+    font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); margin:32px 0 12px; display:flex; align-items:center; gap:10px;
+  }
+  .mode-label::before{content:''; width:18px; height:2px; background:var(--border-strong); border-radius:2px;}
+
+  /* ---- CONTRACT STRIP (hero status line) ---- */
+  .contract{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    background:#fff; border:1px solid var(--border-card); border-radius:var(--r10);
+    padding:10px 14px; box-shadow:0 1px 2px rgba(80,55,30,.05);
+  }
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px; border-radius:var(--r999);
+    font-size:12px; font-weight:700; letter-spacing:.02em;
+  }
+  .pill-served{background:var(--violet-soft); color:var(--violet);}
+  .pill-served .led{width:7px;height:7px;border-radius:var(--r999);background:var(--violet);}
+  .c-members{font-size:18px; font-weight:800; letter-spacing:-.01em;}
+  .c-members .lbl{font-size:11px; font-weight:600; color:var(--muted); margin-left:4px; letter-spacing:0;}
+  .c-game{
+    font-size:12px; font-weight:700; padding:3px 9px; border-radius:var(--r6);
+    background:var(--recess); color:var(--text-2);
+  }
+  .c-meta{font-size:12px; color:var(--muted);}
+  .c-meta strong{color:var(--success-ink); font-weight:700;}
+  .c-filter{
+    display:inline-flex; align-items:center; gap:5px;
+    font-size:11.5px; padding:3px 8px; border-radius:var(--r6);
+    background:var(--recess); border:1px solid var(--border-card); color:var(--text-2);
+  }
+  .c-filter .k{color:var(--muted);}
+  .c-sched{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:12px; color:var(--text-2); padding:3px 8px; border-radius:var(--r6);
+    background:var(--info-soft); color:var(--info-ink); font-weight:600;
+  }
+  .c-spacer{flex:1 1 auto;}
+  .vsep{width:1px; height:22px; background:var(--border-card);}
+  .btn{
+    font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer;
+    border-radius:var(--r8); padding:7px 13px; border:1px solid transparent;
+    display:inline-flex; align-items:center; gap:6px; white-space:nowrap;
+  }
+  .btn-demote{background:#fff; color:var(--destructive-ink); border:1px solid #e8b4b4;}
+  .btn-brand{background:var(--brand); color:var(--on-brand);}
+  .btn-ghost{background:transparent; color:var(--text-2); border:1px solid var(--border-strong);}
+  .btn-mini{padding:4px 9px; font-size:11.5px;}
+
+  /* ---- sticky mode rail ---- */
+  .mode-rail{
+    display:flex; align-items:center; gap:12px;
+    margin:8px 0 16px; padding:6px 0;
+  }
+  .seg{
+    display:inline-flex; background:var(--recess); border:1px solid var(--border-card);
+    border-radius:var(--r8); padding:3px;
+  }
+  .seg button{
+    font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer;
+    border:none; background:transparent; color:var(--muted);
+    padding:6px 16px; border-radius:var(--r6); display:flex; align-items:center; gap:7px;
+  }
+  .seg button.on{background:#fff; color:var(--text); box-shadow:0 1px 2px rgba(80,55,30,.08);}
+  .seg .gl{font-size:13px; opacity:.7;}
+  .rail-hint{font-size:11.5px; color:var(--muted);}
+
+  /* ---- generic dense blocks ---- */
+  .block{
+    background:#fff; border:1px solid var(--border-card); border-radius:var(--r10);
+    margin-bottom:12px; overflow:hidden;
+  }
+  .block-hd{
+    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    border-bottom:1px solid var(--border-card);
+  }
+  .block-hd.bare{border-bottom:none; padding-bottom:0;}
+  .block-title{font-size:13.5px; font-weight:700;}
+  .block-sub{font-size:11.5px; color:var(--muted);}
+  .glyph{color:var(--muted); font-size:13px; line-height:1;}
+  .hd-spacer{flex:1;}
+
+  /* primary brand card */
+  .brandcard{
+    background:var(--brand-soft); border:1.5px solid var(--brand); border-radius:var(--r10);
+    padding:14px 16px; margin-bottom:12px;
+    display:grid; grid-template-columns:1fr auto; gap:16px;
+  }
+  .eyebrow{font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--brand);}
+  .brandcard h3{font-size:15px; font-weight:800; margin:3px 0 12px;}
+  .field-lbl{font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:4px;}
+  .id-row{display:flex; align-items:center; gap:8px; margin-bottom:12px;}
+  .id-box{
+    flex:1; background:#fff; border:1px solid var(--border-strong); border-radius:var(--r6);
+    padding:7px 10px; font-size:12px; overflow-x:auto; white-space:nowrap;
+  }
+  .copy{
+    background:#fff; border:1px solid var(--border-strong); border-radius:var(--r6);
+    color:var(--text-2); font-size:11px; font-weight:600; padding:6px 10px; cursor:pointer;
+    display:inline-flex; gap:5px; align-items:center; white-space:nowrap;
+  }
+  .code{
+    background:var(--code-bg); color:var(--code-fg); border-radius:var(--r8);
+    padding:11px 13px; font-size:11.5px; line-height:1.65; overflow-x:auto;
+    position:relative;
+  }
+  .code .cm{color:#9aa4ad;}    /* comment */
+  .code .st{color:#a5d6a7;}    /* string */
+  .code .ky{color:#ffcc80;}    /* keyword/flag */
+  .code .pn{color:#90caf9;}    /* punctuation/value */
+  .code-copy{
+    position:absolute; top:8px; right:8px;
+    background:#2a2a2a; color:#d4d4d4; border:1px solid #3a3a3a; border-radius:var(--r6);
+    font-size:10.5px; padding:3px 8px; cursor:pointer;
+  }
+  .brand-side{display:flex; flex-direction:column; gap:8px; align-items:stretch; min-width:170px;}
+  .side-link{
+    font-size:12px; font-weight:600; text-decoration:none; text-align:center;
+    padding:8px 12px; border-radius:var(--r8); border:1px solid var(--border-strong);
+    color:var(--text-2); background:#fff;
+  }
+  .side-link.brand{background:var(--brand); color:#fff; border-color:var(--brand);}
+
+  .block-body{padding:12px 14px;}
+  .note{font-size:11.5px; color:var(--muted); margin-top:8px;}
+  .note code{background:var(--recess); padding:1px 5px; border-radius:4px; font-size:11px;}
+
+  /* collapsed advanced rows */
+  .adv-row{
+    display:flex; align-items:center; gap:10px; padding:11px 14px;
+    cursor:pointer;
+  }
+  .adv-row .chev{color:var(--muted); font-size:11px; width:12px;}
+  .adv-row .lock{color:var(--muted); font-size:12px;}
+  .adv-title{font-size:13px; font-weight:700;}
+  .adv-sub{font-size:11.5px; color:var(--muted);}
+
+  /* member preview */
+  .chips{display:flex; flex-wrap:wrap; gap:6px;}
+  .uchip{
+    background:var(--recess); border:1px solid var(--border-card); border-radius:var(--r6);
+    padding:4px 9px; font-size:11px; color:var(--text-2);
+  }
+  .loadmore{
+    margin-top:10px; font-size:12px; font-weight:600; color:var(--brand);
+    background:transparent; border:none; cursor:pointer; padding:0;
+  }
+
+  /* PII callout */
+  .callout{
+    display:flex; align-items:center; gap:9px; padding:9px 13px; border-radius:var(--r8);
+    background:var(--info-soft); color:var(--info-ink); font-size:12px; margin-bottom:12px;
+  }
+  .callout .g{font-size:13px;}
+
+  /* ---- KPI BAND ---- */
+  .kpiband{
+    display:flex; background:var(--recess); border:1px solid var(--border-card);
+    border-radius:var(--r10); overflow:hidden; margin-bottom:12px;
+  }
+  .kpi{
+    flex:1; padding:11px 16px; border-right:1px solid var(--border-card);
+  }
+  .kpi:last-child{border-right:none;}
+  .kpi .kl{font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--muted);}
+  .kpi .kv{font-size:19px; font-weight:800; letter-spacing:-.01em; margin-top:2px;}
+  .kpi .kc{font-size:10.5px; color:var(--muted); margin-top:1px;}
+  .kpi .kv.ok{color:var(--success-ink);}
+
+  /* two column */
+  .two{display:grid; grid-template-columns:1.6fr 1fr; gap:12px; margin-bottom:12px;}
+
+  /* chart */
+  .chart{display:flex; align-items:flex-end; gap:14px; height:140px; padding:6px 4px 0;}
+  .bar-col{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end;}
+  .bar-stack{width:100%; max-width:30px; display:flex; flex-direction:column-reverse; border-radius:4px 4px 0 0; overflow:hidden;}
+  .bar-a{background:var(--brand);}
+  .bar-b{background:var(--violet);}
+  .bar-x{font-size:10px; color:var(--muted);}
+  .legend{display:flex; gap:14px; font-size:11px; color:var(--text-2); padding:0 4px 4px; align-items:center;}
+  .legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px;}
+
+  /* outcomes mini-panel */
+  .outcomes .orow{display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border-card); font-size:12.5px;}
+  .outcomes .orow:last-child{border-bottom:none;}
+  .outcomes .ov{font-weight:800; font-size:15px;}
+  .outcomes .dot{width:7px;height:7px;border-radius:var(--r999);display:inline-block;margin-right:7px;}
+  .wintoggle{display:inline-flex; gap:2px; background:var(--recess); border:1px solid var(--border-card); border-radius:var(--r6); padding:2px;}
+  .wintoggle button{font-family:inherit; font-size:11px; font-weight:600; border:none; background:transparent; color:var(--muted); padding:3px 9px; border-radius:4px; cursor:pointer;}
+  .wintoggle button.on{background:#fff; color:var(--text);}
+
+  /* tables */
+  table{width:100%; border-collapse:collapse; font-size:12px;}
+  thead th{
+    text-align:left; font-size:10.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase;
+    color:var(--muted); padding:8px 14px; border-bottom:1px solid var(--border-card);
+  }
+  tbody td{padding:0 14px; height:36px; border-bottom:1px solid var(--border-card); color:var(--text-2);}
+  tbody tr:last-child td{border-bottom:none;}
+  .zebra tbody tr:nth-child(even){background:var(--recess);}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:2px 8px; border-radius:var(--r999);}
+  .b-green{background:var(--success-soft); color:var(--success-ink);}
+  .b-idle{background:var(--recess); color:var(--muted);}
+  .b-green .led{width:6px;height:6px;border-radius:var(--r999);background:var(--success-ink);}
+  .ok200{color:var(--success-ink); font-weight:700;}
+  .tbl-foot{padding:9px 14px; border-top:1px solid var(--border-card); display:flex; align-items:center;}
+  .tbl-link{font-size:12px; font-weight:600; color:var(--brand); text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="caption"><span class="dot"></span>VARIANT C — Command console (dense, contract-led)</div>
+
+<div class="page">
+
+  <!-- ============ INTEGRATE MODE ============ -->
+  <div class="mode-label">Mode A · Integrate (downstream developer)</div>
+
+  <!-- CONTRACT STRIP -->
+  <div class="contract">
+    <span class="pill pill-served"><span class="led"></span>SERVED</span>
+    <span class="c-members num">871,082<span class="lbl">members</span></span>
+    <span class="c-game">jus_vn</span>
+    <span class="vsep"></span>
+    <span class="c-meta"><strong>fresh</strong> · computed 4h ago</span>
+    <span class="c-filter"><span class="k mono">days_since_last_active</span><span class="mono">≥ 3</span></span>
+    <span class="c-sched">↻ Daily · next ~08:00 GMT+7</span>
+    <span class="c-spacer"></span>
+    <button class="btn btn-demote">Demote</button>
+  </div>
+
+  <!-- sticky mode rail -->
+  <div class="mode-rail">
+    <div class="seg">
+      <button class="on"><span class="gl">⟶</span> Integrate</button>
+      <button><span class="gl">▤</span> Monitor</button>
+    </div>
+    <span class="rail-hint">Sticky · stays as you scroll</span>
+  </div>
+
+  <!-- 1. PRIMARY brand card -->
+  <div class="brandcard">
+    <div>
+      <div class="eyebrow">Public API</div>
+      <h3>Build a downstream integration</h3>
+      <div class="field-lbl">Segment ID</div>
+      <div class="id-row">
+        <div class="id-box mono">942116cf-c64e-409f-9cec-d83030d33e15</div>
+        <button class="copy">⧉ Copy</button>
+      </div>
+      <div class="field-lbl">Full-cohort endpoint</div>
+      <div class="id-row">
+        <div class="id-box code mono" style="padding:7px 10px;">https://playground.gds.vng.vn/api/public/v1/segments/942116cf-c64e-409f-9cec-d83030d33e15/members</div>
+        <button class="copy">⧉ Copy</button>
+      </div>
+    </div>
+    <div class="brand-side">
+      <a class="side-link" href="#">Swagger UI ↗</a>
+      <a class="side-link brand" href="#">Open API docs ↗</a>
+    </div>
+  </div>
+
+  <!-- 2. Paginated JSON pull -->
+  <div class="block">
+    <div class="block-hd">
+      <span class="block-title">Paginated JSON pull</span>
+      <span class="block-sub">recommended · point-in-time snapshot</span>
+      <span class="hd-spacer"></span>
+      <button class="copy">⧉ Copy</button>
+    </div>
+    <div class="block-body">
+      <div class="code mono">
+<button class="code-copy">⧉ Copy</button><span class="cm"># Page 1 — pins a point-in-time snapshot, returns up to 1000 uids + a page_id</span>
+<span class="ky">curl</span> -s -H <span class="st">"Authorization: Bearer sk_live_…"</span> \
+  <span class="st">"https://playground.gds.vng.vn/api/public/v1/segments/942116cf-c64e-409f-9cec-d83030d33e15/members?format=json&limit=1000"</span>
+<span class="cm"># → { </span><span class="st">"members"</span><span class="cm">: [</span><span class="st">"…"</span><span class="cm">], </span><span class="st">"page_id"</span><span class="cm">: </span><span class="st">"eyJ2Ijox…"</span><span class="cm">, </span><span class="st">"has_more"</span><span class="cm">: </span><span class="pn">true</span><span class="cm">, </span><span class="st">"total_count"</span><span class="cm">: </span><span class="pn">871082</span><span class="cm"> }</span></div>
+      <div class="note">For CSV streaming, <code>format=csv_paged</code> uses the <code>X-Next-Page-Id</code> response header.</div>
+    </div>
+  </div>
+
+  <!-- 3. Trino SQL collapsed -->
+  <div class="block">
+    <div class="adv-row">
+      <span class="chev">▸</span>
+      <span class="adv-title">Trino SQL</span>
+      <span class="adv-sub">— run the cohort directly against the warehouse</span>
+    </div>
+  </div>
+
+  <!-- 4. Full-cohort authed collapsed -->
+  <div class="block">
+    <div class="adv-row">
+      <span class="chev">▸</span>
+      <span class="lock">🔒</span>
+      <span class="adv-title">Full-cohort pull (authenticated)</span>
+      <span class="adv-sub">— service-account recipes</span>
+    </div>
+  </div>
+
+  <!-- 5. Member preview -->
+  <div class="block">
+    <div class="block-hd">
+      <span class="block-title">Member preview</span>
+      <span class="block-sub">showing 25 of 871,082</span>
+    </div>
+    <div class="block-body">
+      <div class="chips mono">
+        <span class="uchip">Linh_2k4 · 70123…</span>
+        <span class="uchip">70124…</span>
+        <span class="uchip">70125…</span>
+        <span class="uchip">70126…</span>
+        <span class="uchip">70127…</span>
+        <span class="uchip">70128…</span>
+        <span class="uchip">70129…</span>
+        <span class="uchip">70130…</span>
+        <span class="uchip">70131…</span>
+        <span class="uchip">70132…</span>
+        <span class="uchip">70133…</span>
+        <span class="uchip">70134…</span>
+        <span class="uchip">70135…</span>
+        <span class="uchip">70136…</span>
+        <span class="uchip">70137…</span>
+        <span class="uchip">70138…</span>
+      </div>
+      <button class="loadmore">Load more →</button>
+    </div>
+  </div>
+
+  <!-- 6. PII callout -->
+  <div class="callout">
+    <span class="g">ⓘ</span>
+    <span><strong>PII surface</strong> — share keys only with teams who may see this cohort; revoke on retire.</span>
+  </div>
+
+
+  <!-- ============ MONITOR MODE ============ -->
+  <div class="mode-label">Mode B · Monitor (owner / admin)</div>
+
+  <!-- CONTRACT STRIP (same persistent hero) -->
+  <div class="contract">
+    <span class="pill pill-served"><span class="led"></span>SERVED</span>
+    <span class="c-members num">871,082<span class="lbl">members</span></span>
+    <span class="c-game">jus_vn</span>
+    <span class="vsep"></span>
+    <span class="c-meta"><strong>fresh</strong> · computed 4h ago</span>
+    <span class="c-filter"><span class="k mono">days_since_last_active</span><span class="mono">≥ 3</span></span>
+    <span class="c-sched">↻ Daily · next ~08:00 GMT+7</span>
+    <span class="c-spacer"></span>
+    <button class="btn btn-demote">Demote</button>
+  </div>
+
+  <!-- sticky mode rail -->
+  <div class="mode-rail">
+    <div class="seg">
+      <button><span class="gl">⟶</span> Integrate</button>
+      <button class="on"><span class="gl">▤</span> Monitor</button>
+    </div>
+    <span class="rail-hint">Sticky · stays as you scroll</span>
+  </div>
+
+  <!-- 1. KPI BAND -->
+  <div class="kpiband">
+    <div class="kpi"><div class="kl">Pulls</div><div class="kv num">3</div><div class="kc">instrumented pulls</div></div>
+    <div class="kpi"><div class="kl">Consuming keys</div><div class="kv num">2</div><div class="kc">of 3 entitled</div></div>
+    <div class="kpi"><div class="kl">Rows · last</div><div class="kv num">874,242</div><div class="kc">actually pulled</div></div>
+    <div class="kpi"><div class="kl">Success</div><div class="kv num ok">100%</div><div class="kc">last 7d</div></div>
+    <div class="kpi"><div class="kl">p95 latency</div><div class="kv num">1.4s</div><div class="kc">last 7d</div></div>
+    <div class="kpi"><div class="kl">Freshness@pull</div><div class="kv num">3h 12m</div><div class="kc">snapshot age</div></div>
+  </div>
+
+  <!-- 2. Two column: chart + outcomes -->
+  <div class="two">
+    <!-- LEFT chart -->
+    <div class="block">
+      <div class="block-hd">
+        <span class="block-title">Daily pulls by key</span>
+        <span class="hd-spacer"></span>
+        <div class="legend"><span><i style="background:var(--brand)"></i>test 2</span><span><i style="background:var(--violet)"></i>test</span></div>
+      </div>
+      <div class="block-body">
+        <div class="chart">
+          <div class="bar-col"><div class="bar-stack" style="height:42%"><div class="bar-a" style="height:100%"></div></div><div class="bar-x">20 Jun</div></div>
+          <div class="bar-col"><div class="bar-stack" style="height:30%"><div class="bar-b" style="height:100%"></div></div><div class="bar-x">21 Jun</div></div>
+          <div class="bar-col"><div class="bar-stack" style="height:55%"><div class="bar-a" style="height:65%"></div><div class="bar-b" style="height:35%"></div></div><div class="bar-x">22 Jun</div></div>
+          <div class="bar-col"><div class="bar-stack" style="height:0%"></div><div class="bar-x">23 Jun</div></div>
+          <div class="bar-col"><div class="bar-stack" style="height:38%"><div class="bar-b" style="height:100%"></div></div><div class="bar-x">24 Jun</div></div>
+          <div class="bar-col"><div class="bar-stack" style="height:88%"><div class="bar-a" style="height:60%"></div><div class="bar-b" style="height:40%"></div></div><div class="bar-x">25 Jun</div></div>
+          <div class="bar-col"><div class="bar-stack" style="height:48%"><div class="bar-a" style="height:100%"></div></div><div class="bar-x">26 Jun</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT outcomes -->
+    <div class="block">
+      <div class="block-hd">
+        <span class="block-title">Outcomes</span>
+        <span class="hd-spacer"></span>
+        <div class="wintoggle"><button>24h</button><button class="on">7d</button><button>30d</button></div>
+      </div>
+      <div class="block-body outcomes">
+        <div class="orow"><span><span class="dot" style="background:var(--success-ink)"></span>ok</span><span class="ov num">5</span></div>
+        <div class="orow"><span><span class="dot" style="background:var(--muted)"></span>no snapshot</span><span class="ov num" style="color:var(--muted)">0</span></div>
+        <div class="orow"><span><span class="dot" style="background:var(--warning-ink)"></span>rate limited</span><span class="ov num" style="color:var(--muted)">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Entitled keys table -->
+  <div class="block">
+    <div class="block-hd">
+      <span class="block-title">Entitled keys</span>
+      <span class="block-sub">who may pull this cohort</span>
+    </div>
+    <table>
+      <thead><tr><th>Key</th><th>Via</th><th>Last used</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td class="mono" style="color:var(--text)">test 2</td><td>segment</td><td>2h ago</td><td><span class="badge b-green"><span class="led"></span>Pulling</span></td></tr>
+        <tr><td class="mono" style="color:var(--text)">test</td><td>segment</td><td>3d ago</td><td><span class="badge b-idle">Idle</span></td></tr>
+        <tr><td class="mono" style="color:var(--text)">liveops-prod</td><td>all-segments</td><td>never</td><td><span class="badge b-idle">Idle</span></td></tr>
+      </tbody>
+    </table>
+    <div class="tbl-foot"><a class="tbl-link" href="#">Manage in Admin ↗</a></div>
+  </div>
+
+  <!-- 4. Pull log -->
+  <div class="block">
+    <div class="block-hd">
+      <span class="block-title">Pull log</span>
+      <span class="block-sub">most recent first</span>
+      <span class="hd-spacer"></span>
+      <button class="copy">⤓ Export CSV</button>
+    </div>
+    <table class="zebra mono">
+      <thead><tr><th>Time (GMT+7)</th><th>Key</th><th>Status</th><th>Format</th><th>Page</th><th>Rows</th><th>Latency</th></tr></thead>
+      <tbody>
+        <tr><td>26 Jun, 18:48</td><td>test 2</td><td><span class="ok200">✓ 200</span></td><td>ndjson</td><td>—</td><td class="num">874,242</td><td class="num">1.4s</td></tr>
+        <tr><td>25 Jun, 15:28</td><td>test 2</td><td><span class="ok200">✓ 200</span></td><td>csv</td><td>—</td><td class="num">873,712</td><td class="num">1.1s</td></tr>
+        <tr><td>25 Jun, 15:27</td><td>test 2</td><td><span class="ok200">✓ 200</span></td><td>ndjson</td><td>—</td><td class="num">873,712</td><td class="num">0.9s</td></tr>
+        <tr><td>25 Jun, 15:14</td><td>test 2</td><td><span class="ok200">✓ 200</span></td><td>ndjson</td><td>—</td><td class="num">873,712</td><td class="num">1.2s</td></tr>
+        <tr><td>25 Jun, 14:30</td><td>test</td><td><span class="ok200">✓ 200</span></td><td>ndjson</td><td>—</td><td class="num">873,712</td><td class="num">1.0s</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
