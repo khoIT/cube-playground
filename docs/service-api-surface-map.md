@@ -144,6 +144,11 @@ Routes hardcode the full path incl. `/api` (no Fastify prefix). Cube proxy is mo
 | POST | `/api/segment-refresh/snapshot-runs/trigger` | admin | `authorization` | 202 `{started:true}` / 409 ALREADY_RUNNING | manual lakehouse snapshot (bypasses SEGMENT_SNAPSHOT_ENABLED; idempotent writers) |
 | POST | `/api/segments/:id/share` | owner, admin | `authorization`, `x-owner` | 200 segment (shared_at set) / 403 owner | SQLite segments |
 | POST | `/api/segments/:id/unshare` | owner, admin | `authorization`, `x-owner` | 200 segment (shared_at cleared) / 403 owner | SQLite segments |
+| POST | `/api/segments/:id/serve` | owner, admin | `authorization` | 200 segment+`serving` (lifecycle=served, served_at/by; Off cadence auto→daily) / 409 SNAPSHOT_DISABLED / 403 | SQLite segments; guardSegment(administer) |
+| DELETE | `/api/segments/:id/serve` | owner, admin | `?force=true` | 200 segment (→draft clean, →deprecated forced) / 409 HAS_CONSUMERS{consumers[]} unless force / 403 | SQLite (transactional re-check of entitled keys) |
+| GET | `/api/segments/:id/consumption` | admin | `?window=24h\|7d\|30d` | `{summary{pulls,consumingKeys,rowsLastPull,successRate,p95LatencyMs,avgFreshnessMs,windowStart},byKey[],dailyByKey[],statusBreakdown{ok,no_snapshot,rate_limited},recentPulls[],recentCursor}` audit-derived, v2-only math / 403 non-admin | public_pull_audit + api_keys |
+| GET | `/api/segments/:id/pulls` | admin | `?cursor,?limit` | `{items:RecentPull[],nextCursor}` per-page pull log newest-first / 403 | public_pull_audit |
+| GET | `/api/segments/:id/tokens` | admin | `authorization` | `{tokens:[{id,label,appliesVia,lastUsedAt,everPulled}]}` entitled keys + audit-derived everPulled / 403 | api_keys + public_pull_audit |
 | GET | `/api/segments/:id/brief` | none | `?lang=(en\|vi),?refresh=1` | 200 `{brief,status,stale?}` / 502 (retryable) | segment_brief_cache, chat-service /internal/segment-brief |
 | GET | `/api/segments/:id/members/:uid/panels` | none | — | `{panels:[]}` cached per-uid views / 400 NO_MEMBER360 | segment_member360_cache, Cube (live fallback) |
 | GET | `/api/segments/:id/member-cache-status` | none | — | `{members:[{uid,status,error?}]}` aggregate ok/error tally | segment_member360_cache |

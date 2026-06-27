@@ -1288,6 +1288,22 @@ The 409 response is now truthful: the conflict was detected and the mutation was
 
 ---
 
+## Migrations & data model
+
+### The migration runner counts files — never back-fill a numbering gap
+- **Rule:** the boot runner keys off `PRAGMA user_version = files.length` (a COUNT) and runs `files.slice(user_version)` in sorted-filename order. Always append the next free number ABOVE the highest existing file; never insert a lower-numbered file into a gap (the dir has permanent gaps like 044/045/047/070).
+- **Why:** ordering is by sorted name and the cursor is a count, so a back-filled lower number shifts every later file's slice position and silently re-runs already-applied migrations. SQLite `ADD COLUMN` has no `IF NOT EXISTS`, so that surfaces as a "duplicate column" wedge on boot.
+- **Signal:** boot fails with `duplicate column name: …` after adding a migration; or `user_version` doesn't match the file count; or a multi-`ALTER` file half-applied (some columns exist, some don't) and the next boot can't re-run it.
+- **Apply:** apply each file in its own transaction AND advance `user_version` inside that same transaction, so a mid-file failure rolls the whole file back and the next boot resumes exactly at the failed file. Manual recovery: read `PRAGMA user_version`, undo the partial DDL, set `user_version` to the count of fully-applied files.
+
+## Public/serving surfaces
+
+### Gating a shipped pull path on a new column is a breaking change — default + fixtures matter
+- **Rule:** when you add a lifecycle/eligibility gate to an already-shipped public endpoint (e.g. "only `lifecycle='served'` is pullable"), the migration default decides who breaks at deploy. A `DEFAULT 'draft'` makes EVERY existing row un-pullable until explicitly published. Confirm the rollout (publish-manually vs backfill) with the owner; it's a business decision, not a code default.
+- **Why:** adding the `served` gate to the public members/list/detail path defaulted all existing segments to `draft`, so every test fixture (and any live consumer) started getting `403 SEGMENT_NOT_SERVED`. The 403s were the *intended* enforcement, not a bug — but they break callers that assumed any in-scope segment was pullable.
+- **Signal:** a wave of test failures that are all "expected 200/400/422, got 403" on a previously-passing public surface right after a schema/gate change; the new code is correct but fixtures don't set the new gating column.
+- **Apply:** update fixtures to set the gating column to the pullable value (a pull test must create a *served* segment); and surface the existing-row rollout choice to the owner (manual publish, backfill keyed rows, or backfill all) rather than letting the migration default silently decide.
+
 ## How to extend this doc
 
 - One lesson per **failure mode**, not per bug. If two bugs share the same root cause, fold the second into the first.
