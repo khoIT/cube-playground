@@ -128,6 +128,76 @@
   border-bottom: 0;
 }
 
+/* ── Serving lanes (Served downstream / Exploration) ───────────────────────── */
+.laneHeader {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 20px 8px;
+  border-top: 1px solid var(--border-card);
+  background: var(--surface-inset);
+}
+.laneHeader:first-child {
+  border-top: 0;
+}
+.laneTitle {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+}
+.laneTitleServed {
+  color: var(--layer-segment, #725390);
+}
+.laneSubtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.laneCount {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.laneEmpty {
+  padding: 16px 20px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Served badge (violet lozenge on served rows) ─────────────────────────── */
+.servedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--layer-segment, #725390);
+  background: color-mix(in srgb, var(--layer-segment, #725390) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--layer-segment, #725390) 30%, transparent);
+}
+.servedBadge {
+  flex: none;
+}
+.servedBadge[data-variant='retired'] {
+  color: var(--muted-ink, #6b7280);
+  background: var(--muted-soft, #f3f4f6);
+  border-color: var(--border-card);
+}
+.segmentNameRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .segmentCell {
   display: flex;
   flex-direction: column;
@@ -996,6 +1066,7 @@
 .filterPillDot[data-tone='success'] { background: var(--success); }
 .filterPillDot[data-tone='destructive'] { background: var(--danger, var(--destructive-ink)); }
 .filterPillDot[data-tone='muted'] { background: var(--fill-muted); }
+.filterPillDot[data-tone='served'] { background: var(--layer-segment, #725390); }
 
 /* ── Pill-shaped search / sort / icon-button ─────────────────── */
 .searchPill {

@@ -7,6 +7,7 @@ import { Tag } from '../visuals';
 import { HealthCell } from './cells/health-cell';
 import { TrendCell } from './cells/trend-cell';
 import { DestinationsCell } from './cells/destinations-cell';
+import { ServedBadge } from './cells/served-badge';
 import { RowActionsMenu } from './row-actions-menu';
 import type { RefreshLogRow, Segment } from '../../../types/segment-api';
 import styles from '../segments.module.css';
@@ -51,7 +52,10 @@ export function LibrarySegmentRow({
         />
       </div>
       <div className={styles.segmentCell}>
-        <span className={styles.segmentName}>{segment.name}</span>
+        <span className={styles.segmentNameRow}>
+          <span className={styles.segmentName}>{segment.name}</span>
+          <ServedBadge lifecycle={segment.lifecycle} />
+        </span>
         {segment.cube != null && (
           <span className={styles.segmentDesc}>{segment.cube}</span>
         )}

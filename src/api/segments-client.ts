@@ -7,6 +7,9 @@
 import { apiFetch } from './api-client';
 import type {
   Segment,
+  SegmentConsumption,
+  SegmentPullLogPage,
+  SegmentTokenInfo,
   SegmentInput,
   SegmentPatch,
   SegmentAnalysis,
@@ -157,6 +160,40 @@ export const segmentsClient = {
 
   unshare(id: string): Promise<Segment> {
     return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/unshare`, { method: 'POST' });
+  },
+
+  // Serving lifecycle (owner/admin only). serve → publish as a downstream
+  // contract (draft→served); demote → unpublish (DELETE). Demote 409s with a
+  // consumer list unless force=true (then deprecates). Returns the updated segment.
+  serve(id: string): Promise<Segment> {
+    return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/serve`, { method: 'POST' });
+  },
+
+  demote(id: string, force = false): Promise<Segment> {
+    return apiFetch<Segment>(`/api/segments/${encodeURIComponent(id)}/serve`, {
+      method: 'DELETE',
+      query: force ? { force: 'true' } : undefined,
+    });
+  },
+
+  // Admin-only consumption observability for a served segment.
+  getConsumption(id: string, window: '24h' | '7d' | '30d' = '7d'): Promise<SegmentConsumption> {
+    return apiFetch<SegmentConsumption>(`/api/segments/${encodeURIComponent(id)}/consumption`, {
+      query: { window },
+    });
+  },
+
+  getPulls(id: string, opts?: { cursor?: number; limit?: number }): Promise<SegmentPullLogPage> {
+    return apiFetch<SegmentPullLogPage>(`/api/segments/${encodeURIComponent(id)}/pulls`, {
+      query: {
+        ...(opts?.cursor != null ? { cursor: String(opts.cursor) } : {}),
+        ...(opts?.limit != null ? { limit: String(opts.limit) } : {}),
+      },
+    });
+  },
+
+  getTokens(id: string): Promise<{ tokens: SegmentTokenInfo[] }> {
+    return apiFetch<{ tokens: SegmentTokenInfo[] }>(`/api/segments/${encodeURIComponent(id)}/tokens`);
   },
 
   // AI brief (server-cached per definition hash + lang; refresh is rate-limited)

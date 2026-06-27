@@ -13,7 +13,7 @@ import { useHistory, useLocation } from 'react-router-dom';
 import type { LibraryFilter } from './library-filter-pills';
 import type { LibrarySort } from './library-toolbar';
 
-const FILTERS: ReadonlyArray<LibraryFilter> = ['all', 'live', 'static', 'broken'];
+const FILTERS: ReadonlyArray<LibraryFilter> = ['all', 'served', 'exploration', 'live', 'static', 'broken'];
 const SORTS: ReadonlyArray<LibrarySort> = ['recent', 'name', 'size'];
 
 const DEFAULT_FILTER: LibraryFilter = 'all';

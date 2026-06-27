@@ -11,9 +11,9 @@
  */
 
 import { ReactElement, useState, MouseEvent } from 'react';
-import { Dropdown, message } from 'antd';
+import { Dropdown, message, Modal } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { MoreHorizontal, Trash2, Copy, ArrowUpRight } from 'lucide-react';
+import { MoreHorizontal, Trash2, Copy, ArrowUpRight, Radio, Ban } from 'lucide-react';
 import styled from 'styled-components';
 import { segmentsClient } from '../../../api/segments-client';
 import { promoteSegmentToConcept } from '../../../api/concepts-client';
@@ -144,8 +144,83 @@ export function RowActionsMenu({ segment, onChanged }: Props): ReactElement {
     }
   }
 
+  async function handlePublish() {
+    try {
+      await segmentsClient.serve(segment.id);
+      message.success(
+        t('segments.actions.publish.success', {
+          defaultValue: 'Published “{{name}}” for downstream serving',
+          name: segment.name,
+        }),
+      );
+      onChanged(segment.id);
+    } catch (err) {
+      // 409 SNAPSHOT_DISABLED / VALIDATION → surface the server message verbatim.
+      const reason = err instanceof SegmentApiError ? err.message : 'Failed to publish segment';
+      message.error(reason);
+    }
+  }
+
+  async function handleDemote(force = false) {
+    try {
+      await segmentsClient.demote(segment.id, force);
+      message.success(
+        t('segments.actions.demote.success', {
+          defaultValue: 'Demoted “{{name}}” — no longer served downstream',
+          name: segment.name,
+        }),
+      );
+      onChanged(segment.id);
+    } catch (err) {
+      // Blocked because consumers are entitled — offer an explicit force-deprecate.
+      if (err instanceof SegmentApiError && err.status === 409 && err.code === 'HAS_CONSUMERS') {
+        const n = segment.serving?.entitledCount ?? 0;
+        Modal.confirm({
+          title: t('segments.actions.demote.forceTitle', { defaultValue: 'Force-demote a served segment?' }),
+          content: t('segments.actions.demote.forceBody', {
+            defaultValue:
+              '{{count}} key(s) are entitled to pull this segment. Demoting will immediately block their pulls (403). It will be marked “Retired”.',
+            count: n,
+          }),
+          okText: t('segments.actions.demote.forceOk', { defaultValue: 'Force demote' }),
+          okButtonProps: { danger: true },
+          onOk: () => handleDemote(true),
+        });
+        return;
+      }
+      const reason = err instanceof SegmentApiError ? err.message : 'Failed to demote segment';
+      message.error(reason);
+    }
+  }
+
   const overlay = (
     <Shell role="menu" aria-label={t('segments.actions.more', { defaultValue: 'More actions' })}>
+      {segment.can_administer && segment.lifecycle !== 'served' && (
+        <Row
+          type="button"
+          role="menuitem"
+          onClick={(e) => {
+            stop(e);
+            void handlePublish();
+          }}
+        >
+          <Radio size={14} aria-hidden />
+          {t('segments.actions.publish.menuItem', { defaultValue: 'Publish for downstream' })}
+        </Row>
+      )}
+      {segment.can_administer && segment.lifecycle === 'served' && (
+        <Row
+          type="button"
+          role="menuitem"
+          onClick={(e) => {
+            stop(e);
+            void handleDemote(false);
+          }}
+        >
+          <Ban size={14} aria-hidden />
+          {t('segments.actions.demote.menuItem', { defaultValue: 'Demote (unpublish)' })}
+        </Row>
+      )}
       <Row
         type="button"
         role="menuitem"

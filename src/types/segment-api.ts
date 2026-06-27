@@ -160,6 +160,113 @@ export interface Segment {
   can_administer: boolean;
   /** LTV tiers (detail GET only). Null/absent → fall back to random sample. */
   member_tiers?: MemberTiers | null;
+  /** Serving lifecycle: draft (exploration scratch), served (published downstream
+   *  contract), deprecated (force-demoted, kept readable but not pullable). Absent
+   *  on fixtures predating it → read as 'draft'. */
+  lifecycle?: SegmentLifecycle;
+  served_at?: string | null;
+  served_by?: string | null;
+  /** Serving contract — present for served/deprecated rows (null for draft on the
+   *  list; always present on detail). */
+  serving?: ServingContract | null;
+}
+
+export type SegmentLifecycle = 'draft' | 'served' | 'deprecated';
+
+/** A key entitled to pull a served segment (grouped by key; a rotated key is a
+ *  new id). */
+export interface EntitledKey {
+  id: string;
+  label: string;
+  appliesVia: 'segment' | 'all-segments';
+  lastUsedAt: string | null;
+}
+
+/** Computed serving contract surfaced on the segment detail + served list rows. */
+export interface ServingContract {
+  lifecycle: SegmentLifecycle;
+  servedAt: string | null;
+  servedBy: string | null;
+  cadence: TrackCadence;
+  lastSnapshotAt: string | null;
+  /** UTC ISO of the next snapshot ready to pull (clamped to the GMT+7 window);
+   *  null when cadence is 'Off'. */
+  nextReadyAt: string | null;
+  snapshotEnabled: boolean;
+  /** Keys entitled by scope (NOT the actual-consumer count, which is audit-derived
+   *  and lives on the consumption endpoint). */
+  entitledCount: number;
+  entitled: EntitledKey[];
+}
+
+// ── Consumption observability (admin-only) ──────────────────────────────────
+
+export interface ConsumptionSummary {
+  pulls: number;
+  /** Distinct keys that ACTUALLY pulled (audit-derived), not entitled scope. */
+  consumingKeys: number;
+  rowsLastPull: number;
+  successRate: number;
+  p95LatencyMs: number | null;
+  avgFreshnessMs: number | null;
+  windowStart: string;
+}
+
+export interface ConsumptionByKey {
+  keyId: string;
+  label: string;
+  pulls: number;
+  lastPullAt: string | null;
+  rowsLast: number;
+  lastHttpStatus: number | null;
+}
+
+export interface ConsumptionDailyPoint {
+  date: string;
+  keyId: string;
+  pulls: number;
+}
+
+export interface ConsumptionStatusBreakdown {
+  ok: number;
+  no_snapshot: number;
+  rate_limited: number;
+}
+
+export interface RecentPull {
+  id: number;
+  keyId: string;
+  label: string;
+  startedAt: string;
+  httpStatus: number | null;
+  errorCode: string | null;
+  format: string | null;
+  pageIndex: number | null;
+  rows: number;
+  snapshotTs: string | null;
+  latencyMs: number | null;
+}
+
+export interface SegmentConsumption {
+  summary: ConsumptionSummary;
+  byKey: ConsumptionByKey[];
+  dailyByKey: ConsumptionDailyPoint[];
+  statusBreakdown: ConsumptionStatusBreakdown;
+  recentPulls: RecentPull[];
+  recentCursor: number | null;
+}
+
+export interface SegmentPullLogPage {
+  items: RecentPull[];
+  nextCursor: number | null;
+}
+
+export interface SegmentTokenInfo {
+  id: string;
+  label: string;
+  appliesVia: 'segment' | 'all-segments';
+  lastUsedAt: string | null;
+  everPulled: boolean;
 }
 
 export type ActivationStatus = 'active' | 'failed' | 'pending';

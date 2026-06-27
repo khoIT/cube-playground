@@ -20,6 +20,8 @@ export function filterAndSortSegments(
   const needle = q.query.trim().toLowerCase();
 
   const filtered = segments.filter((s) => {
+    if (q.filter === 'served' && s.lifecycle !== 'served') return false;
+    if (q.filter === 'exploration' && s.lifecycle === 'served') return false;
     if (q.filter === 'live' && s.type !== 'predicate') return false;
     if (q.filter === 'static' && s.type !== 'manual') return false;
     if (q.filter === 'broken' && s.status !== 'broken') return false;

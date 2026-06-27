@@ -20,6 +20,7 @@ import { LibraryToolbar } from './library-toolbar';
 import { LibraryFilterPills } from './library-filter-pills';
 import { LibraryMetaLine } from './library-meta-line';
 import { LibrarySegmentRow } from './library-segment-row';
+import { LibraryLaneSection } from './library-lane-section';
 import { filterAndSortSegments } from './library-filter-sort';
 import { ImportIdsModal } from './import-ids-modal';
 import { useRefreshLogs } from './use-refresh-logs';
@@ -61,6 +62,11 @@ export function LibraryView(): ReactElement {
 
   const visibleIds = useMemo(() => filtered.map((s) => s.id), [filtered]);
   const logs = useRefreshLogs(visibleIds, 7);
+
+  // Lane split: served (published contracts) vs exploration (draft + deprecated
+  // scratch). Order within each lane is preserved from the sorted `filtered`.
+  const servedRows = useMemo(() => filtered.filter((s) => s.lifecycle === 'served'), [filtered]);
+  const explorationRows = useMemo(() => filtered.filter((s) => s.lifecycle !== 'served'), [filtered]);
 
   // Prune selection to only currently visible rows whenever the filtered set changes.
   useEffect(() => {
@@ -211,16 +217,55 @@ export function LibraryView(): ReactElement {
             </div>
           </div>
         )}
-        {!error && filtered.map((s) => (
-          <LibrarySegmentRow
-            key={s.id}
-            segment={s}
-            log={logs[s.id]}
-            selected={selected.has(s.id)}
-            onToggleSelected={toggleOne}
-            onChanged={triggerReload}
-          />
-        ))}
+        {!error && segments != null && filtered.length > 0 && (
+          <>
+            {(servedRows.length > 0 || filter === 'all' || filter === 'served') && (
+              <LibraryLaneSection
+                title={t('segments.library.lane.served', { defaultValue: 'Served downstream' })}
+                subtitle={t('segments.library.lane.servedHint', {
+                  defaultValue: 'Published contracts pulled by downstream apps',
+                })}
+                served
+                count={servedRows.length}
+                emptyHint={t('segments.library.lane.servedEmpty', {
+                  defaultValue: 'No segments published yet — publish one from Exploration to serve it downstream.',
+                })}
+              >
+                {servedRows.map((s) => (
+                  <LibrarySegmentRow
+                    key={s.id}
+                    segment={s}
+                    log={logs[s.id]}
+                    selected={selected.has(s.id)}
+                    onToggleSelected={toggleOne}
+                    onChanged={triggerReload}
+                  />
+                ))}
+              </LibraryLaneSection>
+            )}
+            {(explorationRows.length > 0 || filter === 'all' || filter === 'exploration') && (
+              <LibraryLaneSection
+                title={t('segments.library.lane.exploration', { defaultValue: 'Exploration' })}
+                subtitle={t('segments.library.lane.explorationHint', {
+                  defaultValue: 'Scratch analysis — not served downstream',
+                })}
+                count={explorationRows.length}
+                emptyHint={t('segments.library.lane.explorationEmpty', { defaultValue: 'No exploration segments.' })}
+              >
+                {explorationRows.map((s) => (
+                  <LibrarySegmentRow
+                    key={s.id}
+                    segment={s}
+                    log={logs[s.id]}
+                    selected={selected.has(s.id)}
+                    onToggleSelected={toggleOne}
+                    onChanged={triggerReload}
+                  />
+                ))}
+              </LibraryLaneSection>
+            )}
+          </>
+        )}
       </div>
 
       <ImportIdsModal
