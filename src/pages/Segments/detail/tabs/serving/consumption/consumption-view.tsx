@@ -13,7 +13,7 @@ import { segmentsClient } from '../../../../../../api/segments-client';
 import { SegmentApiError } from '../../../../../../api/api-client';
 import type { SegmentConsumption } from '../../../../../../types/segment-api';
 import type { ChartArtifact } from '../../../../../../api/chat-sse-client';
-import { AssistantChartSection } from '../../../../../chat/components/assistant-chart-section';
+import { AssistantChartSection } from '../../../../../Chat/components/assistant-chart-section';
 import { ConsumptionSummaryStrip } from './consumption-summary-strip';
 import { ConsumptionHealthPanel } from './consumption-health-panel';
 import { PullLogTable } from './pull-log-table';
