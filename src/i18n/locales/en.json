@@ -237,9 +237,17 @@
           "empty": "No refreshes recorded yet.",
           "col": {
             "when": "When",
+            "trigger": "Trigger",
             "status": "Status",
             "size": "Size",
             "delta": "Δ"
+          },
+          "source": {
+            "cron": "Scheduled",
+            "manual": "Manual",
+            "create": "On create",
+            "edit": "On edit",
+            "unknown": "Unknown"
           }
         },
         "activation": {

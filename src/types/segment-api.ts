@@ -300,6 +300,9 @@ export interface RefreshLogRow {
   ts: string;
   uid_count: number;
   status: string;
+  // What triggered the refresh: 'cron' | 'manual' | 'create' | 'edit'. Rows
+  // written before the source column existed report 'unknown'.
+  source?: string;
 }
 
 export interface GameDef {

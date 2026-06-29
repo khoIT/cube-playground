@@ -2709,12 +2709,41 @@
 .refreshHistoryHead,
 .refreshHistoryRow {
   display: grid;
-  grid-template-columns: minmax(140px, 1.4fr) 90px 90px 90px;
+  grid-template-columns: minmax(150px, 1.3fr) 96px 84px 84px 84px;
   gap: 12px;
   padding: 8px 12px;
   align-items: center;
   font-size: 12.5px;
 }
+
+.refreshHistoryWhen {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.refreshHistoryWhenRel {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.refreshHistorySource {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--muted-soft);
+  color: var(--muted-ink);
+  justify-self: start;
+  white-space: nowrap;
+}
+
+.refreshHistorySource[data-tone='cron'] { background: var(--info-soft); color: var(--info-ink); }
+.refreshHistorySource[data-tone='manual'] { background: var(--brand-soft); color: var(--brand); }
+.refreshHistorySource[data-tone='create'] { background: var(--success-soft); color: var(--success-ink); }
+.refreshHistorySource[data-tone='edit'] { background: var(--warning-soft); color: var(--warning-ink); }
 
 .refreshHistoryHead {
   background: var(--bg-muted);

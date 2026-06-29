@@ -606,7 +606,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     // converges to the true total instead of waiting up to one cadence
     // interval for the cron tick.
     if (isPredicateWithQuery) {
-      void enqueueRefresh(id, 'manual');
+      void enqueueRefresh(id, 'create');
     }
 
     const row = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
@@ -1196,7 +1196,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     }
 
     if (predicateChanged) {
-      void enqueueRefresh(id, 'manual');
+      void enqueueRefresh(id, 'edit');
     }
 
     const updated = db.prepare('SELECT * FROM segments WHERE id = ?').get(id) as Record<string, unknown>;
@@ -1483,7 +1483,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const rowLimit = Math.max(1, Math.min(parseInt(limit ?? '200', 10) || 200, 500));
     const rows = db
       .prepare(
-        `SELECT id, segment_id, strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts, uid_count, status
+        `SELECT id, segment_id, strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts, uid_count, status, source
            FROM segment_refresh_log
           WHERE segment_id = ? AND ts >= datetime('now', ? )
           ORDER BY ts ASC
@@ -1510,7 +1510,7 @@ export default async function segmentsRoutes(app: FastifyInstance): Promise<void
     const placeholders = ids.map(() => '?').join(',');
     const rows = db
       .prepare(
-        `SELECT id, segment_id, strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts, uid_count, status
+        `SELECT id, segment_id, strftime('%Y-%m-%dT%H:%M:%SZ', ts) AS ts, uid_count, status, source
            FROM segment_refresh_log
           WHERE segment_id IN (${placeholders}) AND ts >= datetime('now', ?)
           ORDER BY ts ASC`,

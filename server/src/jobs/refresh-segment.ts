@@ -86,7 +86,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 }
 
 /** Who initiated the refresh — recorded into the per-pass run history. */
-export type RefreshSource = 'cron' | 'manual';
+// 'cron' = scheduled cadence tick; 'create' = first kick-off on segment create;
+// 'edit' = predicate changed on edit; 'manual' = explicit Refresh-now button.
+export type RefreshSource = 'cron' | 'manual' | 'create' | 'edit';
 
 export async function refreshSegment(segmentId: string, source: RefreshSource = 'cron'): Promise<void> {
   const db = getDb();
@@ -339,8 +341,8 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
     // standalone pruner in `refresh-log-retention.ts` on a coarse cron tick.
     try {
       db.prepare(
-        'INSERT INTO segment_refresh_log (segment_id, uid_count, status) VALUES (?, ?, ?)',
-      ).run(segmentId, totalCount, 'fresh');
+        'INSERT INTO segment_refresh_log (segment_id, uid_count, status, source) VALUES (?, ?, ?, ?)',
+      ).run(segmentId, totalCount, 'fresh', source);
     } catch (err) {
       console.warn(
         `[refresh-segment] failed to write refresh-log for ${segmentId}:`,
@@ -489,8 +491,8 @@ export async function refreshSegment(segmentId: string, source: RefreshSource = 
         | { uid_count: number }
         | undefined;
       db.prepare(
-        'INSERT INTO segment_refresh_log (segment_id, uid_count, status) VALUES (?, ?, ?)',
-      ).run(segmentId, cur?.uid_count ?? 0, 'broken');
+        'INSERT INTO segment_refresh_log (segment_id, uid_count, status, source) VALUES (?, ?, ?, ?)',
+      ).run(segmentId, cur?.uid_count ?? 0, 'broken', source);
     } catch {
       // refresh-log write is best-effort; never mask the primary error.
     }

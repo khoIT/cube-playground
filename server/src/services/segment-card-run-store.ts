@@ -19,7 +19,9 @@ import { getDb } from '../db/sqlite.js';
  *  working day at the common 1h cadence without meaningfully growing the DB. */
 export const KEEP_RUNS_PER_SEGMENT = 5;
 
-export type CardRunSource = 'cron' | 'manual';
+// Mirrors RefreshSource: 'cron' scheduled tick, 'manual' Refresh-now button,
+// 'create'/'edit' one-off kick-offs on segment create / predicate edit.
+export type CardRunSource = 'cron' | 'manual' | 'create' | 'edit';
 
 export interface FailingCard {
   cardId: string;
